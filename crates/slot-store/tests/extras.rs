@@ -42,5 +42,8 @@ fn values_that_would_break_the_file_are_refused() {
     assert_eq!(s.get("ssid"), None);
     assert_eq!(s.get("a=b"), None);
     s.set("name", Some("has = sign"));
-    assert_eq!(ExtrasState::parse(&s.text()).get("name"), Some("has = sign"));
+    assert_eq!(
+        ExtrasState::parse(&s.text()).get("name"),
+        Some("has = sign")
+    );
 }

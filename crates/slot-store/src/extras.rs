@@ -38,7 +38,8 @@ impl ExtrasState {
         let clean = |s: &str| !s.contains(['\n', '\r', '=']) && !s.trim().is_empty();
         match value {
             Some(v) if clean(key) && !v.contains(['\n', '\r']) => {
-                self.entries.insert(key.trim().to_string(), v.trim().to_string());
+                self.entries
+                    .insert(key.trim().to_string(), v.trim().to_string());
             }
             _ => {
                 self.entries.remove(key);

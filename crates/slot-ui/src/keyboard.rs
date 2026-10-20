@@ -184,10 +184,7 @@ impl Keyboard {
         }
         let n = self.text.chars().count();
         let last = self.text.chars().last();
-        (0..n.saturating_sub(1))
-            .map(|_| MASK)
-            .chain(last)
-            .collect()
+        (0..n.saturating_sub(1)).map(|_| MASK).chain(last).collect()
     }
 
     pub fn at(&self) -> (usize, usize) {

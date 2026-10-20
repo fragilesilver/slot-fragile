@@ -24,10 +24,7 @@ pub use draw::{Draw, TexId};
 pub use fbdev::{egl_error, panel_mode, panel_size, FbdevSurface};
 pub use fbo::{canvas_size, Compositor, BACKDROP};
 pub use grade::{blue_light_gain, BLUE_LIGHT_MAX};
-#[cfg(any(
-    target_os = "macos",
-    all(target_os = "linux", not(feature = "device"))
-))]
+#[cfg(any(target_os = "macos", all(target_os = "linux", not(feature = "device"))))]
 pub use headless::HeadlessSurface;
 #[cfg(feature = "host")]
 pub use host::HostSurface;

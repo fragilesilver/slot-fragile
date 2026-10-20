@@ -30,6 +30,18 @@ Phase 1, written but not compiled:
 
 Still to do in Phase 1: the dynamic list page widget (`crates/slot-ui/src/list_page.rs`).
 
+## First build on the Linux PC (Omarchy, 2026-10-20)
+
+The Phase 1 work compiled first time and `task test` passes, with clippy `-D warnings` clean.
+- The render suites (`crates/slot/tests/render*.rs`, `slot-ui/tests/render_row_edges.rs`) were
+  still gated `#![cfg(target_os = "macos")]`. They now run on Linux too, through the EGL surface.
+- One of those suites failed on Linux: in `render_in_game_menu`, the final check compared the panel
+  with one game pixel above it, and the mock pattern happens to be dark there. It now compares
+  the panel with the bare game at the same pixel.
+- `cargo fmt --all` was applied.
+- `slot::emu a_stalled_display_does_not_stall_the_worker` is timing-sensitive. It can fail under a
+  bare `cargo nextest run --workspace`, but `task test` runs it in-process and it passes.
+
 ## Linux setup
 
 ```

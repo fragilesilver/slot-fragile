@@ -1,4 +1,4 @@
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
 mod common;
 
@@ -137,11 +137,11 @@ fn the_in_game_menu_darkens_the_game_and_screen_leaves_it_bare() {
         ink > 100,
         "no Shader label in the panel: {ink} bright pixels"
     );
-    let below = at(&screen, 700, OUT_H as usize - 4);
-    let above = at(&screen, 700, panel - 8);
+    let (x, y) = (700, OUT_H as usize - 4);
+    let (panel_px, bare) = (at(&screen, x, y), at(&held, x, y));
     assert!(
-        bright(below) <= bright(above),
-        "the panel is not darker than the game above it"
+        bright(panel_px) < bright(bare),
+        "the panel is not darker than the game under it: {panel_px:?} over {bare:?}"
     );
 }
 
