@@ -68,6 +68,22 @@ Phase 1 is done.
   and the 640x480 fit of the longest values.
 - `CREDITS.md` lists every port so far.
 
+## Between phases 2 and 3 (2026-10-21)
+
+- Sleep Power Off: a short press of power already slept (backlight off, game saved by
+  `flush_resume`) and powered off after the Lid Power Off minutes. On a device with no lid
+  (`evdev::has_lid`, by BaseOS target, like the left stick) that row is hidden and General
+  shows Sleep Power Off, with Never added. It is saved as `sleep_off_min` in extras.state and
+  follows `lid_off_min` until it is set. Clamshells are unchanged. Sleep is backlight-only:
+  the H700 keeps running, so Never drains the battery. Not measured on the device.
+- The About sticker on the RG35XX Pro (`slot-ui/src/sticker_pro.rs`, by BaseOS target) is the
+  device's real back label, redrawn from a photo the user took: the ANBERNIC wordmark
+  (`wordmark_anbernic.svg`, the first eight letters of upstream's), the model, ratings and
+  warnings as printed, and the charge after the battery rating. The marks and outline are
+  `sticker_rg35xxpro.svg`, made by `tools/fragile/sticker_rg35xxpro.py`; the code centres the
+  print on the label. Every other device keeps upstream's sticker. Upstream's sticker credits
+  are also at the end of Details, since the Pro label has no room for them.
+
 Next is Phase 3 (per-game tuning, FF pitch, battery) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)

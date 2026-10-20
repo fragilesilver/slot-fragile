@@ -37,11 +37,32 @@ pub fn fit_box(
     max_px: f32,
     min_px: f32,
 ) -> Layout {
-    let upper = text.to_uppercase();
+    fit_box_cased(
+        font,
+        &text.to_uppercase(),
+        max_w,
+        max_h,
+        max_lines,
+        max_px,
+        min_px,
+    )
+}
+
+/// `fit_box` with the text kept as written, for a device label printed in mixed case.
+#[allow(clippy::too_many_arguments)]
+pub fn fit_box_cased(
+    font: &Font,
+    text: &str,
+    max_w: f32,
+    max_h: f32,
+    max_lines: usize,
+    max_px: f32,
+    min_px: f32,
+) -> Layout {
     let mut px = max_px;
     while px > min_px {
         let tracking = tracking_for(px);
-        let lines = wrap(font, &upper, px, tracking, max_w, false);
+        let lines = wrap(font, text, px, tracking, max_w, false);
         if lines.len() <= max_lines
             && lines
                 .iter()
@@ -58,7 +79,7 @@ pub fn fit_box(
     }
     let tracking = tracking_for(min_px);
     Layout {
-        lines: wrap(font, &upper, min_px, tracking, max_w, true)
+        lines: wrap(font, text, min_px, tracking, max_w, true)
             .into_iter()
             .take(max_lines)
             .collect(),

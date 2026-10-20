@@ -29,6 +29,7 @@ mod shell;
 mod silhouette;
 mod slot_chrome;
 mod sticker;
+mod sticker_pro;
 pub mod text;
 mod toast;
 
@@ -107,5 +108,9 @@ pub use slot_chrome::{
 pub use sticker::{
     draw_sticker, head_rows, sticker_face, sticker_lines, sticker_rect, StickerFields, COPYRIGHT,
     CREDITS, DC, HOME, ORIGIN, STICKER_H, STICKER_W,
+};
+pub use sticker_pro::{
+    device_sticker_face, rg35xxpro_ratings, StickerDevice, RG35XXPRO_MODEL, RG35XXPRO_ORIGIN,
+    RG35XXPRO_WARNINGS,
 };
 pub use toast::{toast_box, toast_face, toast_rect, Toast};

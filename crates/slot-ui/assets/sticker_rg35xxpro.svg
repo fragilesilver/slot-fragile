@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 228">
+  <!-- The RG35XX Pro label: its outline and the marks printed on it, drawn from a photo of
+       the device. Made by tools/fragile/sticker_rg35xxpro.py; sticker_pro.rs prints the text. -->
+  <rect x="1" y="1" width="558" height="226" rx="16" ry="16" fill="#939396" stroke="#7d7d80" stroke-width="2"/>
+  <!-- sticker_pro.rs moves this group to centre the print on the label. -->
+  <g id="marks" transform="translate(0 0)">
+  <g fill="none" stroke="#f4f4f4" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="300" y="86" width="42" height="42" rx="2" stroke-width="2.4"/>
+    <path d="M319.09 96.17A11 11 0 0 0 310.04 107.96" stroke-width="3.2"/>
+    <path d="M312.57 114.07A11 11 0 0 0 327.31 116.01" stroke-width="3.2"/>
+    <path d="M331.34 110.76A11 11 0 0 0 325.65 97.03" stroke-width="3.2"/>
+  </g>
+  <g fill="#f4f4f4">
+    <path d="M310.41 112.14L307.11 108.21L312.97 107.70Z"/>
+    <path d="M330.75 113.60L329.00 118.42L325.62 113.60Z"/>
+    <path d="M321.84 95.26L326.89 94.37L324.41 99.70Z"/>
+  </g>
+  <g fill="none" stroke="#f4f4f4" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M30 178V206M30 180H46M30 192H42" stroke-width="4"/>
+    <path d="M66.43 184.93A11 11 0 1 0 66.43 199.07" stroke-width="4"/>
+    <path d="M131.00 181.61A12 12 0 1 0 131.00 202.39" stroke-width="3.6"/>
+    <path d="M157.00 181.61A12 12 0 1 0 157.00 202.39M141 192H153" stroke-width="3.6"/>
+  </g>
+  <g fill="none" stroke="#f4f4f4" stroke-linecap="round" stroke-width="2.2">
+    <circle cx="94" cy="192" r="14"/>
+    <path d="M88 187H100L98 201H90ZM86 184H102M84 182L104 202"/>
+    <circle cx="258" cy="156" r="11"/>
+    <path d="M250 148L266 164M255 151V158M255 154L259 151M262 158V163"/>
+  </g>
+  <circle cx="192" cy="192" r="14" fill="#f4f4f4"/>
+  <path d="M188.00 185.07A8 8 0 1 0 198.13 186.86" fill="none" stroke="#939396" stroke-width="3"/>
+  <path d="M195.56 183.79L200.27 185.06L195.98 188.66Z" fill="#939396"/>
+  </g>
+</svg>

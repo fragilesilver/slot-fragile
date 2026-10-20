@@ -8,15 +8,15 @@ use slot_power::{Platform, Power};
 use slot_store::{format_stamp, BezelPick, Platform as Console};
 use slot_ui::{
     badge_face, bezel_face, cart_shadow, chip_face, chip_shadow_face, core_button_legends,
-    date_time_text_as, default_game_bezel_face, footer_ink, game_bezel_face, gb_cart_shadow,
-    hhmm_as, hint_face, icon_face, link_button_legends, menu_detail_face, menu_face, photo_face,
-    prompt_legends, quick_caret_face, quick_description_face, quick_label_face, quick_legend_faces,
-    quick_pointer_face, quick_scroll_face, quick_value_face, quick_warning_value_face,
-    rebuild_count_face, rebuild_title_face, repair_legends, set_clock_hint_face, slot_back,
-    slot_back_light, slot_front, slot_front_light, socket_face, sticker_face, title_face,
-    toast_face, wallpaper_face, word_ink, CartFace, GbShell, Icon, LinkBadge, PowerChoice,
-    QuickMenuFaces, QuickRow, QuickValue, RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX,
-    BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
+    date_time_text_as, default_game_bezel_face, device_sticker_face, footer_ink, game_bezel_face,
+    gb_cart_shadow, hhmm_as, hint_face, icon_face, link_button_legends, menu_detail_face,
+    menu_face, photo_face, prompt_legends, quick_caret_face, quick_description_face,
+    quick_label_face, quick_legend_faces, quick_pointer_face, quick_scroll_face, quick_value_face,
+    quick_warning_value_face, rebuild_count_face, rebuild_title_face, repair_legends,
+    set_clock_hint_face, slot_back, slot_back_light, slot_front, slot_front_light, socket_face,
+    title_face, toast_face, wallpaper_face, word_ink, CartFace, GbShell, Icon, LinkBadge,
+    PowerChoice, QuickMenuFaces, QuickRow, QuickValue, RebuildScreen, StickerDevice, StickerFields,
+    Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
 };
 
 use crate::app::{App, LinkRow, Phase};
@@ -111,6 +111,8 @@ struct WallpaperSync {
 struct AboutFace {
     tex: Option<TexId>,
     battery: Option<u8>,
+    /// Which label to draw, from the BaseOS target, read once.
+    device: Option<StickerDevice>,
 }
 
 #[derive(Default)]
@@ -1225,10 +1227,16 @@ fn sync_about(app: &mut App, compositor: &mut Compositor, state: &mut AboutFace)
     }
     state.battery = battery;
     let build = Build::current();
-    let face = sticker_face(&StickerFields {
-        battery,
-        serial: &build.serial(),
+    let device = *state.device.get_or_insert_with(|| {
+        StickerDevice::of_target(&crate::baseos::var("BASEOS_TARGET").unwrap_or_default())
     });
+    let face = device_sticker_face(
+        device,
+        &StickerFields {
+            battery,
+            serial: &build.serial(),
+        },
+    );
     let id = upload(compositor, &mut state.tex, face);
     app.set_sticker_face(id);
 }

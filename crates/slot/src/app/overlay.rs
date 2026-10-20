@@ -8,6 +8,18 @@ use slot_ui::{Draw, ListPage, ListPageView, ListRow, ListRowFaces, QuickRow, Tex
 
 use super::{App, Phase, HINT_EDGE, LINK_LEGEND_EDGE, LINK_LEGEND_Y};
 
+/// Upstream's sticker credits, kept here too since a device's own label, like the RG35XX Pro's,
+/// has no room for them.
+const CREDITS: [(&str, &str); 7] = [
+    ("slot", "Brandon T. Kowalski"),
+    ("Artwork", "Markus"),
+    ("Emulation", "mGBA, gpSP"),
+    ("System", "BaseOS by pvaibhav"),
+    ("Type", "Open Sans, Nerd Fonts"),
+    ("Panel Mask", "Gigaherz's LCD3x"),
+    ("Fragile Ports", "See CREDITS.md"),
+];
+
 pub enum Overlay {
     Details(ListPage),
 }
@@ -179,6 +191,7 @@ impl App {
             };
             rows.push(ListRow::new("Battery").with_value(format!("{}%{how}", b.percent)));
         }
+        rows.extend(CREDITS.map(|(who, what)| ListRow::new(who).with_value(what)));
         rows
     }
 

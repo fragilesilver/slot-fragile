@@ -102,3 +102,17 @@ fn the_slot_release_is_the_newest_in_the_changelog() {
         .expect("no release heading in CHANGELOG.md");
     assert_eq!(slot::build_info::SLOT_RELEASE, newest);
 }
+
+#[test]
+fn details_carries_the_stickers_credits() {
+    let (_d, mut a) = on_about();
+    press(&mut a, Btn::A);
+    for (who, what) in [
+        ("Artwork", "Markus"),
+        ("Emulation", "mGBA, gpSP"),
+        ("System", "BaseOS by pvaibhav"),
+        ("Panel Mask", "Gigaherz's LCD3x"),
+    ] {
+        assert_eq!(value(&a, who).as_deref(), Some(what), "{who}");
+    }
+}

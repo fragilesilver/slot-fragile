@@ -81,7 +81,7 @@ pub fn sticker_lines(f: &StickerFields) -> Vec<String> {
     out
 }
 
-struct Canvas {
+pub(crate) struct Canvas {
     px: Vec<u8>,
     w: u32,
     h: u32,
@@ -96,6 +96,23 @@ impl Canvas {
         }
     }
 
+    /// A clear canvas, for a label drawn from its own outline.
+    pub(crate) fn blank(w: u32, h: u32) -> Canvas {
+        Canvas {
+            px: vec![0; (w * h * 4) as usize],
+            w,
+            h,
+        }
+    }
+
+    pub(crate) fn into_face(self) -> UndoFace {
+        UndoFace {
+            rgba: self.px,
+            w: self.w,
+            h: self.h,
+        }
+    }
+
     fn set(&mut self, x: u32, y: u32, c: [u8; 3], a: u8) {
         if x >= self.w || y >= self.h {
             return;
@@ -105,7 +122,7 @@ impl Canvas {
         self.px[at + 3] = a;
     }
 
-    fn rect(&mut self, x: u32, y: u32, w: u32, h: u32, c: [u8; 3]) {
+    pub(crate) fn rect(&mut self, x: u32, y: u32, w: u32, h: u32, c: [u8; 3]) {
         for yy in y..(y + h).min(self.h) {
             for xx in x..(x + w).min(self.w) {
                 self.set(xx, yy, c, 255);
@@ -114,10 +131,14 @@ impl Canvas {
     }
 
     fn print_measure(&self, s: &str, px: f32) -> f32 {
+        self.measure_as(s, px, false)
+    }
+
+    pub(crate) fn measure_as(&self, s: &str, px: f32, cased: bool) -> f32 {
         let Some(font) = text::label_font() else {
             return 0.0;
         };
-        let layout = text::fit(font, s, f32::MAX, 1, px, px);
+        let layout = fit_line(font, s, px, cased);
         layout
             .lines
             .first()
@@ -125,7 +146,7 @@ impl Canvas {
             .unwrap_or(0.0)
     }
 
-    fn dc(&mut self, x: f32, y: f32, px: f32, c: [u8; 3]) -> f32 {
+    pub(crate) fn dc(&mut self, x: f32, y: f32, px: f32, c: [u8; 3]) -> f32 {
         let bar_w = px * 0.78;
         let t = (px / 8.0).round().max(1.0);
         let gap = (t * 2.0).max(3.0);
@@ -145,7 +166,7 @@ impl Canvas {
         bar_w
     }
 
-    fn blit(&mut self, x: u32, y: u32, src: &[u8], sw: u32, sh: u32) {
+    pub(crate) fn blit(&mut self, x: u32, y: u32, src: &[u8], sw: u32, sh: u32) {
         for row in 0..sh {
             for col in 0..sw {
                 let s = ((row * sw + col) * 4) as usize;
@@ -176,10 +197,23 @@ impl Canvas {
     }
 
     fn print(&mut self, x: f32, y: f32, s: &str, px: f32, c: [u8; 3]) -> f32 {
+        self.print_as(x, y, s, px, c, false)
+    }
+
+    /// `cased` keeps the text as written; slot's own type is set in capitals.
+    pub(crate) fn print_as(
+        &mut self,
+        x: f32,
+        y: f32,
+        s: &str,
+        px: f32,
+        c: [u8; 3],
+        cased: bool,
+    ) -> f32 {
         let Some(font) = text::label_font() else {
             return y;
         };
-        let layout = text::fit(font, s, f32::MAX, 1, px, px);
+        let layout = fit_line(font, s, px, cased);
         let measured = layout
             .lines
             .first()
@@ -206,6 +240,17 @@ impl Canvas {
             }
         }
         y + px * 1.35
+    }
+}
+
+fn fit_line(font: &fontdue::Font, s: &str, px: f32, cased: bool) -> text::Layout {
+    match cased {
+        // A device's own label is set tight, not tracked out like slot's capitals.
+        true => text::Layout {
+            tracking: 0.0,
+            ..text::fit_box_cased(font, s, f32::MAX, f32::INFINITY, 1, px, px)
+        },
+        false => text::fit(font, s, f32::MAX, 1, px, px),
     }
 }
 
