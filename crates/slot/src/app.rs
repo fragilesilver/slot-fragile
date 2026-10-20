@@ -28,6 +28,9 @@ use crate::link_screen::LinkSprites;
 use crate::link_start::{link_port, LinkFail, LinkProgress, LinkStarter, LinkStep};
 use crate::persist::{self, Snapshot};
 use crate::video_mode::{self, VideoMode};
+
+mod extras;
+pub use extras::StartShelf;
 use slot_store::{
     read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
     Binding, CarouselKeys, Controls, Device, GameButton, Modifier, ShortcutKeys, LID_OFF_MIN,
@@ -448,6 +451,7 @@ pub struct App {
     powering_off: bool,
     radio: Box<dyn RadioJobs>,
     state_writer: crate::state_writer::StateWriter,
+    extras: slot_store::ExtrasState,
 }
 
 const FACE_AHEAD: i32 = 8;
@@ -503,6 +507,7 @@ impl App {
         App {
             radio: radio_jobs(),
             state_writer,
+            extras: slot_store::ExtrasState::default(),
             phase: Phase::Shelf,
             shelves,
             shelf_at,
@@ -637,14 +642,17 @@ impl App {
         app.carousel = read_carousel(root);
         app.shortcuts = read_shortcuts(root);
         app.controls = read_controls(root);
+        app.load_extras(root);
         app.restock_recents();
         app.restock_favorites();
+        app.restore_shelf_marks();
         if let Some((at, i)) = app.remembered_seat() {
             app.shelf_at = at;
             app.shelves[at].1.select(i);
         } else if !app.shelves[RECENTS_AT].1.carts.is_empty() {
             app.shelf_at = RECENTS_AT;
         }
+        app.open_start_shelf();
         if app.state.clock_set {
             app.start();
         } else {
@@ -706,6 +714,7 @@ impl App {
         self.slot_letter = None;
         self.shelf_named = None;
         self.name_pending = true;
+        self.mark_shelves();
     }
 
     fn track_held_dir(&mut self, action: Action) {
@@ -817,6 +826,7 @@ impl App {
         });
         self.state.shelf = Some(self.shelves[self.shelf_at].0.key());
         self.persist();
+        self.mark_shelves();
     }
 
     fn seat_of(&self, stem: &str, platform: Option<Platform>) -> Option<(usize, usize)> {
@@ -939,6 +949,9 @@ impl App {
     }
 
     pub fn quick_value(&self, row: QuickRow) -> Option<QuickValue> {
+        if let Some(value) = self.extras_value(row) {
+            return value;
+        }
         match row {
             QuickRow::Shader | QuickRow::ColourCorrection => {
                 self.quick_value(self.playing_row(row))
@@ -1037,7 +1050,9 @@ impl App {
             | QuickRow::ScRewind
             | QuickRow::Controls
             | QuickRow::ControlsShelf
-            | QuickRow::ControlsInGame => None,
+            | QuickRow::ControlsInGame
+            | QuickRow::StartShelf
+            | QuickRow::ShowFavorites => None,
         }
     }
 
@@ -2577,12 +2592,17 @@ impl App {
             | QuickRow::ScShaderBack
             | QuickRow::ScFastForward
             | QuickRow::ScRewind
-            | QuickRow::LidOff => {}
+            | QuickRow::LidOff
+            | QuickRow::StartShelf
+            | QuickRow::ShowFavorites => {}
         }
     }
 
     fn change_setting(&mut self, row: QuickRow, right: bool) {
         let row = self.playing_row(row);
+        if self.change_extra(row, right) {
+            return;
+        }
         if row == QuickRow::Palette {
             let to = match right {
                 true => self.state.gb_palette.next(),
@@ -2743,7 +2763,9 @@ impl App {
             | QuickRow::Controls
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame
-            | QuickRow::LidOff => return,
+            | QuickRow::LidOff
+            | QuickRow::StartShelf
+            | QuickRow::ShowFavorites => return,
         }
         self.persist();
     }
@@ -3396,7 +3418,7 @@ impl App {
     fn restock_favorites(&mut self) {
         let mut carts: Vec<Cart> = self
             .carts()
-            .filter(|c| self.state.is_favorite(c.platform, &c.stem))
+            .filter(|c| self.state.is_favorite(c.platform, &c.stem) && self.show_favorites())
             .cloned()
             .collect();
         carts.sort_by(|a, b| {

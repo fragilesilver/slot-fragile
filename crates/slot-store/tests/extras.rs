@@ -47,3 +47,25 @@ fn values_that_would_break_the_file_are_refused() {
         Some("has = sign")
     );
 }
+
+#[test]
+fn a_cart_round_trips_and_a_broken_one_reads_as_none() {
+    use slot_store::{Platform, Recent};
+    let mut s = ExtrasState::default();
+    let tetris = Recent {
+        platform: Platform::Gbc,
+        stem: "Tetris DX".into(),
+    };
+    s.set_cart("shelf.gbc", Some(&tetris));
+    assert_eq!(s.get("shelf.gbc"), Some("gbc/Tetris DX"));
+    assert_eq!(
+        ExtrasState::parse(&s.text()).cart("shelf.gbc"),
+        Some(tetris)
+    );
+    for broken in ["", "gbc/", "nes/Mario", "Tetris"] {
+        s.set("shelf.gb", Some(broken));
+        assert_eq!(s.cart("shelf.gb"), None, "{broken:?}");
+    }
+    s.set_cart("shelf.gbc", None);
+    assert_eq!(s.get("shelf.gbc"), None);
+}

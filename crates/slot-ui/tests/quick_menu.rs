@@ -89,6 +89,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Wallpaper Tint",
             "Recents",
             "Game Titles",
+            "Favorites",
+            "Start Shelf",
             "Lid Power Off",
             "Date & Time"
         ]
@@ -216,6 +218,12 @@ fn the_values_read_as_the_menu_prints_them() {
             "10 min",
             "15 min",
             "30 min",
+            "Last",
+            "Recents",
+            "Favorites",
+            "GBA",
+            "GB",
+            "GBC",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);

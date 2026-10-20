@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 use crate::atomic::atomic_write;
 use crate::config::CONFIG_DIR;
+use crate::{Platform, Recent};
 
 pub const EXTRAS_FILE: &str = "extras.state";
 
@@ -61,6 +62,25 @@ impl ExtrasState {
 
     pub fn number<T: std::str::FromStr>(&self, key: &str) -> Option<T> {
         self.get(key)?.parse().ok()
+    }
+
+    /// A cart, written `gba/Emerald` the way `slot.state` writes one.
+    pub fn cart(&self, key: &str) -> Option<Recent> {
+        let (dir, stem) = self.get(key)?.split_once('/')?;
+        let platform = Platform::ALL
+            .into_iter()
+            .find(|p| dir.eq_ignore_ascii_case(p.dir_name()))?;
+        Some(Recent {
+            platform,
+            stem: stem.to_string(),
+        })
+        .filter(|r| !r.stem.is_empty())
+    }
+
+    pub fn set_cart(&mut self, key: &str, cart: Option<&Recent>) {
+        let value =
+            cart.map(|r| format!("{}/{}", r.platform.dir_name().to_ascii_lowercase(), r.stem));
+        self.set(key, value.as_deref());
     }
 }
 

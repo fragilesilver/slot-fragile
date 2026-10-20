@@ -1329,3 +1329,50 @@ fn a_page_that_fits_shows_no_scroll_carets() {
         }
     }
 }
+
+#[test]
+fn start_shelf_steps_both_ways_and_saves_to_extras_not_slot_state() {
+    let (d, mut a, _) = on_carousel();
+    let slot_state = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+    open_at(&mut a, QuickRow::StartShelf);
+    assert_eq!(a.quick_value(QuickRow::StartShelf), Some(QuickValue::Last));
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        a.quick_value(QuickRow::StartShelf),
+        Some(QuickValue::RecentsShelf)
+    );
+    press(&mut a, Btn::Left);
+    press(&mut a, Btn::Left);
+    assert_eq!(
+        a.quick_value(QuickRow::StartShelf),
+        Some(QuickValue::GbcShelf)
+    );
+    assert_eq!(
+        slot_store::read_extras(d.path()).get("start_shelf"),
+        Some("gbc")
+    );
+    assert_eq!(
+        std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap(),
+        slot_state,
+        "a Fragile setting went into slot.state"
+    );
+}
+
+#[test]
+fn favorites_shows_and_hides_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::ShowFavorites);
+    assert_eq!(
+        a.quick_value(QuickRow::ShowFavorites),
+        Some(QuickValue::Show)
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        a.quick_value(QuickRow::ShowFavorites),
+        Some(QuickValue::Hide)
+    );
+    assert_eq!(
+        slot_store::read_extras(d.path()).get("show_favorites"),
+        Some("0")
+    );
+}

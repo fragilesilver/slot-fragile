@@ -85,10 +85,13 @@ pub enum QuickRow {
     ControlsShelf,
     ControlsInGame,
     LeftStick,
+    // --- extras ---
+    StartShelf,
+    ShowFavorites,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 74] = [
+    pub const ALL: [QuickRow; 76] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -163,6 +166,9 @@ impl QuickRow {
         QuickRow::ControlsShelf,
         QuickRow::ControlsInGame,
         QuickRow::LeftStick,
+        // --- extras ---
+        QuickRow::StartShelf,
+        QuickRow::ShowFavorites,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -173,12 +179,14 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const GENERAL: [QuickRow; 7] = [
+    pub const GENERAL: [QuickRow; 9] = [
         QuickRow::Theme,
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
         QuickRow::Recents,
         QuickRow::ShowTitles,
+        QuickRow::ShowFavorites,
+        QuickRow::StartShelf,
         QuickRow::LidOff,
         QuickRow::DateTime,
     ];
@@ -308,7 +316,9 @@ impl QuickRow {
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::ShowTitles
-            | QuickRow::LidOff => &QuickRow::GENERAL,
+            | QuickRow::LidOff
+            | QuickRow::StartShelf
+            | QuickRow::ShowFavorites => &QuickRow::GENERAL,
             QuickRow::ControlsShelf | QuickRow::Shortcuts | QuickRow::ControlsInGame => {
                 &QuickRow::CONTROL_PAGES
             }
@@ -423,6 +433,8 @@ impl QuickRow {
             QuickRow::Theme => "Theme",
             QuickRow::Wallpaper => "Wallpaper",
             QuickRow::Recents => "Recents",
+            QuickRow::ShowFavorites => "Favorites",
+            QuickRow::StartShelf => "Start Shelf",
             QuickRow::ShowTitles => "Game Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
@@ -508,6 +520,8 @@ impl QuickRow {
             QuickRow::Wallpaper => "Picture behind the shelf.",
             QuickRow::WallpaperTint => "Darken the wallpaper so carts stand out.",
             QuickRow::Recents => "Show the shelf of recently played games.",
+            QuickRow::ShowFavorites => "Show the shelf of starred games.",
+            QuickRow::StartShelf => "The shelf slot opens on when it starts.",
             QuickRow::ShowTitles => "Show the game name above the cart.",
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
             QuickRow::DateTime => "Set the clock.",
@@ -643,10 +657,17 @@ pub enum QuickValue {
     Min10,
     Min15,
     Min30,
+    // --- extras ---
+    Last,
+    RecentsShelf,
+    FavoritesShelf,
+    GbaShelf,
+    GbShelf,
+    GbcShelf,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 23] = [
+    pub const ALL: [QuickValue; 29] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -670,6 +691,12 @@ impl QuickValue {
         QuickValue::Min10,
         QuickValue::Min15,
         QuickValue::Min30,
+        QuickValue::Last,
+        QuickValue::RecentsShelf,
+        QuickValue::FavoritesShelf,
+        QuickValue::GbaShelf,
+        QuickValue::GbShelf,
+        QuickValue::GbcShelf,
     ];
 
     pub const LID_OFF: [QuickValue; 6] = [
@@ -710,6 +737,12 @@ impl QuickValue {
             QuickValue::Min10 => "10 min",
             QuickValue::Min15 => "15 min",
             QuickValue::Min30 => "30 min",
+            QuickValue::Last => "Last",
+            QuickValue::RecentsShelf => "Recents",
+            QuickValue::FavoritesShelf => "Favorites",
+            QuickValue::GbaShelf => "GBA",
+            QuickValue::GbShelf => "GB",
+            QuickValue::GbcShelf => "GBC",
         }
     }
 
