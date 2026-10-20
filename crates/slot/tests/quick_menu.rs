@@ -1397,3 +1397,21 @@ fn the_clock_row_flips_between_24_and_12_hour_and_saves() {
         Some("1")
     );
 }
+
+#[test]
+fn fast_forward_pitch_sits_under_its_sound_and_saves_to_extras() {
+    let (d, mut a, _) = on_carousel();
+    assert_eq!(
+        QuickRow::FastForwardPitch.position(&[]),
+        QuickRow::FastForwardSound.position(&[]) + 1
+    );
+    assert!(!a.ff_pitch());
+    open_at(&mut a, QuickRow::FastForwardPitch);
+    assert_eq!(
+        a.quick_value(QuickRow::FastForwardPitch),
+        Some(QuickValue::Off)
+    );
+    press(&mut a, Btn::Right);
+    assert!(a.ff_pitch());
+    assert_eq!(slot_store::read_extras(d.path()).get("ff_pitch"), Some("1"));
+}

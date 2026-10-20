@@ -12,6 +12,7 @@ const START_SHELF: &str = "start_shelf";
 const SHOW_FAVORITES: &str = "show_favorites";
 const CLOCK_12H: &str = "clock_12h";
 const SLEEP_OFF: &str = "sleep_off_min";
+const FF_PITCH: &str = "ff_pitch";
 
 fn mark_key(rack: Rack) -> String {
     format!("shelf.{}", rack.key())
@@ -123,12 +124,17 @@ impl App {
         }
     }
 
-    /// A clamshell shows Lid Power Off, anything else Sleep Power Off: one of the two is hidden.
-    pub(super) fn lid_row_hidden(&self) -> QuickRow {
-        match self.lid {
+    pub fn ff_pitch(&self) -> bool {
+        self.extras.flag(FF_PITCH, false)
+    }
+
+    /// The extras rows the carousel menu hides: a clamshell shows Lid Power Off and anything
+    /// else Sleep Power Off. Neither is on an in-game page.
+    pub(super) fn extras_hidden(&self) -> Vec<QuickRow> {
+        vec![match self.lid {
             true => QuickRow::SleepOff,
             false => QuickRow::LidOff,
-        }
+        }]
     }
 
     /// How long a doze lasts before the power goes off, or `None` to sleep until woken. With
@@ -206,6 +212,7 @@ impl App {
                     .find(|v| v.minutes() == Some(m)),
             }),
             QuickRow::BatteryBadge => Some(Some(QuickValue::flag(self.battery_badge()))),
+            QuickRow::FastForwardPitch => Some(Some(QuickValue::flag(self.ff_pitch()))),
             QuickRow::ClockFormat => Some(Some(match self.twelve_hour() {
                 true => QuickValue::Hour12,
                 false => QuickValue::Hour24,
@@ -227,6 +234,10 @@ impl App {
                 self.restock_favorites();
             }
             QuickRow::BatteryBadge => self.toggle_battery_badge(),
+            QuickRow::FastForwardPitch => {
+                let on = !self.ff_pitch();
+                self.extras.set_flag(FF_PITCH, on);
+            }
             QuickRow::ClockFormat => {
                 let on = !self.twelve_hour();
                 self.extras.set_flag(CLOCK_12H, on);

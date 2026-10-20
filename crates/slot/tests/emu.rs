@@ -1116,3 +1116,54 @@ fn a_refresh_redraws_a_paused_core_without_moving_it() {
     );
     assert_eq!(frame_count(&emu), held, "the refresh moved the game on");
 }
+
+/// The tone that reaches the device during 4x fast forward, in Hz. The mock core plays 440.
+fn fast_forward_tone(ff_pitch: bool) -> f64 {
+    let mut sink = StubSink::new();
+    sink.open(32_768).expect("the stub refused to open");
+    let heard = Arc::new(std::sync::Mutex::new(Vec::<i16>::new()));
+    let (device, tape) = (sink.clone(), heard.clone());
+    // Read at the device's own rate, as a real one would, so silence never pads the tape.
+    std::thread::spawn(move || {
+        let start = Instant::now();
+        let mut read = 0usize;
+        loop {
+            let due = (start.elapsed().as_secs_f64() * 32_768.0) as usize;
+            let got = device.device_read(due - read);
+            read = due;
+            tape.lock()
+                .unwrap()
+                .extend(got.chunks_exact(2).map(|p| p[0]));
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    });
+    let emu = EmuHandle::spawn(
+        Box::new(MockCore::new()),
+        PathBuf::from("mock"),
+        sink.ring(),
+        None,
+        None,
+    );
+    assert!(wait_for(|| emu.state() == CoreState::Ready));
+    emu.set_ff_sound(true);
+    emu.set_ff_pitch(ff_pitch);
+    emu.set_fast_steps(4);
+    emu.set_speed(Speed::Fast);
+    std::thread::sleep(Duration::from_millis(300));
+    heard.lock().unwrap().clear();
+    std::thread::sleep(Duration::from_millis(600));
+    let left = heard.lock().unwrap().clone();
+    let crossings = left.windows(2).filter(|p| p[0] <= 0 && p[1] > 0).count();
+    crossings as f64 * 32_768.0 / left.len().max(1) as f64
+}
+
+#[test]
+fn fast_forward_pitch_keeps_the_tone_and_off_it_rises_with_the_speed() {
+    let kept = fast_forward_tone(true);
+    assert!(
+        (kept - 440.0).abs() < 45.0,
+        "kept pitch played {kept:.0} Hz"
+    );
+    let sped = fast_forward_tone(false);
+    assert!(sped > 1200.0, "plain fast forward played {sped:.0} Hz");
+}

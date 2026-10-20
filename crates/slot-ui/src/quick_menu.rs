@@ -91,10 +91,11 @@ pub enum QuickRow {
     ClockFormat,
     SleepOff,
     BatteryBadge,
+    FastForwardPitch,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 79] = [
+    pub const ALL: [QuickRow; 80] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -175,6 +176,7 @@ impl QuickRow {
         QuickRow::ClockFormat,
         QuickRow::SleepOff,
         QuickRow::BatteryBadge,
+        QuickRow::FastForwardPitch,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -265,9 +267,10 @@ impl QuickRow {
         QuickRow::GbBezel,
     ];
 
-    pub const GAME: [QuickRow; 7] = [
+    pub const GAME: [QuickRow; 8] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
+        QuickRow::FastForwardPitch,
         QuickRow::Rewind,
         QuickRow::Turbo,
         QuickRow::Rumble,
@@ -318,7 +321,8 @@ impl QuickRow {
             | QuickRow::Turbo
             | QuickRow::Rumble
             | QuickRow::LeftStick
-            | QuickRow::EjectSave => &QuickRow::GAME,
+            | QuickRow::EjectSave
+            | QuickRow::FastForwardPitch => &QuickRow::GAME,
             QuickRow::Wallpaper
             | QuickRow::WallpaperTint
             | QuickRow::DateTime
@@ -450,6 +454,7 @@ impl QuickRow {
             QuickRow::ClockFormat => "Clock",
             QuickRow::SleepOff => "Sleep Power Off",
             QuickRow::BatteryBadge => "Battery Badge",
+            QuickRow::FastForwardPitch => "Fast Forward Pitch",
             QuickRow::ShowTitles => "Game Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
@@ -540,6 +545,7 @@ impl QuickRow {
             QuickRow::ClockFormat => "Show the time on a 24 or 12 hour clock.",
             QuickRow::SleepOff => "Power off after sleeping this long.",
             QuickRow::BatteryBadge => "Show the battery in a corner while you play.",
+            QuickRow::FastForwardPitch => "Fast forward sound keeps its normal pitch.",
             QuickRow::ShowTitles => "Show the game name above the cart.",
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
             QuickRow::DateTime => "Set the clock.",

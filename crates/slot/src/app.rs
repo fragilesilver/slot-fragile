@@ -1064,7 +1064,8 @@ impl App {
             | QuickRow::ShowFavorites
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
-            | QuickRow::BatteryBadge => None,
+            | QuickRow::BatteryBadge
+            | QuickRow::FastForwardPitch => None,
         }
     }
 
@@ -1270,7 +1271,7 @@ impl App {
             self.state.wallpaper,
             WallpaperPick::File(_) | WallpaperPick::Random
         );
-        let mut hidden = vec![self.lid_row_hidden()];
+        let mut hidden = self.extras_hidden();
         if !own {
             hidden.push(QuickRow::WallpaperTint);
         }
@@ -2617,7 +2618,8 @@ impl App {
             | QuickRow::ShowFavorites
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
-            | QuickRow::BatteryBadge => {}
+            | QuickRow::BatteryBadge
+            | QuickRow::FastForwardPitch => {}
         }
     }
 
@@ -2791,7 +2793,8 @@ impl App {
             | QuickRow::ShowFavorites
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
-            | QuickRow::BatteryBadge => return,
+            | QuickRow::BatteryBadge
+            | QuickRow::FastForwardPitch => return,
         }
         self.persist();
     }
