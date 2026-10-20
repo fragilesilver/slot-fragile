@@ -29,6 +29,7 @@ use crate::link_start::{link_port, LinkFail, LinkProgress, LinkStarter, LinkStep
 use crate::persist::{self, Snapshot};
 use crate::video_mode::{self, VideoMode};
 
+mod battery;
 mod extras;
 mod overlay;
 pub use extras::StartShelf;
@@ -456,6 +457,7 @@ pub struct App {
     overlay: overlay::Overlays,
     /// A clamshell, whose sleep is the lid's. Without one, sleep is the power button's.
     lid: bool,
+    battery_warned: battery::Warned,
 }
 
 const FACE_AHEAD: i32 = 8;
@@ -514,6 +516,7 @@ impl App {
             extras: slot_store::ExtrasState::default(),
             overlay: overlay::Overlays::default(),
             lid: true,
+            battery_warned: battery::Warned::default(),
             phase: Phase::Shelf,
             shelves,
             shelf_at,
@@ -1060,7 +1063,8 @@ impl App {
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
             | QuickRow::ClockFormat
-            | QuickRow::SleepOff => None,
+            | QuickRow::SleepOff
+            | QuickRow::BatteryBadge => None,
         }
     }
 
@@ -2612,7 +2616,8 @@ impl App {
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
             | QuickRow::ClockFormat
-            | QuickRow::SleepOff => {}
+            | QuickRow::SleepOff
+            | QuickRow::BatteryBadge => {}
         }
     }
 
@@ -2785,7 +2790,8 @@ impl App {
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
             | QuickRow::ClockFormat
-            | QuickRow::SleepOff => return,
+            | QuickRow::SleepOff
+            | QuickRow::BatteryBadge => return,
         }
         self.persist();
     }
@@ -3836,6 +3842,7 @@ impl App {
         if let Some(menu) = self.game_menu {
             self.draw_game_menu(menu, out);
         }
+        self.draw_battery_badge(out);
         self.hud.draw(self.canvas(), self.now(), out);
     }
 
@@ -5018,6 +5025,7 @@ impl App {
     }
 
     pub fn on_battery(&mut self, b: Battery) {
+        self.warn_battery(b);
         if b.percent > BATTERY_CRITICAL || self.powering_off {
             return;
         }

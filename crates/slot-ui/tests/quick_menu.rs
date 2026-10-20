@@ -92,6 +92,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Favorites",
             "Start Shelf",
             "Clock",
+            "Battery Badge",
             "Lid Power Off",
             "Sleep Power Off",
             "Date & Time"

@@ -57,8 +57,14 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         GbPalette::all().map(Toast::Palette).collect::<Vec<_>>()[..],
         "the palette banners do not follow the fixed ones in palette order"
     );
+    let extras = [Toast::BatteryLow15, Toast::BatteryLow10];
     assert_eq!(
-        all[18 + palettes..],
+        all[all.len() - extras.len()..],
+        extras,
+        "Fragile's banners are not last"
+    );
+    assert_eq!(
+        all[18 + palettes..all.len() - extras.len()],
         QuickRow::ALL
             .into_iter()
             .filter(|r| r.binds())

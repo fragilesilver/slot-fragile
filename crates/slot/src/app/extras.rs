@@ -205,6 +205,7 @@ impl App {
                     .into_iter()
                     .find(|v| v.minutes() == Some(m)),
             }),
+            QuickRow::BatteryBadge => Some(Some(QuickValue::flag(self.battery_badge()))),
             QuickRow::ClockFormat => Some(Some(match self.twelve_hour() {
                 true => QuickValue::Hour12,
                 false => QuickValue::Hour24,
@@ -225,6 +226,7 @@ impl App {
                 self.extras.set_flag(SHOW_FAVORITES, on);
                 self.restock_favorites();
             }
+            QuickRow::BatteryBadge => self.toggle_battery_badge(),
             QuickRow::ClockFormat => {
                 let on = !self.twelve_hour();
                 self.extras.set_flag(CLOCK_12H, on);

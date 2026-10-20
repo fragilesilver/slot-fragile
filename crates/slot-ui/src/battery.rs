@@ -19,6 +19,11 @@ const BOLT_H: f32 = 14.0;
 const BOLT_GAP: f32 = 5.0;
 const _: () = assert!(BOLT_GAP > 0.0);
 
+/// How wide `draw_gauge` draws with a percentage `percent_w` wide, bolt room included.
+pub fn gauge_width(percent_w: u32) -> f32 {
+    BOLT_W + BOLT_GAP + GAUGE_W + NUB_W + GAP + percent_w as f32
+}
+
 pub fn draw_gauge(
     x: f32,
     y: f32,

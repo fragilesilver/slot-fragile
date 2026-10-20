@@ -189,3 +189,32 @@ fn the_controls_page_renders() {
     run_for(&mut f, &mut input, 0.2);
     composed(&mut f, &mut c, "controls-bound");
 }
+
+#[test]
+fn the_battery_badge_draws_in_the_bottom_right_of_a_game() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    let mut e = slot_store::read_extras(d.path());
+    e.set_flag("battery_badge", true);
+    slot_store::write_extras(d.path(), &e).unwrap();
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 4.0);
+    assert!(f.app().battery().is_some(), "the sim gave no battery");
+    let px = composed(&mut f, &mut c, "battery-badge");
+    // The gauge's white outline, in the bottom right corner.
+    let (w, h) = (OUT_W as usize, OUT_H as usize);
+    let white = (h - 40..h - 8)
+        .flat_map(|y| (w - 140..w - 8).map(move |x| (x, y)))
+        .filter(|&(x, y)| at(&px, x, y).iter().all(|c| *c > 0xe8))
+        .count();
+    assert!(white > 60, "no badge in the corner: {white} white pixels");
+}

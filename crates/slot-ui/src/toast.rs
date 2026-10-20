@@ -28,6 +28,9 @@ pub enum Toast {
     CardRepairFailed,
     Palette(GbPalette),
     Duplicate(QuickRow),
+    // --- extras ---
+    BatteryLow15,
+    BatteryLow10,
 }
 
 impl Toast {
@@ -52,11 +55,15 @@ impl Toast {
         Toast::CardRepairFailed,
     ];
 
+    /// Fragile's banners, after upstream's every one so none of theirs moves place.
+    const EXTRAS: [Toast; 2] = [Toast::BatteryLow15, Toast::BatteryLow10];
+
     pub fn all() -> Vec<Toast> {
         Self::FIXED
             .into_iter()
             .chain(GbPalette::all().map(Toast::Palette))
             .chain(bound_rows().map(Toast::Duplicate))
+            .chain(Self::EXTRAS)
             .collect()
     }
 
@@ -68,13 +75,19 @@ impl Toast {
                     + GbPalette::all().count()
                     + bound_rows().position(|r| r == row).unwrap_or(0)
             }
+            extra @ (Toast::BatteryLow15 | Toast::BatteryLow10) => {
+                Self::FIXED.len()
+                    + GbPalette::all().count()
+                    + bound_rows().count()
+                    + Self::EXTRAS.iter().position(|t| *t == extra).unwrap_or(0)
+            }
             fixed => Self::FIXED.iter().position(|t| *t == fixed).unwrap_or(0),
         }
     }
 
     pub fn icon(self) -> Option<Icon> {
         match self {
-            Toast::Duplicate(_) => Some(Icon::Alert),
+            Toast::Duplicate(_) | Toast::BatteryLow15 | Toast::BatteryLow10 => Some(Icon::Alert),
             _ => None,
         }
     }
@@ -86,7 +99,7 @@ impl Toast {
     pub fn hold_ms(self) -> crate::hud::Millis {
         match self {
             Toast::CardRepaired | Toast::CardRepairFailed => REPAIR_HOLD_MS,
-            Toast::Duplicate(_) => WARNING_HOLD_MS,
+            Toast::Duplicate(_) | Toast::BatteryLow15 | Toast::BatteryLow10 => WARNING_HOLD_MS,
             _ => crate::hud::HUD_MS,
         }
     }
@@ -129,6 +142,8 @@ impl Toast {
             Toast::CardRepair => "Can't write to SD card",
             Toast::CardRepaired => "SD card repaired",
             Toast::CardRepairFailed => "Card repair failed",
+            Toast::BatteryLow15 => "Battery Low: 15%",
+            Toast::BatteryLow10 => "Battery Low: 10%",
             Toast::Palette(p) => p.label(),
             Toast::Duplicate(_) => "",
         }
