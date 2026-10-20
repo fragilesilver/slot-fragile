@@ -762,6 +762,7 @@ pub(crate) const LEGEND_Y: f32 = 427.0;
 pub(crate) const DIM_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
 const DESCRIPTION_PX: f32 = 16.0;
 pub(crate) const DESCRIPTION_GAP: f32 = 8.0;
+pub(crate) const SCROLL_GAP: f32 = 2.0;
 const PANEL_GAP: f32 = 12.0;
 const WARNING_PX: f32 = 22.0;
 const WARNING_GAP: u32 = 10;
@@ -1077,6 +1078,8 @@ pub struct QuickMenuFaces {
     pub pointer: (TexId, u32, u32),
     pub values: Vec<[(TexId, u32, u32); 2]>,
     pub carets: [(TexId, u32, u32); 2],
+    /// More above, more below, on the pages that scroll.
+    pub scroll: [(TexId, u32, u32); 2],
     pub legend: [(TexId, u32); 8],
     pub legend_light: [(TexId, u32); 8],
     /// One per row in `QuickRow::ALL`; `None` when the row has no help line.
@@ -1139,6 +1142,18 @@ impl QuickMenu<'_> {
             .unwrap_or(0);
         let shown = self.row.shown(self.hidden);
         let (start, len) = quick_window(self.row, self.hidden);
+        if len > 0 {
+            let top = quick_row_top_at(shown[start], self.row, self.hidden);
+            let [(up_tex, uw, uh), (down_tex, dw, dh)] = faces.scroll;
+            if start > 0 {
+                let y = top - uh as f32 - SCROLL_GAP;
+                push(out, up_tex, self.canvas.centred(uw as f32), y, uw, uh);
+            }
+            if start + len < shown.len() {
+                let y = top + QUICK_PITCH * len as f32 + SCROLL_GAP;
+                push(out, down_tex, self.canvas.centred(dw as f32), y, dw, dh);
+            }
+        }
         for row in shown.into_iter().skip(start).take(len) {
             let y = quick_row_top_at(row, self.row, self.hidden) + TYPE_DROP;
             let lit = row == self.row;

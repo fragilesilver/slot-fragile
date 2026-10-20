@@ -647,6 +647,7 @@ fn fake_faces(a: &mut App) {
             .map(|i| [(id(2000 + i), 60, 40), (id(2100 + i), 60, 40)])
             .collect(),
         carets: [(id(300), 10, 40), (id(301), 10, 40)],
+        scroll: [(id(310), 14, 10), (id(311), 14, 10)],
         legend: [
             (id(400), 70),
             (id(401), 110),
@@ -977,6 +978,10 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             let f = slot_ui::quick_caret_face(right);
             (id(300 + right as usize), f.w, f.h)
         }),
+        scroll: [false, true].map(|down| {
+            let f = slot_ui::quick_scroll_face(down);
+            (id(310 + down as usize), f.w, f.h)
+        }),
         legend: [
             (id(400), 70),
             (id(401), 110),
@@ -1264,4 +1269,63 @@ fn lid_power_off_steps_through_its_minutes_wraps_and_saves() {
     }
     press(&mut a, Btn::Left);
     assert_eq!(a.lid_off_min(), 1);
+}
+
+#[test]
+fn a_page_that_scrolls_shows_a_caret_on_each_side_with_more() {
+    let (_d, mut a, _) = on_carousel();
+    fake_faces(&mut a);
+    for page in [&QuickRow::CONTROLS[..], &QuickRow::SHORTCUTS[..]] {
+        let shown = page[0].shown(&a.hidden_rows());
+        assert!(
+            shown.len() > slot_ui::QUICK_VISIBLE,
+            "{page:?} no longer scrolls"
+        );
+        let (first, last) = (shown[0], shown[shown.len() - 1]);
+
+        open_at(&mut a, first);
+        let out = frame(&a);
+        assert!(!drawn(&out, 310), "more above on {first:?}");
+        let [_, down_y, _, _] = placed(&out, 311).expect("no more below on the top row");
+        let rows_end = slot_ui::quick_row_top(first, &a.hidden_rows())
+            + slot_ui::QUICK_PITCH * slot_ui::QUICK_VISIBLE as f32;
+        assert!(
+            down_y >= rows_end,
+            "the caret at {down_y} sits in the rows ending {rows_end}"
+        );
+        while a.quick_menu().is_some() {
+            press(&mut a, Btn::B);
+        }
+
+        open_at(&mut a, last);
+        let out = frame(&a);
+        assert!(!drawn(&out, 311), "more below on {last:?}");
+        let [_, up_y, _, up_h] = placed(&out, 310).expect("no more above on the bottom row");
+        let start = shown[shown.len() - slot_ui::QUICK_VISIBLE];
+        let rows_top = slot_ui::quick_row_top_at(start, last, &a.hidden_rows());
+        assert!(
+            up_y + up_h <= rows_top,
+            "the caret runs into the first row at {rows_top}"
+        );
+        while a.quick_menu().is_some() {
+            press(&mut a, Btn::B);
+        }
+    }
+}
+
+#[test]
+fn a_page_that_fits_shows_no_scroll_carets() {
+    let (_d, mut a, _) = on_carousel();
+    fake_faces(&mut a);
+    for row in [QuickRow::GAME[0], QuickRow::SCREEN_GBA[0]] {
+        open_at(&mut a, row);
+        let out = frame(&a);
+        assert!(
+            !drawn(&out, 310) && !drawn(&out, 311),
+            "{row:?}'s page has carets"
+        );
+        while a.quick_menu().is_some() {
+            press(&mut a, Btn::B);
+        }
+    }
 }

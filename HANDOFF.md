@@ -41,8 +41,11 @@ Done since, on Linux:
 
 Neither the list page nor the keyboard is wired into App or frontend yet. The first real
 user is Phase 5 (button cheat sheet) or Phase 8 (cheats).
-Phase 1 item not done: scroll arrows on the long QuickMenu pages (Controls, Shortcuts,
-General). `quick_scroll_face` is ready for that.
+- The QuickMenu pages that scroll (Controls, Shortcuts, and General once it has more than six
+  rows shown) draw a caret above and below while there are more rows that way
+  (`QuickMenuFaces::scroll`).
+
+Phase 1 is done. Next is Phase 2 (shelf QoL, About, clock) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

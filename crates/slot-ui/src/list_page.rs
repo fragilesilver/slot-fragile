@@ -7,7 +7,7 @@ use crate::plate::{centred_hints, UndoFace, HINT_H, LEGEND_GAP};
 use crate::power_menu::{MENU_INK, MENU_PAD};
 use crate::quick_menu::{
     draw_menu_ground, fitted_text_face, push, DESCRIPTION_GAP, DIM_INK, GROUND_SCRIM, LEGEND_Y,
-    POINTER_BLEED, POINTER_GAP, TYPE_DROP,
+    POINTER_BLEED, POINTER_GAP, SCROLL_GAP, TYPE_DROP,
 };
 use crate::quick_menu::{QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH, QUICK_VISIBLE};
 use crate::slot_chrome::MOUTH_H;
@@ -19,7 +19,6 @@ pub const LIST_VALUE_W: f32 = 200.0;
 /// How small a long label may shrink before it is cut.
 const LABEL_MIN_PX: f32 = 20.0;
 const VALUE_GAP: f32 = 24.0;
-const SCROLL_GAP: f32 = 2.0;
 
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct ListRow {

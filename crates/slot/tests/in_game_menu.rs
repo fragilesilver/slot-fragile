@@ -386,6 +386,7 @@ fn menu_faces(a: &mut App) {
         pointer: (id(700), 16, 40),
         values: Vec::new(),
         carets: [(id(300), 10, 40), (id(301), 10, 40)],
+        scroll: [(id(310), 14, 10), (id(311), 14, 10)],
         legend: [
             (id(400), 70),
             (id(401), 110),
