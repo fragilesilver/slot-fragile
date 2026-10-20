@@ -1797,14 +1797,12 @@ impl App {
     }
 
     fn description(&self, row: QuickRow) -> Option<(TexId, u32, u32)> {
-        let faces = self.quick_menu_faces.as_ref()?;
-        if row.shortcut().is_some() || row.carousel_action().is_some() {
-            Some(faces.descriptions[1])
-        } else if row.binds() {
-            Some(faces.descriptions[0])
-        } else {
-            None
+        // The in-game screen panel sits where the line would go.
+        if row.page() == QuickRow::PLAY_SCREEN {
+            return None;
         }
+        let faces = self.quick_menu_faces.as_ref()?;
+        faces.descriptions.get(row.index()).copied().flatten()
     }
 
     pub fn carousel(&self) -> CarouselKeys {

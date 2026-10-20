@@ -479,6 +479,57 @@ impl QuickRow {
         }
     }
 
+    /// The line under the menu that says what the selected row does. Empty means no line.
+    pub fn help(self) -> &'static str {
+        match self {
+            r if r.game_button().is_some() => "Supports single button and MENU+button.",
+            r if r.shortcut().is_some() || r.carousel_action().is_some() => {
+                "Supports single button and two button chords."
+            }
+            QuickRow::General => "Theme, wallpaper, shelves and the clock.",
+            QuickRow::Screen | QuickRow::PlayScreen => "Shaders, colour and bezels.",
+            QuickRow::Game | QuickRow::PlayGameplay => "Fast forward, rewind, turbo and saving.",
+            QuickRow::Controls | QuickRow::PlayControls => "Remap buttons and shortcuts.",
+            QuickRow::About => "Version and device details.",
+            QuickRow::ScreenGba | QuickRow::ScreenGbc | QuickRow::ScreenGb => {
+                "Picture settings for this system."
+            }
+            QuickRow::ControlsShelf => "Buttons used on the shelf.",
+            QuickRow::Shortcuts => "Shortcuts that work while playing.",
+            QuickRow::ControlsInGame => "What each button does in a game.",
+            QuickRow::FastForward => "How fast fast forward runs.",
+            QuickRow::FastForwardSound => "Play sound while fast forwarding.",
+            QuickRow::Rewind => "Hold the rewind shortcut to step back in time.",
+            QuickRow::Turbo => "Adds Turbo A and Turbo B buttons.",
+            QuickRow::Rumble => "Vibrate when a game asks for rumble.",
+            QuickRow::LeftStick => "Steer with the left stick as well as the D-Pad.",
+            QuickRow::EjectSave => "Save a state when you leave a game.",
+            QuickRow::Theme => "Dark or light look for the whole frontend.",
+            QuickRow::Wallpaper => "Picture behind the shelf.",
+            QuickRow::WallpaperTint => "Darken the wallpaper so carts stand out.",
+            QuickRow::Recents => "Show the shelf of recently played games.",
+            QuickRow::ShowTitles => "Show the game name above the cart.",
+            QuickRow::LidOff => "Power off after the lid stays shut this long.",
+            QuickRow::DateTime => "Set the clock.",
+            QuickRow::GbaShader | QuickRow::GbShader | QuickRow::GbcShader | QuickRow::Shader => {
+                "Screen effect drawn over the game."
+            }
+            QuickRow::GbaColourCorrection
+            | QuickRow::GbColourCorrection
+            | QuickRow::GbcColourCorrection
+            | QuickRow::ColourCorrection => "Match the colours of the original screen.",
+            QuickRow::GbPalettes | QuickRow::Palette => "Colours for original Game Boy games.",
+            QuickRow::GbaBezel | QuickRow::GbBezel | QuickRow::GbcBezel | QuickRow::Bezel => {
+                "Frame drawn around the game."
+            }
+            QuickRow::Resume => "Back to the game.",
+            QuickRow::States => "Save, load and browse save states.",
+            QuickRow::Settings => "Change settings without leaving the game.",
+            QuickRow::ExitGame => "Save and go back to the shelf.",
+            _ => "",
+        }
+    }
+
     pub fn opens(self) -> bool {
         matches!(
             self,
@@ -996,7 +1047,8 @@ pub struct QuickMenuFaces {
     pub carets: [(TexId, u32, u32); 2],
     pub legend: [(TexId, u32); 8],
     pub legend_light: [(TexId, u32); 8],
-    pub descriptions: [(TexId, u32, u32); 2],
+    /// One per row in `QuickRow::ALL`; `None` when the row has no help line.
+    pub descriptions: Vec<Option<(TexId, u32, u32)>>,
 }
 
 pub struct QuickMenu<'a> {

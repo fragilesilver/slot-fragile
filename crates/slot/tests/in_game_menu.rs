@@ -406,7 +406,9 @@ fn menu_faces(a: &mut App) {
             (id(406), 95),
             (id(407), 90),
         ],
-        descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
+        descriptions: (0..QuickRow::ALL.len())
+            .map(|i| Some((id(3000 + i), 300, 44)))
+            .collect(),
     });
 }
 

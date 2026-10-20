@@ -667,7 +667,9 @@ fn fake_faces(a: &mut App) {
             (id(406), 95),
             (id(407), 90),
         ],
-        descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
+        descriptions: (0..QuickRow::ALL.len())
+            .map(|i| Some((id(3000 + i), 300, 44)))
+            .collect(),
     });
     a.set_quick_clock_faces((id(500), 150, 40), (id(501), 150, 40));
 }
@@ -995,7 +997,9 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             (id(406), 95),
             (id(407), 90),
         ],
-        descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
+        descriptions: (0..QuickRow::ALL.len())
+            .map(|i| Some((id(3000 + i), 300, 44)))
+            .collect(),
     });
     for page in [
         &QuickRow::SCREEN_GBA[..],

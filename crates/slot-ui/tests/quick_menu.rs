@@ -448,3 +448,22 @@ fn show_titles_sits_under_recents_on_the_general_page() {
     );
     assert_eq!(QuickRow::ShowTitles.parent(), Some(QuickRow::General));
 }
+
+#[test]
+fn every_row_but_the_top_menus_explains_itself() {
+    for row in QuickRow::ALL {
+        let help = row.help();
+        assert!(help.len() <= 52, "{row:?} help runs past one line: {help}");
+        if row.page() != QuickRow::MAIN || row.opens() {
+            assert!(!help.is_empty(), "{row:?} has no help line");
+        }
+    }
+}
+
+#[test]
+fn help_face_fits_the_panel() {
+    for row in QuickRow::ALL.into_iter().filter(|r| !r.help().is_empty()) {
+        let face = slot_ui::quick_description_face(&[row.help()]);
+        assert!(face.w <= 640, "{row:?} help is {} wide", face.w);
+    }
+}

@@ -395,7 +395,11 @@ impl Frontend {
             .map(|v| v.map(&mut up))
             .collect();
         let carets = faces.quick_carets.map(&mut up);
-        let descriptions = faces.descriptions.map(&mut up);
+        let descriptions = faces
+            .descriptions
+            .into_iter()
+            .map(|d| d.map(&mut up))
+            .collect();
         let mut pack_legend = |faces: [UndoFace; 8]| {
             faces.map(|f| {
                 let (tex, w, _) = up(f);
@@ -778,7 +782,7 @@ struct UiFaces {
     quick_carets: [UndoFace; 2],
     quick_legend: [UndoFace; 8],
     quick_legend_light: [UndoFace; 8],
-    descriptions: [UndoFace; 2],
+    descriptions: Vec<Option<UndoFace>>,
     sockets: Vec<CartFace>,
     chips: Vec<CartFace>,
     blank_chip: CartFace,
@@ -830,10 +834,11 @@ impl UiFaces {
             quick_carets: [false, true].map(quick_caret_face),
             quick_legend: quick_legend_faces(footer_ink(false)),
             quick_legend_light: quick_legend_faces(footer_ink(true)),
-            descriptions: [
-                quick_description_face(&["Supports single button and MENU+button."]),
-                quick_description_face(&["Supports single button and two button chords."]),
-            ],
+            descriptions: QuickRow::ALL
+                .iter()
+                .map(|r| Some(r.help()).filter(|h| !h.is_empty()))
+                .map(|h| h.map(|h| quick_description_face(&[h])))
+                .collect(),
             sockets: slot_store::Core::ALL
                 .iter()
                 .map(|c| socket_face(*c))
