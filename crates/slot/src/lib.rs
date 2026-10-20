@@ -39,6 +39,7 @@ pub mod rewind;
 pub mod root;
 pub mod session;
 pub mod state_writer;
+pub mod text_faces;
 pub mod thumb;
 pub mod video_mode;
 pub mod wallpaper;

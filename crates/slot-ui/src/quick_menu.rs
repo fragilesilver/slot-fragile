@@ -747,21 +747,21 @@ impl QuickValue {
 pub const QUICK_PITCH: f32 = 52.0;
 pub const QUICK_EDGE: f32 = 32.0;
 pub const QUICK_LABEL_X: f32 = 64.0;
-const POINTER_GAP: f32 = 14.0;
+pub(crate) const POINTER_GAP: f32 = 14.0;
 const POINTER_SCALE: usize = 4;
 const POINTER: [&str; 11] = [
     "X.......", "XX......", "XoX.....", "XooX....", "XoooX...", "XooooX..", "XoooX...", "XooX....",
     "XoX.....", "XX......", "X.......",
 ];
-const POINTER_BLEED: u32 = 4;
-const GROUND_SCRIM: f32 = 0.65;
-const TYPE_DROP: f32 = 4.0;
+pub(crate) const POINTER_BLEED: u32 = 4;
+pub(crate) const GROUND_SCRIM: f32 = 0.65;
+pub(crate) const TYPE_DROP: f32 = 4.0;
 const CARET_GAP: f32 = 14.0;
 const CARET_PX: f32 = 24.0;
-const LEGEND_Y: f32 = 427.0;
-const DIM_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
+pub(crate) const LEGEND_Y: f32 = 427.0;
+pub(crate) const DIM_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
 const DESCRIPTION_PX: f32 = 16.0;
-const DESCRIPTION_GAP: f32 = 8.0;
+pub(crate) const DESCRIPTION_GAP: f32 = 8.0;
 const PANEL_GAP: f32 = 12.0;
 const WARNING_PX: f32 = 22.0;
 const WARNING_GAP: u32 = 10;
@@ -851,6 +851,11 @@ pub fn quick_warning_value_face(text: &str, lit: bool) -> UndoFace {
 }
 
 fn quick_text_face(label: &str, colour: [u8; 3]) -> UndoFace {
+    fitted_text_face(label, colour, OUT_W as f32, MENU_PX)
+}
+
+/// One line of menu type, shrunk as far as `min_px` to fit `max_w`, then cut.
+pub(crate) fn fitted_text_face(label: &str, colour: [u8; 3], max_w: f32, min_px: f32) -> UndoFace {
     let Some(font) = text::label_font() else {
         return UndoFace {
             rgba: Vec::new(),
@@ -858,7 +863,7 @@ fn quick_text_face(label: &str, colour: [u8; 3]) -> UndoFace {
             h: 0,
         };
     };
-    let layout = text::fit(font, label, OUT_W as f32, 1, MENU_PX, MENU_PX);
+    let layout = text::fit(font, label, max_w, 1, MENU_PX, min_px);
     let set = layout
         .lines
         .iter()
@@ -872,30 +877,57 @@ fn quick_text_face(label: &str, colour: [u8; 3]) -> UndoFace {
 
 pub fn quick_caret_face(right: bool) -> UndoFace {
     let glyph = if right { '\u{f0da}' } else { '\u{f0d9}' };
-    let (Some(symbols), Some(label)) = (crate::icon::symbols_font(), text::label_font()) else {
+    let (Some((m, cov)), Some(label)) = (caret_glyph(glyph), text::label_font()) else {
         return UndoFace {
             rgba: Vec::new(),
             w: 0,
             h: 0,
         };
     };
-    let (m, cov) = symbols.rasterize(glyph, CARET_PX);
-    let (w, h) = (m.width as u32, MENU_H);
+    let (w, h) = (m.0, MENU_H);
     let centre = cap_centre(label, h);
-    let top = (centre - m.height as f32 / 2.0).round() as i32;
+    let top = (centre - m.1 as f32 / 2.0).round() as i32;
     let mut rgba = vec![0u8; (w * h * 4) as usize];
-    for gy in 0..m.height {
+    for gy in 0..m.1 {
         let y = top + gy as i32;
         if y < 0 || y >= h as i32 {
             continue;
         }
-        for gx in 0..m.width {
-            let at = ((y as u32 * w + gx as u32) * 4) as usize;
-            let a = cov[gy * m.width + gx];
+        for gx in 0..m.0 {
+            let at = ((y as u32 * w + gx) * 4) as usize;
+            let a = cov[(gy * m.0 + gx) as usize];
             rgba[at..at + 4].copy_from_slice(&[MENU_INK[0], MENU_INK[1], MENU_INK[2], a]);
         }
     }
     UndoFace { rgba, w, h }
+}
+
+/// The caret that says a list goes on above or below the rows in view: the side carets turned
+/// on their diagonal, since the symbols font carries only the glyphs slot draws.
+pub fn quick_scroll_face(down: bool) -> UndoFace {
+    let glyph = if down { '\u{f0da}' } else { '\u{f0d9}' };
+    let Some(((gw, gh), cov)) = caret_glyph(glyph) else {
+        return UndoFace {
+            rgba: Vec::new(),
+            w: 0,
+            h: 0,
+        };
+    };
+    let (w, h) = (gh, gw);
+    let mut rgba = vec![0u8; (w * h * 4) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            let at = ((y * w + x) * 4) as usize;
+            let a = cov[(x * gw + y) as usize];
+            rgba[at..at + 4].copy_from_slice(&[MENU_INK[0], MENU_INK[1], MENU_INK[2], a]);
+        }
+    }
+    UndoFace { rgba, w, h }
+}
+
+fn caret_glyph(glyph: char) -> Option<((u32, u32), Vec<u8>)> {
+    let (m, cov) = crate::icon::symbols_font()?.rasterize(glyph, CARET_PX);
+    Some(((m.width as u32, m.height as u32), cov))
 }
 
 pub fn quick_legend_faces(ink: [u8; 3]) -> [UndoFace; 8] {
@@ -1239,7 +1271,7 @@ pub fn quick_row_top(row: QuickRow, hidden: &[QuickRow]) -> f32 {
     quick_row_top_at(row, row, hidden)
 }
 
-fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {
+pub(crate) fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {
     out.push(Draw::Tex {
         x: x.round(),
         y: y.round(),

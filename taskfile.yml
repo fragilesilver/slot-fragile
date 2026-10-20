@@ -20,7 +20,7 @@ vars:
     | binary(render_picture_modes) | binary(render) | binary(render_in_game_menu)
     | binary(render_power_wake) | binary(render_quick_menu) | binary(render_shelf)
     | binary(render_shelves)))
-    | (package(slot-gfx) & binary(pipeline)) | (package(slot-ui) & binary(render_row_edges))
+    | (package(slot-gfx) & binary(pipeline)) | (package(slot-ui) & (binary(render_row_edges) | binary(render_list_page)))
     | (package(slot-retro) & (binary(options) | binary(netpacket) | binary(libretro)))
 
 tasks:
@@ -48,7 +48,7 @@ tasks:
       - cargo nextest run --workspace --no-fail-fast -E 'not ({{.IN_PROCESS}})'
       - cargo test -p slot --no-fail-fast {{.SLOT_IN_PROCESS}}
       - cargo test -p slot-gfx --test pipeline
-      - cargo test -p slot-ui --test render_row_edges
+      - cargo test -p slot-ui --test render_row_edges --test render_list_page
       - cargo test -p slot-retro --test options --test netpacket --test libretro
 
   test:one:

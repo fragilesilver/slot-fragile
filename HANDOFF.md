@@ -28,7 +28,21 @@ Phase 1, written but not compiled:
   so the render tests (`HeadlessSurface`) build and run on Linux. Upstream only had the macOS CGL
   surface.
 
-Still to do in Phase 1: the dynamic list page widget (`crates/slot-ui/src/list_page.rs`).
+Done since, on Linux:
+- `crates/slot-ui/src/list_page.rs`: `ListPage` holds the rows and the cursor. Up and Down wrap,
+  L1 and R1 page, and `set_rows` keeps the cursor on the same label. `ListPageView` draws it
+  with QuickMenu's pitch, pointer, ground, help line and legends, plus scroll carets
+  (`quick_scroll_face`, the side carets turned, because the symbols font is a subset).
+  Labels shrink to fit and are then cut, with no ellipsis.
+- `crates/slot/src/text_faces.rs`: `TextFaces`, the fixed pool of run-time text textures (an LRU
+  updated in place, since textures are never freed). Call `begin_frame` once a frame.
+- Tests: `slot-ui/tests/list_page.rs`, `slot-ui/tests/render_list_page.rs` (GL, in-process),
+  `slot/tests/text_faces.rs`.
+
+Neither the list page nor the keyboard is wired into App or frontend yet. The first real
+user is Phase 5 (button cheat sheet) or Phase 8 (cheats).
+Phase 1 item not done: scroll arrows on the long QuickMenu pages (Controls, Shortcuts,
+General). `quick_scroll_face` is ready for that.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 
