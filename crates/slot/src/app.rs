@@ -1421,7 +1421,19 @@ impl App {
             Phase::Doze { cart: Some(cart) } => cart,
             _ => return None,
         };
-        self.shelf().carts.iter().find(|c| c.stem == *stem)
+        self.on_shelf_named(stem)
+    }
+
+    /// The cart under the cursor when it has this name, so the second of two same-named GB
+    /// and GBC carts on Recents or Favorites is the one that goes in. Ported from
+    /// nickclyde/slot-plus@02c5890, crates/slot/src/app.rs.
+    fn on_shelf_named(&self, stem: &str) -> Option<&Cart> {
+        let shelf = self.shelf();
+        shelf
+            .carts
+            .get(shelf.index)
+            .filter(|c| c.stem == stem)
+            .or_else(|| shelf.carts.iter().find(|c| c.stem == stem))
     }
 
     pub fn single_cart(&self) -> bool {
@@ -4393,7 +4405,7 @@ impl App {
     }
 
     fn auto_link(&self, stem: &str) -> Option<(&Cart, LinkKind)> {
-        let cart = self.shelf().carts.iter().find(|c| c.stem == stem)?;
+        let cart = self.on_shelf_named(stem)?;
         let auto = link_kind(&cart.code, &cart.title, slot_store::header_clean(&cart.rom));
         Some((cart, auto))
     }

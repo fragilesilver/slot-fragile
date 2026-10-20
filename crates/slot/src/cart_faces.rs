@@ -1,15 +1,16 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 
-use slot_gfx::{Compositor, TexId};
+use slot_gfx::TexId;
 use slot_store::Cart;
 use slot_ui::{cart_face_with, cart_interior, shows_interior, CartFace};
 
 use crate::app::{App, FaceWant};
 use crate::label_cache::label_art;
+use crate::text_faces::Textures;
 
 const WORKERS: usize = 2;
 
@@ -29,7 +30,9 @@ type Shared = Arc<(Mutex<Queue>, Condvar)>;
 pub struct CartFaces {
     queue: Shared,
     built: Receiver<Built>,
-    pending: HashSet<Key>,
+    /// The rom each face being built is for. A shelf restocked meanwhile has another cart
+    /// at that key, and that face must not land on it.
+    pending: HashMap<Key, PathBuf>,
     asked: Vec<FaceWant>,
     free: Vec<TexId>,
 }
@@ -50,13 +53,13 @@ impl CartFaces {
         CartFaces {
             queue,
             built,
-            pending: HashSet::new(),
+            pending: HashMap::new(),
             asked: Vec::new(),
             free: Vec::new(),
         }
     }
 
-    pub fn sync(&mut self, app: &mut App, compositor: &mut Compositor) {
+    pub fn sync(&mut self, app: &mut App, compositor: &mut impl Textures) {
         self.free.extend(app.shed_faces());
         while let Ok((key, face, interior)) = self.built.try_recv() {
             self.place(app, compositor, key, face, interior);
@@ -89,37 +92,42 @@ impl CartFaces {
         }
         for w in wants {
             let key = (w.shelf, w.index);
-            if self.pending.contains(&key) {
+            let Some(cart) = app.face_cart(w.shelf, w.index) else {
+                continue;
+            };
+            if self.pending.get(&key) == Some(&cart.rom) {
                 continue;
             }
-            if let Some(cart) = app.face_cart(w.shelf, w.index) {
-                queue.jobs.push_back((key, cart.clone()));
-                self.pending.insert(key);
-            }
+            queue.jobs.push_back((key, cart.clone()));
+            self.pending.insert(key, cart.rom.clone());
         }
         wake.notify_all();
     }
 
-    fn texture(&mut self, compositor: &mut Compositor, face: &CartFace) -> TexId {
+    fn texture(&mut self, compositor: &mut impl Textures, face: &CartFace) -> TexId {
         match self.free.pop() {
             Some(tex) => {
-                compositor.update_texture(tex, face.w, face.h, &face.rgba);
+                compositor.update(tex, face.w, face.h, &face.rgba);
                 tex
             }
-            None => compositor.create_texture(face.w, face.h, &face.rgba),
+            None => compositor.create(face.w, face.h, &face.rgba),
         }
     }
 
     fn place(
         &mut self,
         app: &mut App,
-        compositor: &mut Compositor,
+        compositor: &mut impl Textures,
         key: Key,
         face: CartFace,
         interior: Option<CartFace>,
     ) {
-        self.pending.remove(&key);
+        // Ported from nickclyde/slot-plus@02c5890, crates/slot/src/cart_faces.rs.
+        let asked_for = self.pending.remove(&key);
         self.asked.retain(|w| (w.shelf, w.index) != key);
+        if asked_for.is_some_and(|rom| app.face_cart(key.0, key.1).map(|c| &c.rom) != Some(&rom)) {
+            return;
+        }
         let tex = self.texture(compositor, &face);
         self.free.extend(app.set_cart_face(key.0, key.1, tex));
         if let Some(interior) = interior {
@@ -157,5 +165,98 @@ fn work(queue: &Shared, outbox: &Sender<Built>, root: &Path) {
         if outbox.send((key, face, interior)).is_err() {
             return;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use slot_store::Platform;
+
+    #[derive(Default)]
+    struct Gpu {
+        made: usize,
+    }
+
+    impl Textures for Gpu {
+        fn create(&mut self, _w: u32, _h: u32, _rgba: &[u8]) -> TexId {
+            self.made += 1;
+            TexId::from_raw(self.made)
+        }
+
+        fn update(&mut self, _id: TexId, _w: u32, _h: u32, _rgba: &[u8]) {}
+    }
+
+    fn cart(stem: &str) -> Cart {
+        Cart {
+            platform: Platform::Gba,
+            stem: stem.into(),
+            rom: format!("Games/GBA/{stem}.gba").into(),
+            label: None,
+            title: stem.to_uppercase(),
+            code: String::new(),
+            shell: None,
+        }
+    }
+
+    fn idle() -> (CartFaces, Sender<Built>) {
+        let (outbox, built) = mpsc::channel();
+        let faces = CartFaces {
+            queue: Arc::default(),
+            built,
+            pending: HashMap::new(),
+            asked: Vec::new(),
+            free: Vec::new(),
+        };
+        (faces, outbox)
+    }
+
+    fn face() -> CartFace {
+        CartFace {
+            rgba: vec![0; 4],
+            w: 1,
+            h: 1,
+        }
+    }
+
+    #[test]
+    fn a_face_built_for_a_cart_that_has_since_moved_is_dropped() {
+        let before = App::new(vec![cart("Alpha")]);
+        let after = App::new(vec![cart("Beta")]);
+        let want = before.face_wants()[0];
+        let key = (want.shelf, want.index);
+        let (mut faces, _) = idle();
+        let mut gpu = Gpu::default();
+
+        faces.requeue(&before, &[want]);
+        let mut moved = after;
+        faces.place(&mut moved, &mut gpu, key, face(), None);
+        assert_eq!(gpu.made, 0, "Alpha's face went onto Beta");
+
+        let mut same = before;
+        faces.requeue(&same, &[want]);
+        faces.place(&mut same, &mut gpu, key, face(), None);
+        assert_eq!(gpu.made, 1, "the face for the cart still there was dropped");
+    }
+
+    #[test]
+    fn a_cart_that_moves_while_its_old_face_is_built_is_asked_for_again() {
+        let before = App::new(vec![cart("Alpha")]);
+        let after = App::new(vec![cart("Beta")]);
+        let want = before.face_wants()[0];
+        let (mut faces, _) = idle();
+
+        faces.requeue(&before, &[want]);
+        // A worker takes the job: it leaves the queue but is still being built.
+        faces.queue.0.lock().unwrap().jobs.clear();
+        faces.requeue(&after, &[want]);
+        let jobs = &faces.queue.0.lock().unwrap().jobs;
+        assert_eq!(
+            jobs.iter()
+                .map(|(_, c)| c.stem.as_str())
+                .collect::<Vec<_>>(),
+            ["Beta"],
+            "Beta's face was never asked for"
+        );
     }
 }

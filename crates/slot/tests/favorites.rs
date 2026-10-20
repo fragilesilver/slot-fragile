@@ -171,3 +171,31 @@ fn a_favorite_whose_rom_is_gone_is_left_off_the_shelf() {
     go_to(&mut a, "Favorites");
     assert_eq!(a.selected_stem(), Some("Fusion"));
 }
+
+#[test]
+fn picking_the_second_of_two_same_named_favorites_seats_that_one() {
+    let d = tmp_root_with_carts(&["Tetris"]);
+    write_gb_cart(&d, "Tetris", "TETRIS");
+    let mut a = boot_with(
+        d.path(),
+        SlotState {
+            favorites: vec![
+                favorite(Platform::Gba, "Tetris"),
+                favorite(Platform::Gb, "Tetris"),
+            ],
+            ..SlotState::default()
+        },
+    );
+    go_to(&mut a, "Favorites");
+    let first = a.browsed_rom().expect("a favorite").to_path_buf();
+    press(&mut a, Btn::Right);
+    let second = a.browsed_rom().expect("a second favorite").to_path_buf();
+    assert_ne!(first, second, "both favorites are the same cart");
+    press(&mut a, Btn::A);
+    let seated = a.seated_cart().expect("nothing seated");
+    assert_eq!(
+        seated.rom, second,
+        "picked {second:?} and {:?} went in",
+        seated.rom
+    );
+}
