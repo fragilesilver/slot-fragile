@@ -22,3 +22,8 @@
 # Parallel implementation worktrees, never content.
 /.worktrees
 .superpowers/
+
+# Fragile: reference material kept beside the tree, never content.
+/forks/
+/BaseOS/
+/release/
