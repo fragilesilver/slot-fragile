@@ -73,8 +73,8 @@ pub use link_art::{
     PLUG_TIP_X, PLUG_W, PORT_H, PORT_W, PORT_Y,
 };
 pub use list_page::{
-    list_label_face, list_label_width, list_row_top, list_value_face, ListPage, ListPageView,
-    ListRow, ListRowFaces, LIST_VALUE_W, LIST_VISIBLE,
+    list_label_face, list_label_width, list_row_top, list_value_face, list_value_width, ListPage,
+    ListPageView, ListRow, ListRowFaces, LIST_VALUE_W, LIST_VISIBLE,
 };
 pub use plate::{
     arrows_hint_coloured, arrows_hint_face, arrows_hint_width, cap_width, centred_hints,

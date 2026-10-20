@@ -172,7 +172,10 @@ fn a_long_label_shrinks_to_its_room() {
         "{} wide for {room} of room",
         face.w
     );
-    assert_eq!(face.h, list_value_face("On", false).h);
+    assert_eq!(
+        face.h,
+        list_value_face("On", false, slot_ui::LIST_VALUE_W).h
+    );
 }
 
 #[test]

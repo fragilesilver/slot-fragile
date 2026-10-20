@@ -28,6 +28,7 @@ use crate::link_art_builder::LinkArtBuilder;
 use crate::link_screen::{LinkSprites, Sprite};
 use crate::link_start::{LinkFail, LinkStep};
 use crate::session::Session;
+use crate::text_faces::TextFaces;
 
 const DOZE_TIMEOUT: Duration = Duration::from_secs(180);
 
@@ -63,6 +64,8 @@ pub struct Frontend {
     link_shot: Option<TexId>,
     link_shot_size: (u32, u32),
     link_shot_shown: bool,
+    /// Faces for the rows of an open overlay page, kept for as long as they are still drawn.
+    overlay_faces: TextFaces<(String, bool, u32)>,
 }
 
 #[derive(Default)]
@@ -186,6 +189,7 @@ impl Frontend {
             link_shot: None,
             link_shot_size: (0, 0),
             link_shot_shown: false,
+            overlay_faces: TextFaces::new(OVERLAY_FACES),
         }
     }
 
@@ -383,6 +387,10 @@ impl Frontend {
         let lines = faces.shutdown.into_iter().map(&mut up).collect();
         let repair = faces.repair.into_iter().map(&mut up).collect();
         let reset = faces.reset.into_iter().map(&mut up).collect();
+        let [dark, light] = faces.details_legend.map(|f| {
+            let (tex, w, _) = up(f);
+            (tex, w)
+        });
         let labels = faces
             .quick_labels
             .into_iter()
@@ -441,6 +449,7 @@ impl Frontend {
         app.set_shutdown_faces(lines);
         app.set_repair_faces(repair);
         app.set_reset_faces(reset);
+        app.set_details_legend(dark, light);
         app.set_quick_menu_faces(QuickMenuFaces {
             labels,
             pointer,
@@ -555,6 +564,7 @@ impl Frontend {
         sync_binding_faces(self.session.app_mut(), compositor);
         sync_about(self.session.app_mut(), compositor, &mut self.about);
         sync_quick_clock(self.session.app_mut(), compositor, &mut self.quick_clock);
+        sync_overlay(self.session.app_mut(), compositor, &mut self.overlay_faces);
         sync_quick_palette(self.session.app_mut(), compositor, &mut self.quick_palette);
         sync_wallpaper(self.session.app_mut(), compositor, &mut self.wallpaper);
         sync_game_bezel(self.session.app_mut(), compositor, &mut self.game_bezel);
@@ -800,6 +810,8 @@ struct UiFaces {
     toasts: Vec<CartFace>,
     repair: Vec<UndoFace>,
     reset: Vec<UndoFace>,
+    /// "A Details" on the About sticker, dark and light.
+    details_legend: [UndoFace; 2],
 }
 
 impl UiFaces {
@@ -886,6 +898,10 @@ impl UiFaces {
                     reset,
                 ]
             },
+            details_legend: [false, true].map(|light| {
+                let [_, details] = prompt_legends(footer_ink(light), "Back", "Details");
+                details
+            }),
         }
     }
 }
@@ -1117,6 +1133,47 @@ fn sync_wallpaper(app: &mut App, compositor: &mut Compositor, state: &mut Wallpa
     let lit = upload(compositor, &mut state.lit, lit);
     app.set_quick_wallpaper_faces((dim, dim_size.0, dim_size.1), (lit, lit_size.0, lit_size.1));
     state.label = label;
+}
+
+/// Enough for two screenfuls of rows lit and dim, so paging back and forth redraws nothing.
+const OVERLAY_FACES: usize = 48;
+
+fn sync_overlay(
+    app: &mut App,
+    compositor: &mut Compositor,
+    pool: &mut TextFaces<(String, bool, u32)>,
+) {
+    let Some(page) = app.overlay_page() else {
+        return;
+    };
+    pool.begin_frame();
+    let canvas = app.canvas();
+    let (start, _) = page.window();
+    let faces = page
+        .shown()
+        .iter()
+        .enumerate()
+        .map(|(i, row)| {
+            let lit = start + i == page.cursor();
+            let room = slot_ui::list_label_width(canvas, row.value.is_some());
+            let key = (row.label.clone(), lit, room as u32);
+            let label = pool.get(
+                &key,
+                || slot_ui::list_label_face(&row.label, lit, room),
+                compositor,
+            );
+            let value = row.value.as_ref().map(|v| {
+                let room = slot_ui::list_value_width(canvas, label.1);
+                pool.get(
+                    &(v.clone(), lit, room as u32),
+                    || slot_ui::list_value_face(v, lit, room),
+                    compositor,
+                )
+            });
+            slot_ui::ListRowFaces { label, value }
+        })
+        .collect();
+    app.set_overlay_faces(faces);
 }
 
 fn sync_quick_clock(app: &mut App, compositor: &mut Compositor, state: &mut QuickClock) {

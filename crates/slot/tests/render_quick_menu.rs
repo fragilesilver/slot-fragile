@@ -546,3 +546,45 @@ fn a_duplicate_binding_shows_a_warning_naming_the_other_row() {
         "no amber triangle marks the clashing rows"
     );
 }
+
+#[test]
+fn a_on_the_about_label_opens_its_details_as_a_menu_page() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::Menu);
+    for _ in 0..QuickRow::About.position(&[]) {
+        tap(&mut f, &mut input, Btn::Down);
+    }
+    tap(&mut f, &mut input, Btn::A);
+    let label = composed(&mut f, &mut c, "about-label-details-legend");
+    tap(&mut f, &mut input, Btn::A);
+    // A frame for the frontend to upload the rows, then the page.
+    f.compose(&mut c);
+    let details = composed(&mut f, &mut c, "about-details");
+    let page = f.app().overlay_page().expect("no details page").clone();
+    let top = slot_ui::list_row_top(&page, 0) as usize;
+    assert!(
+        pointer(&details, top).is_some(),
+        "no pointer on the first row of Details"
+    );
+    let lit_label = (top..top + 52)
+        .flat_map(|y| (64..300).map(move |x| (x, y)))
+        .filter(|&(x, y)| lit(&details, x, y))
+        .count();
+    assert!(
+        lit_label > 100,
+        "the first row's label is not lit: {lit_label}"
+    );
+    assert_ne!(label, details, "the sticker is still showing");
+    tap(&mut f, &mut input, Btn::B);
+    assert!(f.app().overlay_page().is_none(), "B left Details open");
+}

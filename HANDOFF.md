@@ -45,7 +45,30 @@ user is Phase 5 (button cheat sheet) or Phase 8 (cheats).
   rows shown) draw a caret above and below while there are more rows that way
   (`QuickMenuFaces::scroll`).
 
-Phase 1 is done. Next is Phase 2 (shelf QoL, About, clock) in `FRAGILE_PLAN.md`.
+Phase 1 is done.
+
+## Phase 2 (done 2026-10-21)
+
+- Fixes from nickclyde: the second of two same-named GB/GBC carts on Recents or Favorites
+  is the one that goes in (`App::on_shelf_named`), and a cart face finishing after its shelf
+  was restocked is dropped and asked for again (`cart_faces.rs`, which now takes the
+  `Textures` trait so its tests need no GL).
+- `App` keeps `extras` (`Config/extras.state`) through `app/extras.rs`: per-shelf marks
+  (`shelf.<rack>`, written on a shelf switch, restart and power off, never while browsing),
+  `start_shelf`, `show_favorites` and `clock_12h`. General gains Favorites, Start Shelf and
+  Clock, placed so upstream's General tests still pass unchanged.
+- The held-direction speed-up was already upstream in 1.8, so nothing was ported.
+- About: the sticker stays. A opens Details, the first `Overlay` (`app/overlay.rs`, the one
+  `overlay` field on App). It lists Version (`build_info::SLOT_RELEASE`, held to CHANGELOG.md
+  by a test), Build, BaseOS and Device (from `/etc/baseos-release`, so not shown on the PC),
+  Games, the card the games are on (TF1/TF2 from `/proc/mounts`), the other card when it is
+  mounted at `/mnt/system`, and Battery. The frontend uploads the rows through a `TextFaces`
+  pool (`sync_overlay`).
+- Not checked on the device yet: the TF1/TF2 labels and `/mnt/system`, BaseOS and Device rows,
+  and the 640x480 fit of the longest values.
+- `CREDITS.md` lists every port so far.
+
+Next is Phase 3 (per-game tuning, FF pitch, battery) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

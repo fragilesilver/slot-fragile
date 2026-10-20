@@ -158,12 +158,19 @@ pub fn list_label_width(canvas: Canvas, has_value: bool) -> f32 {
     }
 }
 
+/// The room a value has beside a label already drawn `label_w` wide, for pages of short
+/// labels and long values, like About's Details.
+pub fn list_value_width(canvas: Canvas, label_w: u32) -> f32 {
+    canvas.w - QUICK_EDGE - QUICK_LABEL_X - label_w as f32 - VALUE_GAP
+}
+
 pub fn list_label_face(label: &str, lit: bool, max_w: f32) -> UndoFace {
     fitted_text_face(label, ink(lit), max_w, LABEL_MIN_PX)
 }
 
-pub fn list_value_face(value: &str, lit: bool) -> UndoFace {
-    fitted_text_face(value, ink(lit), LIST_VALUE_W, LABEL_MIN_PX)
+/// `max_w` is `LIST_VALUE_W` on a page of long labels, or `list_value_width` beside a short one.
+pub fn list_value_face(value: &str, lit: bool, max_w: f32) -> UndoFace {
+    fitted_text_face(value, ink(lit), max_w, LABEL_MIN_PX)
 }
 
 fn ink(lit: bool) -> [u8; 3] {
@@ -204,6 +211,11 @@ pub struct ListPageView<'a> {
 
 impl ListPageView<'_> {
     pub fn draw(&self, out: &mut Vec<Draw>) {
+        self.draw_ground(out);
+        self.draw_rows(out);
+    }
+
+    pub fn draw_ground(&self, out: &mut Vec<Draw>) {
         match self.over_game {
             false => draw_menu_ground(self.canvas, self.ground, out),
             true => out.push(Draw::Rect {
@@ -214,6 +226,10 @@ impl ListPageView<'_> {
                 colour: [0.0, 0.0, 0.0, GROUND_SCRIM],
             }),
         }
+    }
+
+    /// Everything but the ground, for a page drawn over a screen that has already laid one.
+    pub fn draw_rows(&self, out: &mut Vec<Draw>) {
         let (right, pad) = (self.canvas.w - QUICK_EDGE, MENU_PAD as f32);
         let (start, _) = self.page.window();
         for (slot, faces) in self.rows.iter().enumerate() {

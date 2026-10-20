@@ -79,7 +79,7 @@ fn rendered(c: &mut Compositor, page: &ListPage) -> Vec<u8> {
                 value: row
                     .value
                     .as_deref()
-                    .map(|v| upload(c, &list_value_face(v, lit))),
+                    .map(|v| upload(c, &list_value_face(v, lit, slot_ui::LIST_VALUE_W))),
             }
         })
         .collect();

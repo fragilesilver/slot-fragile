@@ -30,6 +30,7 @@ use crate::persist::{self, Snapshot};
 use crate::video_mode::{self, VideoMode};
 
 mod extras;
+mod overlay;
 pub use extras::StartShelf;
 use slot_store::{
     read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
@@ -452,6 +453,7 @@ pub struct App {
     radio: Box<dyn RadioJobs>,
     state_writer: crate::state_writer::StateWriter,
     extras: slot_store::ExtrasState,
+    overlay: overlay::Overlays,
 }
 
 const FACE_AHEAD: i32 = 8;
@@ -508,6 +510,7 @@ impl App {
             radio: radio_jobs(),
             state_writer,
             extras: slot_store::ExtrasState::default(),
+            overlay: overlay::Overlays::default(),
             phase: Phase::Shelf,
             shelves,
             shelf_at,
@@ -2296,6 +2299,9 @@ impl App {
             }
             return;
         }
+        if self.overlay_input(action) {
+            return;
+        }
         if self.repair_prompt {
             match action {
                 Action::GbaDown(Btn::A) => self.begin_repair(),
@@ -2395,6 +2401,7 @@ impl App {
                 }
             }
             Phase::About if action == Action::GbaDown(Btn::X) => self.begin_restart(),
+            Phase::About if action == Action::GbaDown(Btn::A) => self.open_details(),
             Phase::QuickMenu { row } => self.quick_menu_input(row, action),
             _ => {}
         }
@@ -3703,7 +3710,9 @@ impl App {
             }
             Phase::About => {
                 slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
-                draw_sticker(self.canvas(), self.sticker_face, out);
+                if !self.draw_overlay(out) {
+                    draw_sticker(self.canvas(), self.sticker_face, out);
+                }
                 self.draw_menu_footer(out);
                 return;
             }
@@ -3872,7 +3881,10 @@ impl App {
                 Some(*row)
             }
             Phase::About => {
-                draw_empty_slot(self.canvas(), self.slot_faces, out);
+                match self.about_footer_plugged() {
+                    true => slot_ui::draw_plugged_slot(self.canvas(), self.plugged_face, out),
+                    false => draw_empty_slot(self.canvas(), self.slot_faces, out),
+                }
                 self.draw_about_legend(out);
                 return;
             }
@@ -3960,6 +3972,9 @@ impl App {
     }
 
     fn draw_about_legend(&self, out: &mut Vec<Draw>) {
+        if self.draw_overlay_legend(out) {
+            return;
+        }
         let Some(faces) = &self.quick_menu_faces else {
             return;
         };
