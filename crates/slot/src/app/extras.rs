@@ -2,7 +2,8 @@
 //! each shelf was left. They live in `Config/extras.state`, never `slot.state`, so an upstream
 //! merge cannot fight over them. Ideas from marghost/slot_modded (startup screen, shelf marks).
 
-use slot_store::{read_extras, write_extras, Platform, Recent};
+use slot_input::Millis;
+use slot_store::{read_extras, write_extras, Platform, Recent, LID_OFF_MIN};
 use slot_ui::{QuickRow, QuickValue};
 
 use super::{App, Rack};
@@ -10,6 +11,7 @@ use super::{App, Rack};
 const START_SHELF: &str = "start_shelf";
 const SHOW_FAVORITES: &str = "show_favorites";
 const CLOCK_12H: &str = "clock_12h";
+const SLEEP_OFF: &str = "sleep_off_min";
 
 fn mark_key(rack: Rack) -> String {
     format!("shelf.{}", rack.key())
@@ -107,6 +109,40 @@ impl App {
         self.extras.flag(CLOCK_12H, false)
     }
 
+    /// Minutes asleep before a device with no lid powers off, or `None` for never. Until it is
+    /// set it follows the lid's minutes, so a card moved from a clamshell keeps its timing.
+    pub fn sleep_off_min(&self) -> Option<u8> {
+        match self.extras.get(SLEEP_OFF) {
+            Some("never") => None,
+            Some(m) => m
+                .parse()
+                .ok()
+                .filter(|m| LID_OFF_MIN.contains(m))
+                .or(Some(self.lid_off_min())),
+            None => Some(self.lid_off_min()),
+        }
+    }
+
+    /// A clamshell shows Lid Power Off, anything else Sleep Power Off: one of the two is hidden.
+    pub(super) fn lid_row_hidden(&self) -> QuickRow {
+        match self.lid {
+            true => QuickRow::SleepOff,
+            false => QuickRow::LidOff,
+        }
+    }
+
+    /// How long a doze lasts before the power goes off, or `None` to sleep until woken. With
+    /// a lid it is upstream's Lid Power Off; `fallback` is the platform's own timeout.
+    pub(super) fn doze_timeout(&self, fallback: Millis) -> Option<Millis> {
+        if !self.lid {
+            return self.sleep_off_min().map(|m| m as Millis * 60_000);
+        }
+        Some(match self.state.lid_off_min {
+            Some(min) => min as Millis * 60_000,
+            None => fallback,
+        })
+    }
+
     /// At boot, before the last shelf is put back: every shelf opens on the cart it was left on.
     pub(super) fn restore_shelf_marks(&mut self) {
         for (rack, shelf) in &mut self.shelves {
@@ -163,6 +199,12 @@ impl App {
                 true => QuickValue::Show,
                 false => QuickValue::Hide,
             })),
+            QuickRow::SleepOff => Some(match self.sleep_off_min() {
+                None => Some(QuickValue::Never),
+                Some(m) => QuickValue::LID_OFF
+                    .into_iter()
+                    .find(|v| v.minutes() == Some(m)),
+            }),
             QuickRow::ClockFormat => Some(Some(match self.twelve_hour() {
                 true => QuickValue::Hour12,
                 false => QuickValue::Hour24,
@@ -186,6 +228,24 @@ impl App {
             QuickRow::ClockFormat => {
                 let on = !self.twelve_hour();
                 self.extras.set_flag(CLOCK_12H, on);
+            }
+            QuickRow::SleepOff => {
+                // Never, then the lid's own steps.
+                let steps: Vec<Option<u8>> = std::iter::once(None)
+                    .chain(LID_OFF_MIN.iter().map(|m| Some(*m)))
+                    .collect();
+                let n = steps.len();
+                let at = steps
+                    .iter()
+                    .position(|s| *s == self.sleep_off_min())
+                    .unwrap_or(0);
+                let to = steps[if right {
+                    (at + 1) % n
+                } else {
+                    (at + n - 1) % n
+                }];
+                let text = to.map_or("never".to_string(), |m| m.to_string());
+                self.extras.set(SLEEP_OFF, Some(&text));
             }
             _ => return false,
         }

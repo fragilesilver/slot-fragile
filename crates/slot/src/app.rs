@@ -454,6 +454,8 @@ pub struct App {
     state_writer: crate::state_writer::StateWriter,
     extras: slot_store::ExtrasState,
     overlay: overlay::Overlays,
+    /// A clamshell, whose sleep is the lid's. Without one, sleep is the power button's.
+    lid: bool,
 }
 
 const FACE_AHEAD: i32 = 8;
@@ -511,6 +513,7 @@ impl App {
             state_writer,
             extras: slot_store::ExtrasState::default(),
             overlay: overlay::Overlays::default(),
+            lid: true,
             phase: Phase::Shelf,
             shelves,
             shelf_at,
@@ -1056,7 +1059,8 @@ impl App {
             | QuickRow::ControlsInGame
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
-            | QuickRow::ClockFormat => None,
+            | QuickRow::ClockFormat
+            | QuickRow::SleepOff => None,
         }
     }
 
@@ -1262,7 +1266,7 @@ impl App {
             self.state.wallpaper,
             WallpaperPick::File(_) | WallpaperPick::Random
         );
-        let mut hidden = Vec::new();
+        let mut hidden = vec![self.lid_row_hidden()];
         if !own {
             hidden.push(QuickRow::WallpaperTint);
         }
@@ -2056,6 +2060,10 @@ impl App {
         self.left_stick = present;
     }
 
+    pub fn set_lid(&mut self, present: bool) {
+        self.lid = present;
+    }
+
     pub fn left_stick_dpad(&self) -> bool {
         self.left_stick && self.state.left_stick_dpad
     }
@@ -2603,7 +2611,8 @@ impl App {
             | QuickRow::LidOff
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
-            | QuickRow::ClockFormat => {}
+            | QuickRow::ClockFormat
+            | QuickRow::SleepOff => {}
         }
     }
 
@@ -2775,7 +2784,8 @@ impl App {
             | QuickRow::LidOff
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
-            | QuickRow::ClockFormat => return,
+            | QuickRow::ClockFormat
+            | QuickRow::SleepOff => return,
         }
         self.persist();
     }
@@ -5024,9 +5034,8 @@ impl App {
         let (Phase::Doze { .. }, Some(power)) = (&self.phase, &self.power) else {
             return false;
         };
-        let timeout = match self.state.lid_off_min {
-            Some(min) => min as Millis * 60_000,
-            None => power.timeout().as_millis() as Millis,
+        let Some(timeout) = self.doze_timeout(power.timeout().as_millis() as Millis) else {
+            return false;
         };
         self.now().saturating_sub(self.dozed_at) >= timeout
     }

@@ -30,6 +30,14 @@ pub fn has_left_stick(target: &str) -> bool {
     LEFT_STICK_TARGETS.contains(&target)
 }
 
+/// The clamshells, whose lid closes on the screen. A card that names no target is the RG SP
+/// slot was made for, so it keeps its lid.
+const LID_TARGETS: [&str; 2] = ["rg34xxsp", "rg35xxsp"];
+
+pub fn has_lid(target: &str) -> bool {
+    target.is_empty() || LID_TARGETS.contains(&target)
+}
+
 #[derive(Default)]
 pub struct Hat {
     hat: [i32; 2],

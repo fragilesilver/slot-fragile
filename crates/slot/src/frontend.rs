@@ -732,6 +732,10 @@ impl Frontend {
         self.session.app_mut().set_left_stick(present);
     }
 
+    pub fn set_lid(&mut self, present: bool) {
+        self.session.app_mut().set_lid(present);
+    }
+
     pub fn core_settling(&self) -> bool {
         self.session.core_settling()
     }

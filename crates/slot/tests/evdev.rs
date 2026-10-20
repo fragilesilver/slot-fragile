@@ -397,3 +397,14 @@ fn only_the_skus_nextui_lists_with_a_left_stick_have_one() {
         assert!(!has_left_stick(t), "{t}");
     }
 }
+
+#[test]
+fn only_the_clamshells_and_a_card_naming_no_target_have_a_lid() {
+    use slot::input::evdev::has_lid;
+    for t in ["", "rg35xxsp", "rg34xxsp"] {
+        assert!(has_lid(t), "{t:?}");
+    }
+    for t in ["rg35xxpro", "rg35xxplus", "rg35xxh", "rg40xxv", "rgcubexx"] {
+        assert!(!has_lid(t), "{t}");
+    }
+}

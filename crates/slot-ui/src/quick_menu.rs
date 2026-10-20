@@ -89,10 +89,11 @@ pub enum QuickRow {
     StartShelf,
     ShowFavorites,
     ClockFormat,
+    SleepOff,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 77] = [
+    pub const ALL: [QuickRow; 78] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -171,6 +172,7 @@ impl QuickRow {
         QuickRow::StartShelf,
         QuickRow::ShowFavorites,
         QuickRow::ClockFormat,
+        QuickRow::SleepOff,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -181,7 +183,7 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const GENERAL: [QuickRow; 10] = [
+    pub const GENERAL: [QuickRow; 11] = [
         QuickRow::Theme,
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
@@ -191,6 +193,7 @@ impl QuickRow {
         QuickRow::StartShelf,
         QuickRow::ClockFormat,
         QuickRow::LidOff,
+        QuickRow::SleepOff,
         QuickRow::DateTime,
     ];
 
@@ -322,7 +325,8 @@ impl QuickRow {
             | QuickRow::LidOff
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
-            | QuickRow::ClockFormat => &QuickRow::GENERAL,
+            | QuickRow::ClockFormat
+            | QuickRow::SleepOff => &QuickRow::GENERAL,
             QuickRow::ControlsShelf | QuickRow::Shortcuts | QuickRow::ControlsInGame => {
                 &QuickRow::CONTROL_PAGES
             }
@@ -440,6 +444,7 @@ impl QuickRow {
             QuickRow::ShowFavorites => "Favorites",
             QuickRow::StartShelf => "Start Shelf",
             QuickRow::ClockFormat => "Clock",
+            QuickRow::SleepOff => "Sleep Power Off",
             QuickRow::ShowTitles => "Game Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
@@ -528,6 +533,7 @@ impl QuickRow {
             QuickRow::ShowFavorites => "Show the shelf of starred games.",
             QuickRow::StartShelf => "The shelf slot opens on when it starts.",
             QuickRow::ClockFormat => "Show the time on a 24 or 12 hour clock.",
+            QuickRow::SleepOff => "Power off after sleeping this long.",
             QuickRow::ShowTitles => "Show the game name above the cart.",
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
             QuickRow::DateTime => "Set the clock.",
@@ -672,10 +678,11 @@ pub enum QuickValue {
     GbcShelf,
     Hour24,
     Hour12,
+    Never,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 31] = [
+    pub const ALL: [QuickValue; 32] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -707,6 +714,7 @@ impl QuickValue {
         QuickValue::GbcShelf,
         QuickValue::Hour24,
         QuickValue::Hour12,
+        QuickValue::Never,
     ];
 
     pub const LID_OFF: [QuickValue; 6] = [
@@ -755,6 +763,7 @@ impl QuickValue {
             QuickValue::GbcShelf => "GBC",
             QuickValue::Hour24 => "24 Hour",
             QuickValue::Hour12 => "12 Hour",
+            QuickValue::Never => "Never",
         }
     }
 
