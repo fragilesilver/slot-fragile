@@ -1052,7 +1052,8 @@ impl App {
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame
             | QuickRow::StartShelf
-            | QuickRow::ShowFavorites => None,
+            | QuickRow::ShowFavorites
+            | QuickRow::ClockFormat => None,
         }
     }
 
@@ -2594,7 +2595,8 @@ impl App {
             | QuickRow::ScRewind
             | QuickRow::LidOff
             | QuickRow::StartShelf
-            | QuickRow::ShowFavorites => {}
+            | QuickRow::ShowFavorites
+            | QuickRow::ClockFormat => {}
         }
     }
 
@@ -2765,7 +2767,8 @@ impl App {
             | QuickRow::ControlsInGame
             | QuickRow::LidOff
             | QuickRow::StartShelf
-            | QuickRow::ShowFavorites => return,
+            | QuickRow::ShowFavorites
+            | QuickRow::ClockFormat => return,
         }
         self.persist();
     }
@@ -5347,7 +5350,7 @@ impl App {
     pub fn polaroid_title(&self, now: &str) -> String {
         self.polaroids
             .as_ref()
-            .map_or_else(String::new, |p| p.title(now))
+            .map_or_else(String::new, |p| p.title_as(now, self.twelve_hour()))
     }
 
     pub fn set_polaroid_title_face(&mut self, face: TexId) {

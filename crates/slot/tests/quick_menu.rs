@@ -1376,3 +1376,24 @@ fn favorites_shows_and_hides_and_saves() {
         Some("0")
     );
 }
+
+#[test]
+fn the_clock_row_flips_between_24_and_12_hour_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    assert!(!a.twelve_hour());
+    open_at(&mut a, QuickRow::ClockFormat);
+    assert_eq!(
+        a.quick_value(QuickRow::ClockFormat),
+        Some(QuickValue::Hour24)
+    );
+    press(&mut a, Btn::Right);
+    assert!(a.twelve_hour());
+    assert_eq!(
+        a.quick_value(QuickRow::ClockFormat),
+        Some(QuickValue::Hour12)
+    );
+    assert_eq!(
+        slot_store::read_extras(d.path()).get("clock_12h"),
+        Some("1")
+    );
+}

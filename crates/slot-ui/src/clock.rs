@@ -34,8 +34,23 @@ pub fn clock_label(stamp: &str) -> String {
 }
 
 pub fn hhmm(secs: i64) -> String {
+    hhmm_as(secs, false)
+}
+
+/// The time of day, on a 24 or a 12 hour clock. Ported from markbruno/slot-plus@524ba7d,
+/// crates/slot-ui/src/clock.rs.
+pub fn hhmm_as(secs: i64, twelve_hour: bool) -> String {
     let rem = secs.rem_euclid(DAY);
-    format!("{:02}:{:02}", rem / 3600, rem / 60 % 60)
+    let (h, m) = (rem / 3600, rem / 60 % 60);
+    if !twelve_hour {
+        return format!("{h:02}:{m:02}");
+    }
+    let shown = match h % 12 {
+        0 => 12,
+        h => h,
+    };
+    let half = if h < 12 { "AM" } else { "PM" };
+    format!("{shown}:{m:02} {half}")
 }
 
 const MONTHS: [&str; 12] = [
@@ -43,12 +58,16 @@ const MONTHS: [&str; 12] = [
 ];
 
 pub fn date_time_text(secs: i64) -> String {
+    date_time_text_as(secs, false)
+}
+
+pub fn date_time_text_as(secs: i64, twelve_hour: bool) -> String {
     let (_, month, day) = civil_from_days(secs.div_euclid(DAY));
     let name = MONTHS
         .get((month - 1) as usize)
         .copied()
         .unwrap_or_default();
-    format!("{name} {day} {}", hhmm(secs))
+    format!("{name} {day} {}", hhmm_as(secs, twelve_hour))
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

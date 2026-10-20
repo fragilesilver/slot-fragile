@@ -105,8 +105,12 @@ impl Polaroids {
     }
 
     pub fn title(&self, now: &str) -> String {
+        self.title_as(now, false)
+    }
+
+    pub fn title_as(&self, now: &str, twelve_hour: bool) -> String {
         match self.selected() {
-            Some(e) => Self::relative_time(&e.stamp, now),
+            Some(e) => Self::relative_time_as(&e.stamp, now, twelve_hour),
             None => String::new(),
         }
     }
@@ -237,6 +241,11 @@ impl Polaroids {
     }
 
     pub fn relative_time(stamp: &str, now: &str) -> String {
+        Self::relative_time_as(stamp, now, false)
+    }
+
+    /// Ported from markbruno/slot-plus@524ba7d, crates/slot-ui/src/polaroids.rs.
+    pub fn relative_time_as(stamp: &str, now: &str, twelve_hour: bool) -> String {
         const RELATIVE_WINDOW: i64 = 12 * 3600;
         let (Some(then), Some(parsed)) = (parse_stamp(stamp), parse_stamp(now)) else {
             return stamp.to_string();
@@ -251,7 +260,10 @@ impl Polaroids {
         if delta < RELATIVE_WINDOW {
             return format!("{} hr ago", delta / 3600);
         }
-        format!("{} {}:{}", &stamp[..10], &stamp[11..13], &stamp[14..16])
+        match twelve_hour {
+            true => format!("{} {}", &stamp[..10], crate::clock::hhmm_as(then, true)),
+            false => format!("{} {}:{}", &stamp[..10], &stamp[11..13], &stamp[14..16]),
+        }
     }
 }
 

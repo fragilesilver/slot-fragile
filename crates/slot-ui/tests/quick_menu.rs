@@ -91,6 +91,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Game Titles",
             "Favorites",
             "Start Shelf",
+            "Clock",
             "Lid Power Off",
             "Date & Time"
         ]
@@ -224,6 +225,8 @@ fn the_values_read_as_the_menu_prints_them() {
             "GBA",
             "GB",
             "GBC",
+            "24 Hour",
+            "12 Hour",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);

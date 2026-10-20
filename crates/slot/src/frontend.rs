@@ -8,8 +8,8 @@ use slot_power::{Platform, Power};
 use slot_store::{format_stamp, BezelPick, Platform as Console};
 use slot_ui::{
     badge_face, bezel_face, cart_shadow, chip_face, chip_shadow_face, core_button_legends,
-    date_time_text, default_game_bezel_face, footer_ink, game_bezel_face, gb_cart_shadow, hhmm,
-    hint_face, icon_face, link_button_legends, menu_detail_face, menu_face, photo_face,
+    date_time_text_as, default_game_bezel_face, footer_ink, game_bezel_face, gb_cart_shadow,
+    hhmm_as, hint_face, icon_face, link_button_legends, menu_detail_face, menu_face, photo_face,
     prompt_legends, quick_caret_face, quick_description_face, quick_label_face, quick_legend_faces,
     quick_pointer_face, quick_scroll_face, quick_value_face, quick_warning_value_face,
     rebuild_count_face, rebuild_title_face, repair_legends, set_clock_hint_face, slot_back,
@@ -969,7 +969,7 @@ fn sync_clock(app: &mut App, compositor: &mut Compositor, clocks: &mut Clocks) {
             app.set_clock_faces(line, hint);
         }
     }
-    let shown = hhmm(app.wall_secs());
+    let shown = hhmm_as(app.wall_secs(), app.twelve_hour());
     if shown != clocks.shown {
         let face = word_ink(&shown, clocks.ink);
         clocks.shown = shown;
@@ -1123,7 +1123,7 @@ fn sync_quick_clock(app: &mut App, compositor: &mut Compositor, state: &mut Quic
     if app.quick_menu().is_none() {
         return;
     }
-    let text = date_time_text(app.wall_secs());
+    let text = date_time_text_as(app.wall_secs(), app.twelve_hour());
     if text == state.shown {
         return;
     }

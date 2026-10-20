@@ -9,6 +9,7 @@ use super::{App, Rack};
 
 const START_SHELF: &str = "start_shelf";
 const SHOW_FAVORITES: &str = "show_favorites";
+const CLOCK_12H: &str = "clock_12h";
 
 fn mark_key(rack: Rack) -> String {
     format!("shelf.{}", rack.key())
@@ -102,6 +103,10 @@ impl App {
         self.extras.flag(SHOW_FAVORITES, true)
     }
 
+    pub fn twelve_hour(&self) -> bool {
+        self.extras.flag(CLOCK_12H, false)
+    }
+
     /// At boot, before the last shelf is put back: every shelf opens on the cart it was left on.
     pub(super) fn restore_shelf_marks(&mut self) {
         for (rack, shelf) in &mut self.shelves {
@@ -158,6 +163,10 @@ impl App {
                 true => QuickValue::Show,
                 false => QuickValue::Hide,
             })),
+            QuickRow::ClockFormat => Some(Some(match self.twelve_hour() {
+                true => QuickValue::Hour12,
+                false => QuickValue::Hour24,
+            })),
             _ => None,
         }
     }
@@ -173,6 +182,10 @@ impl App {
                 let on = !self.show_favorites();
                 self.extras.set_flag(SHOW_FAVORITES, on);
                 self.restock_favorites();
+            }
+            QuickRow::ClockFormat => {
+                let on = !self.twelve_hour();
+                self.extras.set_flag(CLOCK_12H, on);
             }
             _ => return false,
         }
