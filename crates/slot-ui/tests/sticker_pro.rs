@@ -1,6 +1,6 @@
 use slot_ui::{
-    device_sticker_face, rg35xxpro_ratings, sticker_face, StickerDevice, StickerFields, DC,
-    STICKER_H, STICKER_W,
+    device_sticker_face, rg35xxpro_credit_lines, rg35xxpro_ratings, sticker_face, StickerDevice,
+    StickerFields, DC, RG35XXPRO_STICKER_H, STICKER_H, STICKER_W,
 };
 
 fn fields(battery: Option<u8>) -> StickerFields<'static> {
@@ -10,12 +10,12 @@ fn fields(battery: Option<u8>) -> StickerFields<'static> {
     }
 }
 
-fn shot(name: &str, rgba: &[u8]) {
+fn shot(name: &str, rgba: &[u8], h: u32) {
     let Ok(dir) = std::env::var("SCRATCH_PNG_DIR") else {
         return;
     };
     let f = std::fs::File::create(format!("{dir}/{name}.png")).unwrap();
-    let mut e = png::Encoder::new(std::io::BufWriter::new(f), STICKER_W, STICKER_H);
+    let mut e = png::Encoder::new(std::io::BufWriter::new(f), STICKER_W, h);
     e.set_color(png::ColorType::Rgba);
     e.set_depth(png::BitDepth::Eight);
     e.write_header().unwrap().write_image_data(rgba).unwrap();
@@ -54,8 +54,12 @@ fn the_ratings_read_as_printed_with_the_charge_after_the_battery() {
 #[test]
 fn the_label_is_grey_and_stands_clear_of_the_face_edges() {
     let face = device_sticker_face(StickerDevice::Rg35xxPro, &fields(Some(87)));
-    shot("sticker-rg35xxpro", &face.rgba);
-    assert_eq!((face.w, face.h), (STICKER_W, STICKER_H));
+    shot("sticker-rg35xxpro", &face.rgba, face.h);
+    assert_eq!((face.w, face.h), (STICKER_W, RG35XXPRO_STICKER_H));
+    assert!(
+        face.h > STICKER_H,
+        "no room under the label for the credits"
+    );
     let at = |x: u32, y: u32| &face.rgba[((y * face.w + x) * 4) as usize..][..4];
     assert_eq!(
         at(10, STICKER_H / 2)[3],
@@ -87,7 +91,12 @@ fn the_print_is_centred_on_the_label() {
                 p[0] > 0xe0 && p[1] > 0xe0
             })
         };
-        for (what, ys) in [("wordmark and model", 8..84), ("body", 96..216)] {
+        let credits = 224..face.h - 6;
+        for (what, ys) in [
+            ("wordmark and model", 8..84),
+            ("body", 96..216),
+            ("credits", credits),
+        ] {
             let xs: Vec<u32> = (left + 6..right - 6)
                 .filter(|&x| inked(x, ys.clone()))
                 .collect();
@@ -99,4 +108,57 @@ fn the_print_is_centred_on_the_label() {
             );
         }
     }
+}
+
+#[test]
+fn the_band_under_the_label_carries_upstreams_credits_and_fragiles() {
+    let all = rg35xxpro_credit_lines().join(" ");
+    for owed in [
+        "MGBA",
+        "GPSP",
+        "BASEOS BY PVAIBHAV",
+        "OPEN SANS",
+        "NERD",
+        "LCD3X",
+        "MARKUS",
+        "CREDITS.MD",
+        "BRANDON T. KOWALSKI'S GAME BOY",
+    ] {
+        assert!(
+            all.contains(owed),
+            "the credits do not mention {owed}: {all}"
+        );
+    }
+}
+
+#[test]
+fn the_label_outline_is_drawn_as_tall_as_the_face() {
+    let svg = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/sticker_rg35xxpro.svg"
+    ))
+    .unwrap();
+    assert!(
+        svg.contains(&format!("viewBox=\"0 0 560 {RG35XXPRO_STICKER_H}\"")),
+        "regenerate it: python3 tools/fragile/sticker_rg35xxpro.py {RG35XXPRO_STICKER_H}"
+    );
+}
+
+#[test]
+fn the_fork_signs_off_at_the_bottom() {
+    assert_eq!(
+        slot_ui::RG35XXPRO_FORK,
+        "Fork in Brunei Darussalam by a cat in pink headphone"
+    );
+    let all = rg35xxpro_credit_lines().join(" ");
+    assert!(
+        !all.contains("MY CHILDHOOD"),
+        "the cart sounds still speak as upstream: {all}"
+    );
+    let face = device_sticker_face(StickerDevice::Rg35xxPro, &fields(Some(50)));
+    let low = (face.h - 24..face.h - 6)
+        .flat_map(|y| (0..face.w).map(move |x| (x, y)))
+        .filter(|&(x, y)| face.rgba[((y * face.w + x) * 4) as usize] > 0xe0)
+        .count();
+    assert!(low > 150, "nothing printed along the bottom: {low}");
 }

@@ -106,11 +106,11 @@ pub use slot_chrome::{
     opening, recess, slot_name_y, SlotChrome, ALERT_PX, LIP_H, MOUTH_H, MOUTH_W,
 };
 pub use sticker::{
-    draw_sticker, head_rows, sticker_face, sticker_lines, sticker_rect, StickerFields, COPYRIGHT,
-    CREDITS, DC, HOME, ORIGIN, STICKER_H, STICKER_W,
+    draw_sticker, draw_sticker_sized, head_rows, sticker_face, sticker_lines, sticker_rect,
+    sticker_rect_sized, StickerFields, COPYRIGHT, CREDITS, DC, HOME, ORIGIN, STICKER_H, STICKER_W,
 };
 pub use sticker_pro::{
-    device_sticker_face, rg35xxpro_ratings, StickerDevice, RG35XXPRO_MODEL, RG35XXPRO_ORIGIN,
-    RG35XXPRO_WARNINGS,
+    device_sticker_face, rg35xxpro_credit_lines, rg35xxpro_ratings, StickerDevice, RG35XXPRO_FORK,
+    RG35XXPRO_MODEL, RG35XXPRO_ORIGIN, RG35XXPRO_STICKER_H, RG35XXPRO_WARNINGS,
 };
 pub use toast::{toast_box, toast_face, toast_rect, Toast};

@@ -8,18 +8,6 @@ use slot_ui::{Draw, ListPage, ListPageView, ListRow, ListRowFaces, QuickRow, Tex
 
 use super::{App, Phase, HINT_EDGE, LINK_LEGEND_EDGE, LINK_LEGEND_Y};
 
-/// Upstream's sticker credits, kept here too since a device's own label, like the RG35XX Pro's,
-/// has no room for them.
-const CREDITS: [(&str, &str); 7] = [
-    ("slot", "Brandon T. Kowalski"),
-    ("Artwork", "Markus"),
-    ("Emulation", "mGBA, gpSP"),
-    ("System", "BaseOS by pvaibhav"),
-    ("Type", "Open Sans, Nerd Fonts"),
-    ("Panel Mask", "Gigaherz's LCD3x"),
-    ("Fragile Ports", "See CREDITS.md"),
-];
-
 pub enum Overlay {
     Details(ListPage),
 }
@@ -32,6 +20,8 @@ pub struct Overlays {
     faces: Vec<ListRowFaces>,
     /// "A Details" on the About sticker, dark and light.
     details_legend: Option<[(TexId, u32); 2]>,
+    /// The About sticker's own size, when it is not upstream's: the RG35XX Pro's is taller.
+    sticker_size: Option<(u32, u32)>,
 }
 
 impl Overlay {
@@ -55,6 +45,16 @@ impl App {
 
     pub fn set_overlay_faces(&mut self, faces: Vec<ListRowFaces>) {
         self.overlay.faces = faces;
+    }
+
+    pub fn set_sticker_size(&mut self, size: (u32, u32)) {
+        self.overlay.sticker_size = Some(size);
+    }
+
+    pub(super) fn sticker_size(&self) -> (u32, u32) {
+        self.overlay
+            .sticker_size
+            .unwrap_or((slot_ui::STICKER_W, slot_ui::STICKER_H))
     }
 
     pub fn set_details_legend(&mut self, dark: (TexId, u32), light: (TexId, u32)) {
@@ -191,7 +191,6 @@ impl App {
             };
             rows.push(ListRow::new("Battery").with_value(format!("{}%{how}", b.percent)));
         }
-        rows.extend(CREDITS.map(|(who, what)| ListRow::new(who).with_value(what)));
         rows
     }
 

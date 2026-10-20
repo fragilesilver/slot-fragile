@@ -367,7 +367,11 @@ fn wordmark(w: u32) -> Option<(Vec<u8>, (u32, u32))> {
 const STICKER_MARGIN: f32 = 16.0;
 
 pub fn sticker_rect(canvas: slot_gfx::Canvas) -> (f32, f32, f32, f32) {
-    let (w, h) = (STICKER_W as f32, STICKER_H as f32);
+    sticker_rect_sized(canvas, (STICKER_W, STICKER_H))
+}
+
+pub fn sticker_rect_sized(canvas: slot_gfx::Canvas, size: (u32, u32)) -> (f32, f32, f32, f32) {
+    let (w, h) = (size.0 as f32, size.1 as f32);
     let room = canvas.w - 2.0 * STICKER_MARGIN;
     let scale = (room / w).min(1.0);
     let (w, h) = ((w * scale).round(), (h * scale).round());
@@ -380,10 +384,20 @@ pub fn sticker_rect(canvas: slot_gfx::Canvas) -> (f32, f32, f32, f32) {
 }
 
 pub fn draw_sticker(canvas: slot_gfx::Canvas, face: Option<TexId>, out: &mut Vec<Draw>) {
+    draw_sticker_sized(canvas, face, (STICKER_W, STICKER_H), out);
+}
+
+/// `draw_sticker` for a face of its own size, like the RG35XX Pro's taller label.
+pub fn draw_sticker_sized(
+    canvas: slot_gfx::Canvas,
+    face: Option<TexId>,
+    size: (u32, u32),
+    out: &mut Vec<Draw>,
+) {
     let Some(tex) = face else {
         return;
     };
-    let (x, y, w, h) = sticker_rect(canvas);
+    let (x, y, w, h) = sticker_rect_sized(canvas, size);
     out.push(Draw::Tex {
         x,
         y,

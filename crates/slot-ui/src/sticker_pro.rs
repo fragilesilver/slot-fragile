@@ -4,7 +4,8 @@
 
 use crate::art::render_svg;
 use crate::plate::UndoFace;
-use crate::sticker::{sticker_face, Canvas, StickerFields, DC, STICKER_H, STICKER_W};
+use crate::sticker::{sticker_face, Canvas, StickerFields, COPYRIGHT, DC, HOME, STICKER_W};
+use crate::text;
 
 const LABEL_SVG: &str = include_str!("../assets/sticker_rg35xxpro.svg");
 const WORDMARK_SVG: &str = include_str!("../assets/wordmark_anbernic.svg");
@@ -14,7 +15,27 @@ const WORDMARK_SVG: &str = include_str!("../assets/wordmark_anbernic.svg");
 const LABEL_W: u32 = 560;
 const LABEL_X: u32 = (STICKER_W - LABEL_W) / 2;
 
+/// Taller than the printed label, which has no room for slot's credits: they go in a band
+/// under it, as on the RG SP's sticker.
+pub const RG35XXPRO_STICKER_H: u32 = 330;
+
 const INK: [u8; 3] = [0xf4, 0xf4, 0xf4];
+const RULE_Y: u32 = 220;
+const CREDITS_Y: f32 = 229.0;
+const CREDITS_PX: f32 = 10.0;
+const CREDITS_W: f32 = 500.0;
+const COPYRIGHT_PX: f32 = 9.0;
+
+/// Upstream's sticker credits, said shorter to fit the band, and the cart sounds named as
+/// Brandon's, since this label is not his to speak in.
+const CREDITS_SHORT: &str = "Artwork by Markus. Emulation by mGBA and gpSP. OS is BaseOS by \
+     pvaibhav. Type is Open Sans and Nerd Fonts Symbols by Ryan L McIntyre. Panel mask from \
+     Gigaherz's LCD3x. Cart sounds from Brandon T. Kowalski's Game Boy. Fragile's ports are \
+     in CREDITS.md.";
+
+/// Where this fork comes from, the way upstream's sticker ends on MADE IN ITHACA.
+pub const RG35XXPRO_FORK: &str = "Fork in Brunei Darussalam by a cat in pink headphone";
+const FORK_PX: f32 = 8.0;
 const WORDMARK_W: u32 = 300;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
@@ -61,6 +82,14 @@ pub const RG35XXPRO_WARNINGS: [&str; 3] = [
 
 pub const RG35XXPRO_ORIGIN: &str = "MADE IN CHINA";
 
+/// Upstream's credits and Fragile's line, wrapped to the band under the label.
+pub fn rg35xxpro_credit_lines() -> Vec<String> {
+    let Some(font) = text::label_font() else {
+        return Vec::new();
+    };
+    text::fit(font, CREDITS_SHORT, CREDITS_W, 12, CREDITS_PX, CREDITS_PX).lines
+}
+
 /// Where the left column starts, and the right one, before the print is centred.
 const LEFT_X: f32 = 26.0;
 const RIGHT_X: f32 = 278.0;
@@ -68,7 +97,7 @@ const RATING_PX: f32 = 14.0;
 const WARNING_PX: f32 = 12.0;
 
 fn rg35xxpro_face(f: &StickerFields) -> UndoFace {
-    let mut c = Canvas::blank(STICKER_W, STICKER_H);
+    let mut c = Canvas::blank(STICKER_W, RG35XXPRO_STICKER_H);
     let ratings = rg35xxpro_ratings(f);
     // The two columns and the marks under them move together, so the margins either side
     // of the widest line on each are the same.
@@ -83,8 +112,8 @@ fn rg35xxpro_face(f: &StickerFields) -> UndoFace {
     let used = RIGHT_X + right_w - LEFT_X;
     let dx = ((LABEL_W as f32 - used) / 2.0 - LEFT_X).round();
     let label = LABEL_SVG.replacen("translate(0 0)", &format!("translate({dx} 0)"), 1);
-    if let Some(label) = render_svg(&label, LABEL_W, STICKER_H) {
-        c.blit(LABEL_X, 0, &label, LABEL_W, STICKER_H);
+    if let Some(label) = render_svg(&label, LABEL_W, RG35XXPRO_STICKER_H) {
+        c.blit(LABEL_X, 0, &label, LABEL_W, RG35XXPRO_STICKER_H);
     }
     let centred = |w: f32| LABEL_X as f32 + ((LABEL_W as f32 - w) / 2.0).round();
     if let Some((mark, (mw, mh))) = wordmark() {
@@ -104,6 +133,18 @@ fn rg35xxpro_face(f: &StickerFields) -> UndoFace {
         y = c.print_as(at(RIGHT_X), y, line, WARNING_PX, INK, true);
     }
     c.print_as(at(256.0), 184.0, RG35XXPRO_ORIGIN, 16.0, INK, true);
+
+    c.rect(LABEL_X + 26, RULE_Y, LABEL_W - 52, 1, INK);
+    let mut y = CREDITS_Y;
+    for line in rg35xxpro_credit_lines() {
+        let w = c.measure_as(&line, CREDITS_PX, false);
+        y = c.print_as(centred(w), y, &line, CREDITS_PX, INK, false);
+    }
+    let copyright = format!("{COPYRIGHT}. {HOME}");
+    let w = c.measure_as(&copyright, COPYRIGHT_PX, false);
+    let y = c.print_as(centred(w), y + 4.0, &copyright, COPYRIGHT_PX, INK, false);
+    let w = c.measure_as(RG35XXPRO_FORK, FORK_PX, false);
+    c.print_as(centred(w), y, RG35XXPRO_FORK, FORK_PX, INK, false);
     c.into_face()
 }
 

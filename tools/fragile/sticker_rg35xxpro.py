@@ -1,4 +1,6 @@
 import math, sys
+# The label is as tall as sticker_pro.rs asks: python3 sticker_rg35xxpro.py <height>.
+H = int(sys.argv[1]) if len(sys.argv) > 1 else 228
 INK = "#f4f4f4"
 GREY = "#939396"
 def pt(cx, cy, r, deg):
@@ -23,10 +25,10 @@ def head(cx, cy, r, deg, size, ccw=True):
 
 out = []
 w = out.append
-w('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 228">')
+w(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 {H}">')
 w('  <!-- The RG35XX Pro label: its outline and the marks printed on it, drawn from a photo of')
 w('       the device. Made by tools/fragile/sticker_rg35xxpro.py; sticker_pro.rs prints the text. -->')
-w(f'  <rect x="1" y="1" width="558" height="226" rx="16" ry="16" fill="{GREY}" stroke="#7d7d80" stroke-width="2"/>')
+w(f'  <rect x="1" y="1" width="558" height="{H - 2}" rx="16" ry="16" fill="{GREY}" stroke="#7d7d80" stroke-width="2"/>')
 w('  <!-- sticker_pro.rs moves this group to centre the print on the label. -->')
 w('  <g id="marks" transform="translate(0 0)">')
 w(f'  <g fill="none" stroke="{INK}" stroke-linecap="round" stroke-linejoin="round">')

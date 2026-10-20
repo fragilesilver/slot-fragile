@@ -1237,6 +1237,7 @@ fn sync_about(app: &mut App, compositor: &mut Compositor, state: &mut AboutFace)
             serial: &build.serial(),
         },
     );
+    app.set_sticker_size((face.w, face.h));
     let id = upload(compositor, &mut state.tex, face);
     app.set_sticker_face(id);
 }

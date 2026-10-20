@@ -81,8 +81,10 @@ Phase 1 is done.
   (`wordmark_anbernic.svg`, the first eight letters of upstream's), the model, ratings and
   warnings as printed, and the charge after the battery rating. The marks and outline are
   `sticker_rg35xxpro.svg`, made by `tools/fragile/sticker_rg35xxpro.py`; the code centres the
-  print on the label. Every other device keeps upstream's sticker. Upstream's sticker credits
-  are also at the end of Details, since the Pro label has no room for them.
+  print on the label. Every other device keeps upstream's sticker. The Pro label is taller
+  than the printed one (`RG35XXPRO_STICKER_H`; regenerate the SVG at that height): under a rule
+  it carries upstream's credits said shorter, the copyright, and "Fork in Brunei Darussalam
+  by a cat in pink headphone". About draws the sticker at the face's own size.
 
 Next is Phase 3 (per-game tuning, FF pitch, battery) in `FRAGILE_PLAN.md`.
 

@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 228">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 330">
   <!-- The RG35XX Pro label: its outline and the marks printed on it, drawn from a photo of
        the device. Made by tools/fragile/sticker_rg35xxpro.py; sticker_pro.rs prints the text. -->
-  <rect x="1" y="1" width="558" height="226" rx="16" ry="16" fill="#939396" stroke="#7d7d80" stroke-width="2"/>
+  <rect x="1" y="1" width="558" height="328" rx="16" ry="16" fill="#939396" stroke="#7d7d80" stroke-width="2"/>
   <!-- sticker_pro.rs moves this group to centre the print on the label. -->
   <g id="marks" transform="translate(0 0)">
   <g fill="none" stroke="#f4f4f4" stroke-linecap="round" stroke-linejoin="round">
