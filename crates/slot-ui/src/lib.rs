@@ -90,8 +90,8 @@ pub use quick_menu::{
     core_button_legends, draw_menu_ground, link_button_legends, prompt_legends, quick_caret_face,
     quick_description_face, quick_label_face, quick_legend_faces, quick_pointer_face,
     quick_row_top, quick_row_top_at, quick_scroll_face, quick_value_face, quick_warning_value_face,
-    quick_window, repair_legends, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, QUICK_EDGE,
-    QUICK_LABEL_X, QUICK_PITCH, QUICK_VISIBLE,
+    quick_window, repair_legends, FacePair, QuickMenu, QuickMenuFaces, QuickRow, QuickValue,
+    QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH, QUICK_VISIBLE,
 };
 pub use rebuild::{rebuild_count_face, rebuild_title_face, RebuildScreen};
 pub use refusal::Refusal;

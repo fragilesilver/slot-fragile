@@ -66,6 +66,10 @@ pub struct Frontend {
     link_shot_shown: bool,
     /// Faces for the rows of an open overlay page, kept for as long as they are still drawn.
     overlay_faces: TextFaces<(String, bool, u32)>,
+    /// Faces for menu values made of run-time text, such as a card shader's name.
+    named_faces: TextFaces<(String, bool)>,
+    /// The card shader last put on the game layer, so a failing file is tried once a choice.
+    card_shader: Option<Option<String>>,
 }
 
 #[derive(Default)]
@@ -192,6 +196,8 @@ impl Frontend {
             link_shot_size: (0, 0),
             link_shot_shown: false,
             overlay_faces: TextFaces::new(OVERLAY_FACES),
+            named_faces: TextFaces::new(NAMED_FACES),
+            card_shader: None,
         }
     }
 
@@ -567,6 +573,8 @@ impl Frontend {
         sync_about(self.session.app_mut(), compositor, &mut self.about);
         sync_quick_clock(self.session.app_mut(), compositor, &mut self.quick_clock);
         sync_overlay(self.session.app_mut(), compositor, &mut self.overlay_faces);
+        sync_named(self.session.app_mut(), compositor, &mut self.named_faces);
+        sync_card_shader(self.session.app_mut(), compositor, &mut self.card_shader);
         sync_quick_palette(self.session.app_mut(), compositor, &mut self.quick_palette);
         sync_wallpaper(self.session.app_mut(), compositor, &mut self.wallpaper);
         sync_game_bezel(self.session.app_mut(), compositor, &mut self.game_bezel);
@@ -1149,6 +1157,65 @@ fn sync_wallpaper(app: &mut App, compositor: &mut Compositor, state: &mut Wallpa
 
 /// Enough for two screenfuls of rows lit and dim, so paging back and forth redraws nothing.
 const OVERLAY_FACES: usize = 48;
+
+/// A few named values, each dim and lit, and a couple of names stepped through on the way.
+const NAMED_FACES: usize = 16;
+
+fn sync_named(app: &mut App, compositor: &mut Compositor, pool: &mut TextFaces<(String, bool)>) {
+    if app.quick_menu().is_none() && app.in_game_menu().is_none() {
+        return;
+    }
+    pool.begin_frame();
+    let faces = QuickRow::ALL
+        .iter()
+        .map(|row| {
+            let text = app.named_value(*row)?;
+            Some([false, true].map(|lit| {
+                pool.get(
+                    &(text.clone(), lit),
+                    || quick_value_face(&text, lit),
+                    compositor,
+                )
+            }))
+        })
+        .collect();
+    app.set_named_faces(faces);
+}
+
+/// Puts the playing console's card shader on the game layer when the choice changes. A file
+/// that is gone or will not compile leaves the built-in shader on, logs why, and says so once.
+fn sync_card_shader(
+    app: &mut App,
+    compositor: &mut Compositor,
+    shown: &mut Option<Option<String>>,
+) {
+    let wanted = app.card_shader();
+    if shown.as_ref() == Some(&wanted) {
+        return;
+    }
+    *shown = Some(wanted.clone());
+    let Some(name) = wanted else {
+        let _ = compositor.set_card_shader(None);
+        return;
+    };
+    let src = app
+        .root()
+        .and_then(|root| slot_store::shader_path(root, &name))
+        .and_then(|path| std::fs::read_to_string(path).ok());
+    let Some(src) = src else {
+        let _ = compositor.set_card_shader(None);
+        eprintln!("slot: shader: Shaders/{name}.glsl could not be read");
+        app.card_shader_failed();
+        return;
+    };
+    match compositor.set_card_shader(Some(&src)) {
+        Ok(()) => eprintln!("slot: shader: Shaders/{name}.glsl"),
+        Err(e) => {
+            eprintln!("slot: shader: Shaders/{name}.glsl: {e}");
+            app.card_shader_failed();
+        }
+    }
+}
 
 fn sync_overlay(
     app: &mut App,

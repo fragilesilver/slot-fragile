@@ -101,10 +101,13 @@ pub enum QuickRow {
     IntegerGba,
     IntegerGb,
     IntegerGbc,
+    CardShaderGba,
+    CardShaderGb,
+    CardShaderGbc,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 89] = [
+    pub const ALL: [QuickRow; 92] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -195,6 +198,9 @@ impl QuickRow {
         QuickRow::IntegerGba,
         QuickRow::IntegerGb,
         QuickRow::IntegerGbc,
+        QuickRow::CardShaderGba,
+        QuickRow::CardShaderGb,
+        QuickRow::CardShaderGbc,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -266,26 +272,29 @@ impl QuickRow {
     pub const SCREEN: [QuickRow; 3] =
         [QuickRow::ScreenGba, QuickRow::ScreenGbc, QuickRow::ScreenGb];
 
-    pub const SCREEN_GBA: [QuickRow; 4] = [
+    pub const SCREEN_GBA: [QuickRow; 5] = [
         QuickRow::GbaShader,
         QuickRow::GbaColourCorrection,
         QuickRow::GbaBezel,
         QuickRow::IntegerGba,
+        QuickRow::CardShaderGba,
     ];
 
-    pub const SCREEN_GBC: [QuickRow; 4] = [
+    pub const SCREEN_GBC: [QuickRow; 5] = [
         QuickRow::GbcShader,
         QuickRow::GbcColourCorrection,
         QuickRow::GbcBezel,
         QuickRow::IntegerGbc,
+        QuickRow::CardShaderGbc,
     ];
 
-    pub const SCREEN_GB: [QuickRow; 5] = [
+    pub const SCREEN_GB: [QuickRow; 6] = [
         QuickRow::GbShader,
         QuickRow::GbColourCorrection,
         QuickRow::GbPalettes,
         QuickRow::GbBezel,
         QuickRow::IntegerGb,
+        QuickRow::CardShaderGb,
     ];
 
     pub const GAME: [QuickRow; 8] = [
@@ -330,16 +339,19 @@ impl QuickRow {
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
             | QuickRow::GbaBezel
-            | QuickRow::IntegerGba => &QuickRow::SCREEN_GBA,
+            | QuickRow::IntegerGba
+            | QuickRow::CardShaderGba => &QuickRow::SCREEN_GBA,
             QuickRow::GbcShader
             | QuickRow::GbcColourCorrection
             | QuickRow::GbcBezel
-            | QuickRow::IntegerGbc => &QuickRow::SCREEN_GBC,
+            | QuickRow::IntegerGbc
+            | QuickRow::CardShaderGbc => &QuickRow::SCREEN_GBC,
             QuickRow::GbShader
             | QuickRow::GbColourCorrection
             | QuickRow::GbPalettes
             | QuickRow::GbBezel
-            | QuickRow::IntegerGb => &QuickRow::SCREEN_GB,
+            | QuickRow::IntegerGb
+            | QuickRow::CardShaderGb => &QuickRow::SCREEN_GB,
             QuickRow::FastForward
             | QuickRow::FastForwardSound
             | QuickRow::Rewind
@@ -495,6 +507,9 @@ impl QuickRow {
             QuickRow::ThisFfSound => "Fast Forward Sound",
             QuickRow::ThisDefaults => "Use Defaults",
             QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => "Integer Scale",
+            QuickRow::CardShaderGba | QuickRow::CardShaderGb | QuickRow::CardShaderGbc => {
+                "Card Shader"
+            }
             QuickRow::ShowTitles => "Game Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
@@ -594,6 +609,9 @@ impl QuickRow {
             QuickRow::ThisDefaults => "On: this game follows the settings menu.",
             QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => {
                 "Whole pixels on 4:3 screens, with a border."
+            }
+            QuickRow::CardShaderGba | QuickRow::CardShaderGb | QuickRow::CardShaderGbc => {
+                "A .glsl file from Shaders, used instead of Shader."
             }
             QuickRow::ShowTitles => "Show the game name above the cart.",
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
@@ -1216,6 +1234,9 @@ pub struct QuickMenu<'a> {
     pub gbc_bezel: Option<[(TexId, u32, u32); 2]>,
     pub bezel: Option<[(TexId, u32, u32); 2]>,
     pub bound: Option<&'a [Option<FacePair>]>,
+    /// A value made of text slot only knows at run time, such as a file name, one per row in
+    /// `QuickRow::ALL`, dim and lit.
+    pub named: Option<&'a [Option<FacePair>]>,
     pub description: Option<(TexId, u32, u32)>,
     pub over_game: bool,
     /// The carousel footer carries the legends, so the centred pair is not drawn.
@@ -1226,6 +1247,11 @@ pub struct QuickMenu<'a> {
 }
 
 impl QuickMenu<'_> {
+    fn named_face(&self, row: QuickRow) -> Option<FacePair> {
+        self.named
+            .and_then(|n| n.get(row.index()).copied().flatten())
+    }
+
     pub fn draw(&self, out: &mut Vec<Draw>) {
         match (self.over_game, self.row.page() == QuickRow::PLAY_SCREEN) {
             (false, _) => draw_menu_ground(self.canvas, self.ground, out),
@@ -1293,6 +1319,9 @@ impl QuickMenu<'_> {
                 QuickRow::GbBezel => self.gb_bezel.map(|c| c[lit as usize]),
                 QuickRow::GbcBezel => self.gbc_bezel.map(|c| c[lit as usize]),
                 QuickRow::Bezel => self.bezel.map(|c| c[lit as usize]),
+                _ if self.named_face(row).is_some() => {
+                    self.named_face(row).map(|c| c[lit as usize])
+                }
                 _ if row.binds() => self
                     .bound
                     .and_then(|b| b.get(row.index()).copied().flatten())

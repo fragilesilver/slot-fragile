@@ -316,3 +316,75 @@ fn a_game_boy_game_at_3x_sits_in_the_classic_3x_bezel_on_a_640_by_480_panel() {
     );
     assert!(!lit(40, 20), "the bezel's corner is not drawn");
 }
+
+const TINT: &str = "#if defined(VERTEX)
+#if __VERSION__ >= 130
+#define COMPAT_VARYING out
+#define COMPAT_ATTRIBUTE in
+#else
+#define COMPAT_VARYING varying
+#define COMPAT_ATTRIBUTE attribute
+#endif
+COMPAT_ATTRIBUTE vec4 VertexCoord;
+COMPAT_ATTRIBUTE vec4 TexCoord;
+COMPAT_VARYING vec4 TEX0;
+uniform mat4 MVPMatrix;
+void main() { gl_Position = MVPMatrix * VertexCoord; TEX0 = TexCoord; }
+#elif defined(FRAGMENT)
+#if __VERSION__ >= 130
+#define COMPAT_VARYING in
+out vec4 FragColor;
+#else
+#define COMPAT_VARYING varying
+#define FragColor gl_FragColor
+#endif
+#ifdef GL_ES
+precision mediump float;
+#endif
+COMPAT_VARYING vec4 TEX0;
+void main() { FragColor = vec4(1.0, 0.0, 1.0, 1.0); }
+#endif
+";
+
+fn game_with_card_shader(c: &mut Compositor, file: &str) -> (tempfile::TempDir, Frontend) {
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    std::fs::write(d.path().join("Shaders/Magenta.glsl"), file).unwrap();
+    let mut e = slot_store::read_extras(d.path());
+    e.set("card_shader_gba", Some("Magenta"));
+    slot_store::write_extras(d.path(), &e).unwrap();
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 4.0);
+    (d, f)
+}
+
+#[test]
+fn a_card_shader_draws_the_game_and_a_broken_one_says_so() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let (_d, mut f) = game_with_card_shader(&mut c, TINT);
+    let px = composed(&mut f, &mut c, "card-shader");
+    assert_eq!(
+        at(&px, 360, 200),
+        [255, 0, 255],
+        "the card shader did not draw the game"
+    );
+    assert_eq!(f.app().toast(), None);
+    drop(f);
+
+    let (_d, mut f) = game_with_card_shader(&mut c, "not a shader");
+    let px = composed(&mut f, &mut c, "card-shader-broken");
+    assert_ne!(at(&px, 360, 200), [255, 0, 255]);
+    assert_eq!(f.app().toast(), Some(slot_ui::Toast::ShaderFailed));
+    assert!(
+        at(&px, 360, 200).iter().any(|ch| *ch > 20),
+        "the game went black behind a broken shader"
+    );
+}

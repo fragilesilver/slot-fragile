@@ -167,6 +167,28 @@ impl Compositor {
         self.game.set_effect(effect);
     }
 
+    /// Draws the game through a RetroArch `.glsl` shader off the card, or the built-in effect
+    /// again for `None`. A shader that will not compile or link leaves the built-in effect on,
+    /// so a bad file never blanks the screen, and hands back the driver's log.
+    pub fn set_card_shader(&mut self, src: Option<&str>) -> Result<(), GfxError> {
+        let shader = match src {
+            None => None,
+            Some(src) => match crate::retroshader::RetroShader::new(src) {
+                Ok(shader) => Some(shader),
+                Err(e) => {
+                    self.game.set_card_shader(None);
+                    return Err(e);
+                }
+            },
+        };
+        self.game.set_card_shader(shader);
+        Ok(())
+    }
+
+    pub fn card_shader(&self) -> bool {
+        self.game.card_shader()
+    }
+
     pub fn set_picture(&mut self, rect: [f32; 4]) {
         self.game.set_picture(rect);
     }

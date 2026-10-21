@@ -16,6 +16,7 @@ mod lcd3x;
 mod pipeline;
 mod power;
 mod quad;
+mod retroshader;
 mod shaders;
 mod surface;
 

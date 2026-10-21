@@ -588,3 +588,45 @@ fn a_on_the_about_label_opens_its_details_as_a_menu_page() {
     tap(&mut f, &mut input, Btn::B);
     assert!(f.app().overlay_page().is_none(), "B left Details open");
 }
+
+#[test]
+fn the_card_shader_row_shows_the_files_name() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    std::fs::write(d.path().join("Shaders/Blend Grid.glsl"), "// shader").unwrap();
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::Menu);
+    for (at, row) in [
+        QuickRow::Screen,
+        QuickRow::ScreenGba,
+        QuickRow::CardShaderGba,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if at > 0 {
+            tap(&mut f, &mut input, Btn::A);
+        }
+        for _ in 0..row.position(&f.app().hidden_rows()) {
+            tap(&mut f, &mut input, Btn::Down);
+        }
+    }
+    assert_eq!(f.app().quick_menu(), Some(QuickRow::CardShaderGba));
+    let off = composed(&mut f, &mut c, "card-shader-off");
+    tap(&mut f, &mut input, Btn::Right);
+    let named = composed(&mut f, &mut c, "card-shader-row");
+    let top = quick_row_top(QuickRow::CardShaderGba, &f.app().hidden_rows()) as usize;
+    let ink = |px: &[u8]| inked(px, 400..OUT_W as usize, top).len();
+    assert!(
+        ink(&named) > ink(&off) + 40,
+        "the file's name is not drawn as the value"
+    );
+}

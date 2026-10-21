@@ -57,7 +57,11 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         GbPalette::all().map(Toast::Palette).collect::<Vec<_>>()[..],
         "the palette banners do not follow the fixed ones in palette order"
     );
-    let extras = [Toast::BatteryLow15, Toast::BatteryLow10];
+    let extras = [
+        Toast::BatteryLow15,
+        Toast::BatteryLow10,
+        Toast::ShaderFailed,
+    ];
     assert_eq!(
         all[all.len() - extras.len()..],
         extras,

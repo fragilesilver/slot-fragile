@@ -1,6 +1,7 @@
 use crate::lcd3x::ScreenEffect;
 use crate::power::{screen_brightness, screen_rect_above};
 use crate::quad::Quad;
+use crate::retroshader::RetroShader;
 use crate::shaders::{GAME_FRAG, RECT_VERT};
 use crate::surface::{GfxError, OUT_H, OUT_W};
 
@@ -35,12 +36,18 @@ pub struct GamePass {
     /// The picture's own part of the texture, when it is drawn at a whole multiple: the quad
     /// fills a viewport cut to fit it, so nothing else is sampled and no footer squeezes it.
     integer: Option<[f32; 4]>,
+    /// A shader off the card, drawn instead of the built-in effect while it is set.
+    card: Option<RetroShader>,
+    /// The frame before this one, for card shaders that blend with it (`PrevTexture`).
+    prev: gl::types::GLuint,
+    frames: u32,
 }
 
 impl GamePass {
     pub fn new() -> Result<Self, GfxError> {
         let prog = crate::shaders::program(RECT_VERT, GAME_FRAG)?;
         let game = crate::gl::texture(SRC_W, SRC_H, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::BGRA, None);
+        let prev = crate::gl::texture(SRC_W, SRC_H, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::BGRA, None);
         let paper = crate::gl::texture(
             1,
             1,
@@ -95,6 +102,9 @@ impl GamePass {
             bottom: 0.0,
             src: WHOLE_TEXTURE,
             integer: None,
+            card: None,
+            prev,
+            frames: 0,
         })
     }
 
@@ -165,10 +175,21 @@ impl GamePass {
         });
     }
 
+    pub fn set_card_shader(&mut self, shader: Option<RetroShader>) {
+        self.card = shader;
+    }
+
+    pub fn card_shader(&self) -> bool {
+        self.card.is_some()
+    }
+
     pub fn upload(&mut self, xrgb8888: &[u8]) {
         if xrgb8888.len() < (SRC_W * SRC_H * 4) as usize {
             return;
         }
+        // Last frame becomes `prev`, and its texture takes this one.
+        std::mem::swap(&mut self.game, &mut self.prev);
+        self.frames = self.frames.wrapping_add(1);
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.game);
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
@@ -187,6 +208,13 @@ impl GamePass {
     }
 
     pub fn draw(&self, quad: &Quad) {
+        if let Some(card) = &self.card {
+            let (rect, src) = match self.integer {
+                Some(src) => ((0.0, 0.0, OUT_W as f32, OUT_H as f32), src),
+                None => (self.placed(), self.footed(self.src)),
+            };
+            return card.draw(self.game, self.prev, rect, src, self.frames);
+        }
         if let Some(src) = self.integer {
             return self.draw_whole(self.game, quad, src);
         }
@@ -221,13 +249,18 @@ impl GamePass {
         } else {
             screen_brightness(self.power)
         };
-        // The footer covers the bottom of a full-frame picture. Keep the part that sat above
-        // it, so opening the scale does not squash the picture into the shorter rect.
+        let src = self.footed(src);
+        self.draw_at(tex, quad, (x, y, w, h), src, bright, self.pic);
+    }
+
+    /// The footer covers the bottom of a full-frame picture. Keep the part that sat above it,
+    /// so opening the scale does not squash the picture into the shorter rect.
+    fn footed(&self, src: [f32; 4]) -> [f32; 4] {
         let mut src = src;
         if self.bottom > 0.0 {
             src[3] *= (OUT_H as f32 - self.bottom) / OUT_H as f32;
         }
-        self.draw_at(tex, quad, (x, y, w, h), src, bright, self.pic);
+        src
     }
 
     fn draw_at(
@@ -279,6 +312,7 @@ impl Drop for GamePass {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteTextures(1, &self.game);
+            gl::DeleteTextures(1, &self.prev);
             gl::DeleteTextures(1, &self.paper);
             gl::DeleteProgram(self.prog);
         }

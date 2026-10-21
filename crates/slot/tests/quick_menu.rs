@@ -384,6 +384,7 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
         QuickRow::GbPalettes,
         QuickRow::GbBezel,
         QuickRow::IntegerGb,
+        QuickRow::CardShaderGb,
         QuickRow::GbShader,
     ] {
         press(&mut a, Btn::Down);

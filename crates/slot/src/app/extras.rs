@@ -260,7 +260,7 @@ impl App {
                 let text = to.map_or("never".to_string(), |m| m.to_string());
                 self.extras.set(SLEEP_OFF, Some(&text));
             }
-            _ if self.change_screen(row) => {}
+            _ if self.change_screen(row, right) => {}
             _ => return false,
         }
         self.save_extras();

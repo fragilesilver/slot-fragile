@@ -31,6 +31,7 @@ pub enum Toast {
     // --- extras ---
     BatteryLow15,
     BatteryLow10,
+    ShaderFailed,
 }
 
 impl Toast {
@@ -56,7 +57,11 @@ impl Toast {
     ];
 
     /// Fragile's banners, after upstream's every one so none of theirs moves place.
-    const EXTRAS: [Toast; 2] = [Toast::BatteryLow15, Toast::BatteryLow10];
+    const EXTRAS: [Toast; 3] = [
+        Toast::BatteryLow15,
+        Toast::BatteryLow10,
+        Toast::ShaderFailed,
+    ];
 
     pub fn all() -> Vec<Toast> {
         Self::FIXED
@@ -75,7 +80,7 @@ impl Toast {
                     + GbPalette::all().count()
                     + bound_rows().position(|r| r == row).unwrap_or(0)
             }
-            extra @ (Toast::BatteryLow15 | Toast::BatteryLow10) => {
+            extra @ (Toast::BatteryLow15 | Toast::BatteryLow10 | Toast::ShaderFailed) => {
                 Self::FIXED.len()
                     + GbPalette::all().count()
                     + bound_rows().count()
@@ -87,7 +92,10 @@ impl Toast {
 
     pub fn icon(self) -> Option<Icon> {
         match self {
-            Toast::Duplicate(_) | Toast::BatteryLow15 | Toast::BatteryLow10 => Some(Icon::Alert),
+            Toast::Duplicate(_)
+            | Toast::BatteryLow15
+            | Toast::BatteryLow10
+            | Toast::ShaderFailed => Some(Icon::Alert),
             _ => None,
         }
     }
@@ -99,7 +107,10 @@ impl Toast {
     pub fn hold_ms(self) -> crate::hud::Millis {
         match self {
             Toast::CardRepaired | Toast::CardRepairFailed => REPAIR_HOLD_MS,
-            Toast::Duplicate(_) | Toast::BatteryLow15 | Toast::BatteryLow10 => WARNING_HOLD_MS,
+            Toast::Duplicate(_)
+            | Toast::BatteryLow15
+            | Toast::BatteryLow10
+            | Toast::ShaderFailed => WARNING_HOLD_MS,
             _ => crate::hud::HUD_MS,
         }
     }
@@ -144,6 +155,7 @@ impl Toast {
             Toast::CardRepairFailed => "Card repair failed",
             Toast::BatteryLow15 => "Battery Low: 15%",
             Toast::BatteryLow10 => "Battery Low: 10%",
+            Toast::ShaderFailed => "Card shader failed to load",
             Toast::Palette(p) => p.label(),
             Toast::Duplicate(_) => "",
         }

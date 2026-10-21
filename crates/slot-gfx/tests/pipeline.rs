@@ -858,3 +858,136 @@ fn integer_scale_does_nothing_on_a_3_by_2_panel() {
     let band = frame(None);
     assert_eq!(frame(Some((GB_W as u32, GB_H as u32))), band);
 }
+
+/// A RetroArch single-pass shader whose fragment stage is `body`, in the format the card takes.
+fn card_shader(body: &str) -> String {
+    format!(
+        "#version 130
+#if defined(VERTEX)
+#if __VERSION__ >= 130
+#define COMPAT_VARYING out
+#define COMPAT_ATTRIBUTE in
+#else
+#define COMPAT_VARYING varying
+#define COMPAT_ATTRIBUTE attribute
+#endif
+COMPAT_ATTRIBUTE vec4 VertexCoord;
+COMPAT_ATTRIBUTE vec4 TexCoord;
+COMPAT_VARYING vec4 TEX0;
+uniform mat4 MVPMatrix;
+void main() {{ gl_Position = MVPMatrix * VertexCoord; TEX0 = TexCoord; }}
+#elif defined(FRAGMENT)
+#if __VERSION__ >= 130
+#define COMPAT_VARYING in
+#define COMPAT_TEXTURE texture
+out vec4 FragColor;
+#else
+#define COMPAT_VARYING varying
+#define FragColor gl_FragColor
+#define COMPAT_TEXTURE texture2D
+#endif
+#ifdef GL_ES
+precision mediump float;
+#endif
+uniform sampler2D Texture;
+uniform sampler2D PrevTexture;
+uniform vec2 InputSize;
+COMPAT_VARYING vec4 TEX0;
+void main() {{ {body} }}
+#endif
+"
+    )
+}
+
+fn drawn_flat(c: &mut Compositor, rgb: [u8; 3]) -> [u8; 3] {
+    c.begin_frame();
+    c.upload_game(&flat_shot(rgb));
+    c.draw_game();
+    px(&c.read_frame(), OUT_W as usize / 2, OUT_H as usize / 2)
+}
+
+#[test]
+fn a_card_shader_draws_the_frame_and_none_puts_the_built_in_back() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    c.fit((OUT_W, OUT_H));
+    c.set_screen_power(1.0);
+    c.set_screen_effect(ScreenEffect::Lcd3x);
+    let lcd = drawn_flat(&mut c, [200, 100, 50]);
+    c.set_card_shader(Some(&card_shader(
+        "FragColor = COMPAT_TEXTURE(Texture, TEX0.xy);",
+    )))
+    .expect("a plain pass-through compiles");
+    assert!(c.card_shader());
+    let card = drawn_flat(&mut c, [200, 100, 50]);
+    // The frame is BGRX, so that shot is (50, 100, 200) on screen.
+    let flat_shot_rgb = [50, 100, 200];
+    for ch in 0..3 {
+        assert!(
+            (i32::from(card[ch]) - flat_shot_rgb[ch]).abs() <= 1,
+            "the pass-through drew {card:?}"
+        );
+    }
+    c.set_card_shader(None).unwrap();
+    assert_eq!(drawn_flat(&mut c, [200, 100, 50]), lcd);
+}
+
+#[test]
+fn a_card_shader_sees_the_frame_before_this_one() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    c.fit((OUT_W, OUT_H));
+    c.set_screen_power(1.0);
+    c.set_card_shader(Some(&card_shader(
+        "FragColor = COMPAT_TEXTURE(PrevTexture, TEX0.xy);",
+    )))
+    .unwrap();
+    drawn_flat(&mut c, [10, 200, 30]);
+    let seen = drawn_flat(&mut c, [250, 0, 0]);
+    assert_eq!(seen, [30, 200, 10], "PrevTexture was not the frame before");
+}
+
+#[test]
+fn a_card_shader_that_will_not_compile_leaves_the_built_in_effect_on() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    c.fit((OUT_W, OUT_H));
+    c.set_screen_power(1.0);
+    c.set_screen_effect(ScreenEffect::Lcd3x);
+    let lcd = drawn_flat(&mut c, [90, 90, 90]);
+    let err = c.set_card_shader(Some(&card_shader("FragColor = not_a_function();")));
+    assert!(err.is_err(), "a broken shader was taken");
+    assert!(!c.card_shader());
+    assert_eq!(drawn_flat(&mut c, [90, 90, 90]), lcd);
+}
+
+#[test]
+fn a_card_shader_under_integer_scale_is_told_the_game_boys_own_size() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    c.fit((640, 480));
+    c.set_screen_power(1.0);
+    c.set_integer_scale(Some((GB_W as u32, GB_H as u32)));
+    c.set_card_shader(Some(&card_shader(
+        "FragColor = vec4(InputSize / 255.0, 0.0, 1.0);",
+    )))
+    .unwrap();
+    c.begin_frame();
+    c.upload_game(&flat_shot([0, 0, 0]));
+    c.draw_game();
+    let frame = c.read_frame();
+    let at = |x: usize, y: usize| {
+        let o = (y * 640 + x) * 4;
+        [frame[o], frame[o + 1], frame[o + 2]]
+    };
+    assert_eq!(at(320, 240), [GB_W as u8, GB_H as u8, 0]);
+    assert_eq!(
+        at(40, 240),
+        [0, 0, 0],
+        "the shader drew outside the 3x window"
+    );
+}

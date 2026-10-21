@@ -1079,7 +1079,10 @@ impl App {
             | QuickRow::ThisDefaults
             | QuickRow::IntegerGba
             | QuickRow::IntegerGb
-            | QuickRow::IntegerGbc => None,
+            | QuickRow::IntegerGbc
+            | QuickRow::CardShaderGba
+            | QuickRow::CardShaderGb
+            | QuickRow::CardShaderGbc => None,
         }
     }
 
@@ -2649,7 +2652,10 @@ impl App {
             | QuickRow::ThisDefaults
             | QuickRow::IntegerGba
             | QuickRow::IntegerGb
-            | QuickRow::IntegerGbc => {}
+            | QuickRow::IntegerGbc
+            | QuickRow::CardShaderGba
+            | QuickRow::CardShaderGb
+            | QuickRow::CardShaderGbc => {}
         }
     }
 
@@ -2833,7 +2839,10 @@ impl App {
             | QuickRow::ThisDefaults
             | QuickRow::IntegerGba
             | QuickRow::IntegerGb
-            | QuickRow::IntegerGbc => return,
+            | QuickRow::IntegerGbc
+            | QuickRow::CardShaderGba
+            | QuickRow::CardShaderGb
+            | QuickRow::CardShaderGbc => return,
         }
         self.persist();
     }
@@ -3709,6 +3718,7 @@ impl App {
                 row: *row,
                 hidden: &self.hidden_rows(),
                 bound: Some(&self.bound_faces()),
+                named: Some(self.named_faces()),
                 description: self.description(*row),
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
                 clock: self.quick_clock_faces,
@@ -3850,6 +3860,7 @@ impl App {
             QuickMenu {
                 row,
                 bound: Some(&bound),
+                named: Some(self.named_faces()),
                 description: self.description(row),
                 hidden: &hidden,
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),

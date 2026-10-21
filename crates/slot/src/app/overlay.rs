@@ -22,6 +22,8 @@ pub struct Overlays {
     details_legend: Option<[(TexId, u32); 2]>,
     /// The About sticker's own size, when it is not upstream's: the RG35XX Pro's is taller.
     sticker_size: Option<(u32, u32)>,
+    /// Menu values made of run-time text, one per row in `QuickRow::ALL`, dim and lit.
+    named: Vec<Option<slot_ui::FacePair>>,
 }
 
 impl Overlay {
@@ -45,6 +47,14 @@ impl App {
 
     pub fn set_overlay_faces(&mut self, faces: Vec<ListRowFaces>) {
         self.overlay.faces = faces;
+    }
+
+    pub fn set_named_faces(&mut self, faces: Vec<Option<slot_ui::FacePair>>) {
+        self.overlay.named = faces;
+    }
+
+    pub(super) fn named_faces(&self) -> &[Option<slot_ui::FacePair>] {
+        &self.overlay.named
     }
 
     pub fn set_sticker_size(&mut self, size: (u32, u32)) {
