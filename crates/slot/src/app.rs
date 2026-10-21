@@ -32,6 +32,7 @@ use crate::video_mode::{self, VideoMode};
 mod battery;
 mod extras;
 mod overlay;
+mod profile;
 pub use extras::StartShelf;
 use slot_store::{
     read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
@@ -458,6 +459,7 @@ pub struct App {
     /// A clamshell, whose sleep is the lid's. Without one, sleep is the power button's.
     lid: bool,
     battery_warned: battery::Warned,
+    profiles: slot_store::GameProfiles,
 }
 
 const FACE_AHEAD: i32 = 8;
@@ -517,6 +519,7 @@ impl App {
             overlay: overlay::Overlays::default(),
             lid: true,
             battery_warned: battery::Warned::default(),
+            profiles: slot_store::GameProfiles::default(),
             phase: Phase::Shelf,
             shelves,
             shelf_at,
@@ -652,6 +655,7 @@ impl App {
         app.shortcuts = read_shortcuts(root);
         app.controls = read_controls(root);
         app.load_extras(root);
+        app.load_profiles(root);
         app.restock_recents();
         app.restock_favorites();
         app.restore_shelf_marks();
@@ -958,7 +962,7 @@ impl App {
     }
 
     pub fn quick_value(&self, row: QuickRow) -> Option<QuickValue> {
-        if let Some(value) = self.extras_value(row) {
+        if let Some(value) = self.extras_value(row).or_else(|| self.profile_value(row)) {
             return value;
         }
         match row {
@@ -1065,7 +1069,13 @@ impl App {
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
             | QuickRow::BatteryBadge
-            | QuickRow::FastForwardPitch => None,
+            | QuickRow::FastForwardPitch
+            | QuickRow::PlayThisGame
+            | QuickRow::ThisShader
+            | QuickRow::ThisColour
+            | QuickRow::ThisFfSpeed
+            | QuickRow::ThisFfSound
+            | QuickRow::ThisDefaults => None,
         }
     }
 
@@ -2074,14 +2084,17 @@ impl App {
     }
 
     pub fn ff_speed(&self) -> u8 {
-        self.state.ff_speed
+        self.game_profile().ff_speed.unwrap_or(self.state.ff_speed)
     }
 
     pub fn ff_sound(&self) -> bool {
-        self.state.ff_sound
+        self.game_profile().ff_sound.unwrap_or(self.state.ff_sound)
     }
 
     pub fn screen_shader(&self) -> Shader {
+        if let Some(own) = self.game_profile().shader {
+            return own;
+        }
         match self.playing_platform() {
             Platform::Gba => self.state.shader_gba,
             Platform::Gb => self.state.shader_gb,
@@ -2098,6 +2111,9 @@ impl App {
     }
 
     pub fn colour_correction_for(&self, platform: Platform) -> bool {
+        if let Some(own) = self.own_colour_for(platform) {
+            return own;
+        }
         match platform {
             Platform::Gba => self.state.colour_correction_gba,
             Platform::Gb => self.state.colour_correction_gb,
@@ -2619,13 +2635,19 @@ impl App {
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
             | QuickRow::BatteryBadge
-            | QuickRow::FastForwardPitch => {}
+            | QuickRow::FastForwardPitch
+            | QuickRow::PlayThisGame
+            | QuickRow::ThisShader
+            | QuickRow::ThisColour
+            | QuickRow::ThisFfSpeed
+            | QuickRow::ThisFfSound
+            | QuickRow::ThisDefaults => {}
         }
     }
 
     fn change_setting(&mut self, row: QuickRow, right: bool) {
         let row = self.playing_row(row);
-        if self.change_extra(row, right) {
+        if self.change_extra(row, right) || self.change_profile(row, right) {
             return;
         }
         if row == QuickRow::Palette {
@@ -2794,7 +2816,13 @@ impl App {
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
             | QuickRow::BatteryBadge
-            | QuickRow::FastForwardPitch => return,
+            | QuickRow::FastForwardPitch
+            | QuickRow::PlayThisGame
+            | QuickRow::ThisShader
+            | QuickRow::ThisColour
+            | QuickRow::ThisFfSpeed
+            | QuickRow::ThisFfSound
+            | QuickRow::ThisDefaults => return,
         }
         self.persist();
     }
@@ -2806,6 +2834,9 @@ impl App {
 
     fn step_shader(&mut self, right: bool) {
         if !matches!(self.phase, Phase::Inserting { .. } | Phase::Playing { .. }) {
+            return;
+        }
+        if self.shortcut_own_shader(right) {
             return;
         }
         let (shader, choices) = match self.playing_platform() {

@@ -211,7 +211,8 @@ fn the_in_game_settings_have_no_save_changes_page() {
         [
             QuickRow::PlayScreen,
             QuickRow::PlayGameplay,
-            QuickRow::PlayControls
+            QuickRow::PlayControls,
+            QuickRow::PlayThisGame
         ]
     );
 }

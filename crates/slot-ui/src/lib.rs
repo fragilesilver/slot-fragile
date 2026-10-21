@@ -22,6 +22,7 @@ mod plate;
 mod polaroids;
 mod power_menu;
 mod quick_menu;
+mod quick_menu_extras;
 mod rebuild;
 mod refusal;
 mod shelf;

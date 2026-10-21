@@ -92,10 +92,16 @@ pub enum QuickRow {
     SleepOff,
     BatteryBadge,
     FastForwardPitch,
+    PlayThisGame,
+    ThisShader,
+    ThisColour,
+    ThisFfSpeed,
+    ThisFfSound,
+    ThisDefaults,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 80] = [
+    pub const ALL: [QuickRow; 86] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -177,6 +183,12 @@ impl QuickRow {
         QuickRow::SleepOff,
         QuickRow::BatteryBadge,
         QuickRow::FastForwardPitch,
+        QuickRow::PlayThisGame,
+        QuickRow::ThisShader,
+        QuickRow::ThisColour,
+        QuickRow::ThisFfSpeed,
+        QuickRow::ThisFfSound,
+        QuickRow::ThisDefaults,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -285,10 +297,11 @@ impl QuickRow {
         QuickRow::ExitGame,
     ];
 
-    pub const SETTINGS: [QuickRow; 3] = [
+    pub const SETTINGS: [QuickRow; 4] = [
         QuickRow::PlayScreen,
         QuickRow::PlayGameplay,
         QuickRow::PlayControls,
+        QuickRow::PlayThisGame,
     ];
 
     pub const PLAY_SCREEN: [QuickRow; 4] = [
@@ -341,9 +354,15 @@ impl QuickRow {
             QuickRow::Resume | QuickRow::States | QuickRow::Settings | QuickRow::ExitGame => {
                 &QuickRow::PLAY
             }
-            QuickRow::PlayScreen | QuickRow::PlayGameplay | QuickRow::PlayControls => {
-                &QuickRow::SETTINGS
-            }
+            QuickRow::PlayScreen
+            | QuickRow::PlayGameplay
+            | QuickRow::PlayControls
+            | QuickRow::PlayThisGame => &QuickRow::SETTINGS,
+            QuickRow::ThisShader
+            | QuickRow::ThisColour
+            | QuickRow::ThisFfSpeed
+            | QuickRow::ThisFfSound
+            | QuickRow::ThisDefaults => &QuickRow::THIS_GAME,
             r if r.game_button().is_some() => &QuickRow::CONTROLS,
             r if r.shortcut().is_some() => &QuickRow::SHORTCUTS,
             r if r.carousel_action().is_some() => &QuickRow::SHELF_KEYS,
@@ -363,6 +382,7 @@ impl QuickRow {
             QuickRow::FastForward => Some(QuickRow::Game),
             QuickRow::PlayScreen => Some(QuickRow::Settings),
             QuickRow::Shader => Some(QuickRow::PlayScreen),
+            QuickRow::ThisShader => Some(QuickRow::PlayThisGame),
             QuickRow::GameUp => Some(QuickRow::ControlsInGame),
             QuickRow::ScSave => Some(QuickRow::Shortcuts),
             QuickRow::Theme => Some(QuickRow::General),
@@ -399,6 +419,7 @@ impl QuickRow {
             QuickRow::PlayScreen => Some(QuickRow::PLAY_SCREEN[0]),
             QuickRow::PlayGameplay => Some(QuickRow::GAME[0]),
             QuickRow::PlayControls => Some(QuickRow::CONTROLS[0]),
+            QuickRow::PlayThisGame => Some(QuickRow::THIS_GAME[0]),
             QuickRow::Shortcuts => Some(QuickRow::SHORTCUTS[0]),
             QuickRow::General => Some(QuickRow::GENERAL[0]),
             QuickRow::Controls => Some(QuickRow::CONTROL_PAGES[0]),
@@ -455,6 +476,12 @@ impl QuickRow {
             QuickRow::SleepOff => "Sleep Power Off",
             QuickRow::BatteryBadge => "Battery Badge",
             QuickRow::FastForwardPitch => "Fast Forward Pitch",
+            QuickRow::PlayThisGame => "This Game",
+            QuickRow::ThisShader => "Shader",
+            QuickRow::ThisColour => "Color Correction",
+            QuickRow::ThisFfSpeed => "Fast Forward",
+            QuickRow::ThisFfSound => "Fast Forward Sound",
+            QuickRow::ThisDefaults => "Use Defaults",
             QuickRow::ShowTitles => "Game Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
@@ -546,6 +573,12 @@ impl QuickRow {
             QuickRow::SleepOff => "Power off after sleeping this long.",
             QuickRow::BatteryBadge => "Show the battery in a corner while you play.",
             QuickRow::FastForwardPitch => "Fast forward sound keeps its normal pitch.",
+            QuickRow::PlayThisGame => "Settings this game keeps for itself.",
+            QuickRow::ThisShader => "Screen effect for this game only.",
+            QuickRow::ThisColour => "Color correction for this game only.",
+            QuickRow::ThisFfSpeed => "Fast forward speed for this game only.",
+            QuickRow::ThisFfSound => "Fast forward sound for this game only.",
+            QuickRow::ThisDefaults => "On: this game follows the settings menu.",
             QuickRow::ShowTitles => "Show the game name above the cart.",
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
             QuickRow::DateTime => "Set the clock.",
@@ -586,6 +619,7 @@ impl QuickRow {
                 | QuickRow::ControlsShelf
                 | QuickRow::ControlsInGame
                 | QuickRow::PlayControls
+                | QuickRow::PlayThisGame
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba
                 | QuickRow::ScreenGbc

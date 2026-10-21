@@ -218,3 +218,42 @@ fn the_battery_badge_draws_in_the_bottom_right_of_a_game() {
         .count();
     assert!(white > 60, "no badge in the corner: {white} white pixels");
 }
+
+#[test]
+fn the_this_game_page_renders_over_the_game() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 4.0);
+    tap(&mut f, &mut input, Btn::Menu);
+    run_for(&mut f, &mut input, 0.5);
+    for btn in [Btn::Down, Btn::Down, Btn::A] {
+        tap(&mut f, &mut input, btn);
+    }
+    run_for(&mut f, &mut input, 0.2);
+    composed(&mut f, &mut c, "settings");
+    for btn in [Btn::Down, Btn::Down, Btn::Down, Btn::A] {
+        tap(&mut f, &mut input, btn);
+    }
+    run_for(&mut f, &mut input, 0.3);
+    assert_eq!(f.app().in_game_menu(), Some(QuickRow::ThisShader));
+    let px = composed(&mut f, &mut c, "this-game");
+    let row = quick_row_top(QuickRow::ThisShader, &f.app().in_game_hidden()) as usize;
+    let ink = (row..row + 40)
+        .flat_map(|y| (64..400).map(move |x| (x, y)))
+        .filter(|&(x, y)| at(&px, x, y).iter().map(|c| u32::from(*c)).sum::<u32>() > 600)
+        .count();
+    assert!(
+        ink > 100,
+        "no Shader label on This Game: {ink} bright pixels"
+    );
+}

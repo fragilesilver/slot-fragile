@@ -86,7 +86,26 @@ Phase 1 is done.
   it carries upstream's credits said shorter, the copyright, and "Fork in Brunei Darussalam
   by a cat in pink headphone". About draws the sticker at the face's own size.
 
-Next is Phase 3 (per-game tuning, FF pitch, battery) in `FRAGILE_PLAN.md`.
+## Phase 3 (done 2026-10-21)
+
+- Battery (`app/battery.rs`): a banner at 15% and again at 10% (marghost's levels and tests),
+  reset by charging and never shown while asleep; upstream still powers off at 5%. General →
+  Battery Badge (`battery_badge`, off by default) draws upstream's gauge bottom right while a
+  game plays with no menu up. The two banners come after all of upstream's in `Toast::all`.
+- Fast forward pitch: `slot/src/pitch.rs` (marghost's WSOLA stretch, unchanged) sits before the
+  resampler in `emu.rs` when fast forward has sound and Gameplay → Fast Forward Pitch
+  (`ff_pitch`) is on. `tests/emu.rs` measures 440 Hz kept at 4x through the real loop.
+- Per-game settings: `slot-store/src/game_profile.rs` (suprsomething's store, per-platform
+  defaults, plus `clear`) in `Config/game_profiles.txt`, and `app/profile.rs`. In game,
+  Settings → This Game (`quick_menu_extras.rs`) sets Shader, Color Correction, Fast Forward and
+  its sound for the seated game, and Use Defaults clears them. The live values go through
+  `ff_speed`, `ff_sound`, `screen_shader` and `colour_correction_for`. Once a game keeps its own
+  value, the in-game Screen/Gameplay rows and the shader and colour shortcuts change that value,
+  not the menu default. A game without its own leaves upstream's behaviour as it was.
+- Upstream tests changed only where a page grew: the Gameplay labels, the Settings rows, and
+  the list of rows that open.
+
+Next is Phase 4 (screen extras) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

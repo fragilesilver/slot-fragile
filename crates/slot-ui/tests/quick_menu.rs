@@ -157,7 +157,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::Shortcuts,
             QuickRow::Controls,
             QuickRow::ControlsShelf,
-            QuickRow::ControlsInGame
+            QuickRow::ControlsInGame,
+            QuickRow::PlayThisGame
         ]
     );
     for page in [
@@ -335,7 +336,7 @@ fn the_in_game_pages_hold_their_rows_in_order() {
     );
     assert_eq!(
         QuickRow::SETTINGS.map(QuickRow::label),
-        ["Screen", "Gameplay", "Controls"]
+        ["Screen", "Gameplay", "Controls", "This Game"]
     );
     assert_eq!(
         QuickRow::CONTROLS.map(QuickRow::label),
