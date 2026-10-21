@@ -263,8 +263,10 @@ Four commits, each with the suite green; no behaviour change for GB, GBC or GBA.
 - Pinned to releases at least two weeks old: rustls 0.23.45, rustls-webpki 0.103.15,
   webpki-roots 1.0.9 (newer ones were days old).
 - Device: the TLS stack (ring, rustls, ureq) and a cc-built C object were cross-built in the
-  same arm64 container the device build uses and the binary ran there; see the Phase 10 device
-  build note below for the full build.
+  same arm64 container the device build uses and the binary ran there. Then `task build:device`
+  ran in full on this PC for the first time (Docker `rust:1-bullseye` under qemu, 23 minutes):
+  `target-device/device/slot`, aarch64, 8.7 MB. Docker leaves `target-device/` owned by root.
+  The cores and fsck are not built yet (`task core:device`, `core:gpsp`, `fsck:exfat`).
 - Not run on the device yet: signing in, a game being recognised, an unlock arriving.
 - Upstream tests changed: the PLAY page rows, the opening rows list, the in-game hidden rows.
 
