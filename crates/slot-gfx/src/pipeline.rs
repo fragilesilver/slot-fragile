@@ -32,6 +32,9 @@ pub struct GamePass {
     /// Pixels kept for the carousel footer. The picture scales in the space above them.
     bottom: f32,
     src: [f32; 4],
+    /// The picture's own part of the texture, when it is drawn at a whole multiple: the quad
+    /// fills a viewport cut to fit it, so nothing else is sampled and no footer squeezes it.
+    integer: Option<[f32; 4]>,
 }
 
 impl GamePass {
@@ -91,6 +94,7 @@ impl GamePass {
             fills: false,
             bottom: 0.0,
             src: WHOLE_TEXTURE,
+            integer: None,
         })
     }
 
@@ -152,6 +156,15 @@ impl GamePass {
         self.src = rect;
     }
 
+    /// Draws only a `picture`-sized part of the texture, centred in it, or `None` for the band.
+    pub fn set_integer(&mut self, picture: Option<(u32, u32)>) {
+        self.integer = picture.map(|(w, h)| {
+            let (sw, sh) = (SRC_W as f32, SRC_H as f32);
+            let (w, h) = (w.min(SRC_W) as f32, h.min(SRC_H) as f32);
+            [(sw - w) / 2.0 / sw, (sh - h) / 2.0 / sh, w / sw, h / sh]
+        });
+    }
+
     pub fn upload(&mut self, xrgb8888: &[u8]) {
         if xrgb8888.len() < (SRC_W * SRC_H * 4) as usize {
             return;
@@ -174,6 +187,9 @@ impl GamePass {
     }
 
     pub fn draw(&self, quad: &Quad) {
+        if let Some(src) = self.integer {
+            return self.draw_whole(self.game, quad, src);
+        }
         let src = match self.effect {
             ScreenEffect::Grid => whole_scale_source(self.src, self.fbo_scale),
             _ => self.src,
@@ -183,6 +199,19 @@ impl GamePass {
 
     pub fn draw_still(&self, tex: gl::types::GLuint, quad: &Quad) {
         self.draw_source(tex, quad, WHOLE_TEXTURE);
+    }
+
+    /// The picture alone across the whole viewport, at full brightness once the screen is on.
+    fn draw_whole(&self, tex: gl::types::GLuint, quad: &Quad, src: [f32; 4]) {
+        let whole = [src[0], src[1], src[0] + src[2], src[1] + src[3]];
+        self.draw_at(
+            tex,
+            quad,
+            (0.0, 0.0, OUT_W as f32, OUT_H as f32),
+            src,
+            screen_brightness(self.power),
+            whole,
+        );
     }
 
     fn draw_source(&self, tex: gl::types::GLuint, quad: &Quad, src: [f32; 4]) {
@@ -198,6 +227,18 @@ impl GamePass {
         if self.bottom > 0.0 {
             src[3] *= (OUT_H as f32 - self.bottom) / OUT_H as f32;
         }
+        self.draw_at(tex, quad, (x, y, w, h), src, bright, self.pic);
+    }
+
+    fn draw_at(
+        &self,
+        tex: gl::types::GLuint,
+        quad: &Quad,
+        (x, y, w, h): (f32, f32, f32, f32),
+        src: [f32; 4],
+        bright: f32,
+        pic: [f32; 4],
+    ) {
         unsafe {
             gl::UseProgram(self.prog);
             gl::Uniform4f(self.u_rect, x, y, w, h);
@@ -207,13 +248,7 @@ impl GamePass {
             gl::Uniform1f(self.u_paper_size, self.paper_size);
             gl::Uniform2f(self.u_fbo, self.fbo_scale[0], self.fbo_scale[1]);
             gl::Uniform2f(self.u_origin, self.origin[0], self.origin[1]);
-            gl::Uniform4f(
-                self.u_pic,
-                self.pic[0],
-                self.pic[1],
-                self.pic[2],
-                self.pic[3],
-            );
+            gl::Uniform4f(self.u_pic, pic[0], pic[1], pic[2], pic[3]);
             gl::ActiveTexture(gl::TEXTURE1);
             gl::BindTexture(gl::TEXTURE_2D, self.paper);
             gl::ActiveTexture(gl::TEXTURE0);

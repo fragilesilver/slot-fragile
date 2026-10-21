@@ -98,10 +98,13 @@ pub enum QuickRow {
     ThisFfSpeed,
     ThisFfSound,
     ThisDefaults,
+    IntegerGba,
+    IntegerGb,
+    IntegerGbc,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 86] = [
+    pub const ALL: [QuickRow; 89] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -189,6 +192,9 @@ impl QuickRow {
         QuickRow::ThisFfSpeed,
         QuickRow::ThisFfSound,
         QuickRow::ThisDefaults,
+        QuickRow::IntegerGba,
+        QuickRow::IntegerGb,
+        QuickRow::IntegerGbc,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -260,23 +266,26 @@ impl QuickRow {
     pub const SCREEN: [QuickRow; 3] =
         [QuickRow::ScreenGba, QuickRow::ScreenGbc, QuickRow::ScreenGb];
 
-    pub const SCREEN_GBA: [QuickRow; 3] = [
+    pub const SCREEN_GBA: [QuickRow; 4] = [
         QuickRow::GbaShader,
         QuickRow::GbaColourCorrection,
         QuickRow::GbaBezel,
+        QuickRow::IntegerGba,
     ];
 
-    pub const SCREEN_GBC: [QuickRow; 3] = [
+    pub const SCREEN_GBC: [QuickRow; 4] = [
         QuickRow::GbcShader,
         QuickRow::GbcColourCorrection,
         QuickRow::GbcBezel,
+        QuickRow::IntegerGbc,
     ];
 
-    pub const SCREEN_GB: [QuickRow; 4] = [
+    pub const SCREEN_GB: [QuickRow; 5] = [
         QuickRow::GbShader,
         QuickRow::GbColourCorrection,
         QuickRow::GbPalettes,
         QuickRow::GbBezel,
+        QuickRow::IntegerGb,
     ];
 
     pub const GAME: [QuickRow; 8] = [
@@ -318,16 +327,19 @@ impl QuickRow {
     pub fn page(self) -> &'static [QuickRow] {
         match self {
             QuickRow::ScreenGba | QuickRow::ScreenGbc | QuickRow::ScreenGb => &QuickRow::SCREEN,
-            QuickRow::GbaShader | QuickRow::GbaColourCorrection | QuickRow::GbaBezel => {
-                &QuickRow::SCREEN_GBA
-            }
-            QuickRow::GbcShader | QuickRow::GbcColourCorrection | QuickRow::GbcBezel => {
-                &QuickRow::SCREEN_GBC
-            }
+            QuickRow::GbaShader
+            | QuickRow::GbaColourCorrection
+            | QuickRow::GbaBezel
+            | QuickRow::IntegerGba => &QuickRow::SCREEN_GBA,
+            QuickRow::GbcShader
+            | QuickRow::GbcColourCorrection
+            | QuickRow::GbcBezel
+            | QuickRow::IntegerGbc => &QuickRow::SCREEN_GBC,
             QuickRow::GbShader
             | QuickRow::GbColourCorrection
             | QuickRow::GbPalettes
-            | QuickRow::GbBezel => &QuickRow::SCREEN_GB,
+            | QuickRow::GbBezel
+            | QuickRow::IntegerGb => &QuickRow::SCREEN_GB,
             QuickRow::FastForward
             | QuickRow::FastForwardSound
             | QuickRow::Rewind
@@ -482,6 +494,7 @@ impl QuickRow {
             QuickRow::ThisFfSpeed => "Fast Forward",
             QuickRow::ThisFfSound => "Fast Forward Sound",
             QuickRow::ThisDefaults => "Use Defaults",
+            QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => "Integer Scale",
             QuickRow::ShowTitles => "Game Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
@@ -579,6 +592,9 @@ impl QuickRow {
             QuickRow::ThisFfSpeed => "Fast forward speed for this game only.",
             QuickRow::ThisFfSound => "Fast forward sound for this game only.",
             QuickRow::ThisDefaults => "On: this game follows the settings menu.",
+            QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => {
+                "Whole pixels on 4:3 screens, with a border."
+            }
             QuickRow::ShowTitles => "Show the game name above the cart.",
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
             QuickRow::DateTime => "Set the clock.",

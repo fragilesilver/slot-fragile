@@ -383,6 +383,7 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
         QuickRow::GbColourCorrection,
         QuickRow::GbPalettes,
         QuickRow::GbBezel,
+        QuickRow::IntegerGb,
         QuickRow::GbShader,
     ] {
         press(&mut a, Btn::Down);
@@ -1213,7 +1214,7 @@ fn a_wide_panel_offers_gb_and_gbc_frames_from_none_through_the_card() {
     );
     assert_eq!(a.resolved_bezel(Platform::Gb), BezelPick::None);
     press(&mut a, Btn::Down);
-    assert_eq!(a.quick_menu(), Some(QuickRow::GbcShader));
+    assert_eq!(a.quick_menu(), Some(QuickRow::IntegerGbc));
     assert!(!a.sp_frame());
 }
 

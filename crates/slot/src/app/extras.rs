@@ -217,7 +217,7 @@ impl App {
                 true => QuickValue::Hour12,
                 false => QuickValue::Hour24,
             })),
-            _ => None,
+            _ => self.screen_value(row),
         }
     }
 
@@ -260,6 +260,7 @@ impl App {
                 let text = to.map_or("never".to_string(), |m| m.to_string());
                 self.extras.set(SLEEP_OFF, Some(&text));
             }
+            _ if self.change_screen(row) => {}
             _ => return false,
         }
         self.save_extras();

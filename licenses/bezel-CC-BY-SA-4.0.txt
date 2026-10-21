@@ -10,3 +10,19 @@ https://creativecommons.org/licenses/by-sa/4.0/
 
 Changes: scaled from 1024x768 to 640x480, and the logo recoloured to a flat silver.
 This adapted image is shared under the same license.
+
+Bezels/GB/Classic.png, Bezels/GB/Classic 3x.png, Bezels/GBC/Classic.png, Bezels/GBC/Classic 3x.png
+(the "Classic" GB and GBC bezels on the card, from marghost/slot_modded@a78747c)
+
+"Perfect DMG-EX (no grid)" and "Perfect GBC (no grid)" by mugwomp93
+https://github.com/mugwomp93/Knulli_Customization
+as collected in knulli-bezels by chrizzo-hb (default-knulli gb-4_3, gbc-4_3)
+https://github.com/chrizzo-hb/knulli-bezels
+
+Licensed under the Creative Commons Attribution-ShareAlike 4.0 International License
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Changes, by marghost: scaled from 1024x768 to 640x480, the screen window resized to slot's game
+picture (x107-533, y49-432; for the 3x versions the 480x432 Integer Scale picture), the POWER
+light and logo moved into the wider side margins, and the window shadow redrawn on all four
+edges. These adapted images are shared under the same license.

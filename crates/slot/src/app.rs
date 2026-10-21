@@ -33,6 +33,7 @@ mod battery;
 mod extras;
 mod overlay;
 mod profile;
+mod screen;
 pub use extras::StartShelf;
 use slot_store::{
     read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
@@ -1075,7 +1076,10 @@ impl App {
             | QuickRow::ThisColour
             | QuickRow::ThisFfSpeed
             | QuickRow::ThisFfSound
-            | QuickRow::ThisDefaults => None,
+            | QuickRow::ThisDefaults
+            | QuickRow::IntegerGba
+            | QuickRow::IntegerGb
+            | QuickRow::IntegerGbc => None,
         }
     }
 
@@ -1157,6 +1161,7 @@ impl App {
 
     pub fn sp_frame(&self) -> bool {
         self.resolved_bezel(self.playing_platform()) == BezelPick::Ags102
+            && self.integer_picture().is_none()
     }
 
     pub fn set_game_bezel(&mut self, tex: Option<TexId>) {
@@ -2641,7 +2646,10 @@ impl App {
             | QuickRow::ThisColour
             | QuickRow::ThisFfSpeed
             | QuickRow::ThisFfSound
-            | QuickRow::ThisDefaults => {}
+            | QuickRow::ThisDefaults
+            | QuickRow::IntegerGba
+            | QuickRow::IntegerGb
+            | QuickRow::IntegerGbc => {}
         }
     }
 
@@ -2822,7 +2830,10 @@ impl App {
             | QuickRow::ThisColour
             | QuickRow::ThisFfSpeed
             | QuickRow::ThisFfSound
-            | QuickRow::ThisDefaults => return,
+            | QuickRow::ThisDefaults
+            | QuickRow::IntegerGba
+            | QuickRow::IntegerGb
+            | QuickRow::IntegerGbc => return,
         }
         self.persist();
     }

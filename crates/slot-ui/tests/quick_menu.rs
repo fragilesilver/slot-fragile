@@ -112,15 +112,21 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SCREEN_GBA.map(QuickRow::label),
-        ["Shader", "Color Correction", "Bezel"]
+        ["Shader", "Color Correction", "Bezel", "Integer Scale"]
     );
     assert_eq!(
         QuickRow::SCREEN_GBC.map(QuickRow::label),
-        ["Shader", "Color Correction", "Bezel"]
+        ["Shader", "Color Correction", "Bezel", "Integer Scale"]
     );
     assert_eq!(
         QuickRow::SCREEN_GB.map(QuickRow::label),
-        ["Shader", "Color Correction", "Palettes", "Bezel"]
+        [
+            "Shader",
+            "Color Correction",
+            "Palettes",
+            "Bezel",
+            "Integer Scale"
+        ]
     );
     assert_eq!(
         QuickRow::GAME.map(QuickRow::label),

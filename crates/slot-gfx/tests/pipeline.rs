@@ -781,3 +781,80 @@ fn the_dot_shader_keeps_a_white_screen_a_little_over_half_lit() {
         "a white cell averages {mean} under the dot shader"
     );
 }
+
+#[test]
+fn integer_scale_draws_each_game_boy_pixel_as_a_3x3_block_centred_on_a_4_by_3_panel() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    const MARGIN: [u8; 3] = [0, 255, 255];
+    let colour = |x: usize, y: usize| [x as u8, y as u8, 200];
+    c.fit((640, 480));
+    c.set_screen_effect(ScreenEffect::None);
+    c.set_screen_power(1.0);
+    c.set_integer_scale(Some((GB_W as u32, GB_H as u32)));
+    c.begin_frame();
+    c.upload_game(&gb_shaped(colour, MARGIN));
+    c.draw_game();
+    let frame = c.read_frame();
+    let at = |x: usize, y: usize| {
+        let o = (y * 640 + x) * 4;
+        [frame[o], frame[o + 1], frame[o + 2]]
+    };
+    let (left, top) = ((640 - 3 * GB_W) / 2, (480 - 3 * GB_H) / 2);
+    assert_eq!((left, top), (80, 24));
+    for gy in (0..GB_H).step_by(7) {
+        for gx in (0..GB_W).step_by(5) {
+            for (dx, dy) in [(0, 0), (2, 0), (0, 2), (2, 2), (1, 1)] {
+                let (x, y) = (left + 3 * gx + dx, top + 3 * gy + dy);
+                assert_eq!(at(x, y), colour(gx, gy), "game pixel {gx},{gy} at {x},{y}");
+            }
+        }
+    }
+    for (x, y) in [
+        (left - 1, 240),
+        (left + 3 * GB_W, 240),
+        (320, top - 1),
+        (320, top + 3 * GB_H),
+    ] {
+        assert_eq!(
+            at(x, y),
+            [0, 0, 0],
+            "{x},{y} outside the picture is not black"
+        );
+    }
+    let margin = (0..480).any(|y| (0..640).any(|x| at(x, y) == MARGIN));
+    assert!(!margin, "the texture's margin round the picture was drawn");
+
+    c.set_integer_scale(None);
+    c.begin_frame();
+    c.upload_game(&gb_shaped(colour, MARGIN));
+    c.draw_game();
+    let band = c.read_frame();
+    let o = (240 * 640 + 81) * 4;
+    assert_ne!(
+        [band[o], band[o + 1], band[o + 2]],
+        colour(0, (240 - 24) / 3),
+        "turning it off left the 3x picture"
+    );
+}
+
+#[test]
+fn integer_scale_does_nothing_on_a_3_by_2_panel() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    let shot = flat_shot([0x80, 0x40, 0x20]);
+    let mut frame = |integer: Option<(u32, u32)>| {
+        c.fit((OUT_W, OUT_H));
+        c.set_screen_effect(ScreenEffect::None);
+        c.set_screen_power(1.0);
+        c.set_integer_scale(integer);
+        c.begin_frame();
+        c.upload_game(&shot);
+        c.draw_game();
+        c.read_frame()
+    };
+    let band = frame(None);
+    assert_eq!(frame(Some((GB_W as u32, GB_H as u32))), band);
+}

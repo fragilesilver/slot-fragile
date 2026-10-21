@@ -572,6 +572,7 @@ impl Frontend {
         sync_game_bezel(self.session.app_mut(), compositor, &mut self.game_bezel);
         compositor.set_game_bezel(self.session.app().shown_game_bezel());
         compositor.set_sp_frame(self.session.app().sp_frame());
+        compositor.set_integer_scale(self.session.app().integer_picture());
         sync_core_picker(
             self.session.app_mut(),
             compositor,
@@ -1040,7 +1041,12 @@ fn sync_clock(app: &mut App, compositor: &mut Compositor, clocks: &mut Clocks) {
 
 fn sync_game_bezel(app: &mut App, compositor: &mut Compositor, state: &mut BezelSync) {
     let platform = app.playing_platform();
-    let pick = app.resolved_bezel(platform);
+    let pick = match (app.integer_picture(), app.root()) {
+        (Some(_), Some(root)) => {
+            crate::bezel::for_integer(root, platform, app.resolved_bezel(platform))
+        }
+        _ => app.resolved_bezel(platform),
+    };
     let (w, h) = app.game_bezel_size();
     let shown = (platform, pick, (w, h));
     if state.image.as_ref() != Some(&shown) {

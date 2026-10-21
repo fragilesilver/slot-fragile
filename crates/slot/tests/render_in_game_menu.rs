@@ -257,3 +257,62 @@ fn the_this_game_page_renders_over_the_game() {
         "no Shader label on This Game: {ink} bright pixels"
     );
 }
+
+#[test]
+fn a_game_boy_game_at_3x_sits_in_the_classic_3x_bezel_on_a_640_by_480_panel() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = common::tmp_root_with_gb_carts(&["Tetris", "Kirby"]);
+    clocked(d.path());
+    let card = common::repo_root().join("card/Bezels/GB");
+    for name in ["Classic.png", "Classic 3x.png"] {
+        std::fs::copy(card.join(name), d.path().join("Bezels/GB").join(name)).unwrap();
+    }
+    let mut s = slot_store::read_slot_state(d.path());
+    s.bezel_gb = slot_store::BezelPick::File("Classic.png".into());
+    slot_store::write_slot_state(d.path(), &s).unwrap();
+    let mut e = slot_store::read_extras(d.path());
+    e.set_flag("integer_gb", true);
+    slot_store::write_extras(d.path(), &e).unwrap();
+
+    let panel = (640, 480);
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    f.upload_bezel(&mut c, panel);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::A);
+    let until = Instant::now() + Duration::from_secs(4);
+    while Instant::now() < until {
+        f.advance(&mut input);
+        f.render(&mut c, panel);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert_eq!(f.app().integer_picture(), Some((160, 144)));
+    f.render(&mut c, panel);
+    let px = c.read_frame();
+    assert_eq!(c.frame_size(), panel);
+    if let Ok(dir) = std::env::var("SCRATCH_PNG_DIR") {
+        let path = format!("{dir}/integer-classic-gb.png");
+        let file = std::fs::File::create(&path).unwrap();
+        let mut enc = png::Encoder::new(std::io::BufWriter::new(file), panel.0, panel.1);
+        enc.set_color(png::ColorType::Rgba);
+        enc.set_depth(png::BitDepth::Eight);
+        enc.write_header().unwrap().write_image_data(&px).unwrap();
+    }
+    let at = |x: usize, y: usize| {
+        let o = (y * 640 + x) * 4;
+        [px[o], px[o + 1], px[o + 2]]
+    };
+    // The mock game's gradient lights the 480x432 window; the bezel's black frame is round it.
+    let lit = |x: usize, y: usize| at(x, y).iter().map(|c| u32::from(*c)).sum::<u32>() > 60;
+    assert!(lit(320, 240), "no game in the middle");
+    assert!(
+        lit(84, 240) && lit(555, 240),
+        "the game does not reach the 3x window's sides"
+    );
+    assert!(!lit(40, 20), "the bezel's corner is not drawn");
+}

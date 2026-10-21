@@ -32,6 +32,8 @@ pub struct Compositor {
     sprites: Sprites,
     game_bezel: Option<TexId>,
     sp_frame: bool,
+    /// A picture drawn at a whole multiple of its size on a 4:3 panel, or `None` for the band.
+    integer: Option<(u32, u32)>,
     turn: Option<Turn>,
 }
 
@@ -81,6 +83,7 @@ impl Compositor {
                 sprites: Sprites::new()?,
                 game_bezel: None,
                 sp_frame: true,
+                integer: None,
                 turn: None,
             })
         }
@@ -174,6 +177,21 @@ impl Compositor {
 
     pub fn set_sp_frame(&mut self, on: bool) {
         self.sp_frame = on;
+    }
+
+    /// Draws a `picture`-sized game at the largest whole multiple the panel holds, centred,
+    /// on a 4:3 panel; `None` for the band. Ideas from marghost/slot_modded@a78747c.
+    pub fn set_integer_scale(&mut self, picture: Option<(u32, u32)>) {
+        self.integer = picture;
+        self.game
+            .set_integer(picture.filter(|_| crate::bezel::framed(self.window)));
+    }
+
+    /// The game's viewport, bottom-up, when it is drawn at a whole multiple.
+    fn integer_viewport(&self) -> Option<(i32, i32, i32, i32)> {
+        let pic = self.integer.filter(|_| self.native())?;
+        let (x, top, w, h) = crate::bezel::integer_rect(self.window, pic);
+        Some((x, self.size.1 as i32 - top - h, w, h))
     }
 
     fn draw_game_bezel(&mut self) {
@@ -436,10 +454,15 @@ impl Compositor {
         if !self.native() {
             return draw(self);
         }
-        let (x, top, w, h) = crate::bezel::game_rect(self.window, self.sp_frame);
+        let (x, y, w, h) = match self.integer_viewport() {
+            Some(rect) => rect,
+            None => {
+                let (x, top, w, h) = crate::bezel::game_rect(self.window, self.sp_frame);
+                (x, self.size.1 as i32 - top - h, w, h)
+            }
+        };
         self.game
             .set_fbo_scale(w as f32 / OUT_W as f32, h as f32 / OUT_H as f32);
-        let y = self.size.1 as i32 - top - h;
         self.game.set_origin(x as f32, y as f32);
         unsafe { gl::Viewport(x, y, w, h) };
         draw(self);
