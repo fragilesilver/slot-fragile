@@ -19,6 +19,7 @@ fn pages() -> Vec<&'static [QuickRow]> {
         &QuickRow::SETTINGS,
         &QuickRow::PLAY_SCREEN,
         &QuickRow::THIS_GAME,
+        &QuickRow::NETWORK,
     ]
 }
 

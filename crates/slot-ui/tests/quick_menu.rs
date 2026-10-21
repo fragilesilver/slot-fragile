@@ -79,7 +79,7 @@ fn the_fast_forward_row_offers_the_four_ceilings_the_card_can_hold() {
 fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::MAIN.map(QuickRow::label),
-        ["General", "Screen", "Gameplay", "Controls", "About"]
+        ["General", "Screen", "Gameplay", "Controls", "Network", "About"]
     );
     assert_eq!(
         QuickRow::GENERAL.map(QuickRow::label),
@@ -189,7 +189,9 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::PlayThisGame,
             QuickRow::ControlsGuide,
             QuickRow::PlayGuide,
-            QuickRow::PlayCheats
+            QuickRow::PlayCheats,
+            QuickRow::Network,
+            QuickRow::WifiNetworks
         ]
     );
     for page in [

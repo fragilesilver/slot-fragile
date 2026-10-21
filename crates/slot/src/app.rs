@@ -33,6 +33,7 @@ mod battery;
 mod cheats;
 mod extras;
 mod guide;
+mod network;
 mod overlay;
 mod profile;
 mod screen;
@@ -666,6 +667,7 @@ impl App {
         app.shortcuts = read_shortcuts(root);
         app.controls = read_controls(root);
         app.load_extras(root);
+        app.start_network(root);
         app.load_profiles(root);
         app.restock_recents();
         app.restock_favorites();
@@ -1052,6 +1054,12 @@ impl App {
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
+            | QuickRow::Network
+            | QuickRow::WifiPower
+            | QuickRow::WifiNetworks
+            | QuickRow::WifiStatus
+            | QuickRow::WifiIp
+            | QuickRow::TimeSync
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
             | QuickRow::GameUp
@@ -2630,6 +2638,12 @@ impl App {
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
+            | QuickRow::Network
+            | QuickRow::WifiPower
+            | QuickRow::WifiNetworks
+            | QuickRow::WifiStatus
+            | QuickRow::WifiIp
+            | QuickRow::TimeSync
             | QuickRow::PlayControls
             | QuickRow::GameUp
             | QuickRow::GameDown
@@ -2821,6 +2835,12 @@ impl App {
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
+            | QuickRow::Network
+            | QuickRow::WifiPower
+            | QuickRow::WifiNetworks
+            | QuickRow::WifiStatus
+            | QuickRow::WifiIp
+            | QuickRow::TimeSync
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
             | QuickRow::GameUp
@@ -3108,6 +3128,7 @@ impl App {
 
     pub fn update(&mut self, dt: f32) {
         self.clock += dt as f64 * 1000.0;
+        self.network_tick();
         if self.name_pending && self.shelf_platform.face.is_some() {
             self.name_pending = false;
             self.shelf_named = Some(self.now());

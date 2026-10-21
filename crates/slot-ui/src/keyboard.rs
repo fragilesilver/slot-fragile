@@ -3,7 +3,7 @@
 
 use crate::draw::{Canvas, Draw, TexId, OUT_H};
 use crate::plate::{centred_hints, hint_face, title_face, word_face, UndoFace, HINT_H, LEGEND_GAP};
-use crate::power_menu::menu_face;
+use crate::power_menu::{menu_face, MENU_H, MENU_INK, MENU_PAD, MENU_PX};
 use crate::slot_chrome::{edge, opening, recess};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -262,10 +262,32 @@ pub fn keyboard_key_faces() -> Vec<UndoFace> {
     all_keys()
         .into_iter()
         .map(|k| match k {
-            Key::Char(_) => menu_face(&key_text(k)),
+            Key::Char(_) => cased_face(&key_text(k)),
             _ => word_face(&key_text(k)),
         })
         .collect()
+}
+
+/// A menu face that keeps the letters as typed, so a lower-case key and a password read true.
+/// The menu's own faces are all capitals. Fragile's.
+fn cased_face(text: &str) -> UndoFace {
+    let Some(font) = crate::text::label_font() else {
+        return menu_face(text);
+    };
+    let ink = crate::text::line_width(font, text, MENU_PX, 0.0).ceil() as u32;
+    let w = ink + 2 * MENU_PAD;
+    let mut rgba = vec![0u8; (w * MENU_H * 4) as usize];
+    let layout = crate::text::fit_box_cased(
+        font,
+        text,
+        w as f32,
+        MENU_H as f32,
+        1,
+        MENU_PX,
+        MENU_PX / 2.0,
+    );
+    crate::text::draw_centred(&mut rgba, w, MENU_H, &layout, MENU_INK);
+    UndoFace { rgba, w, h: MENU_H }
 }
 
 /// Type, Delete, Space, and the word for finishing, which the caller names.
@@ -280,7 +302,7 @@ pub fn keyboard_legend_faces(done: &str) -> Vec<UndoFace> {
 }
 
 pub fn keyboard_query_face(shown: &str) -> UndoFace {
-    menu_face(&format!("{shown}_"))
+    cased_face(&format!("{shown}_"))
 }
 
 pub fn keyboard_line_face(text: &str) -> UndoFace {

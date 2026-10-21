@@ -29,8 +29,18 @@ const SEARCH_AT: usize = FAVORITES_AT + 1;
 const NEW_LIST: &str = "New List";
 const LIST_NAME_MAX: usize = 24;
 
-/// The keyboard's keys, and its two sets of legends, drawn off the main thread.
-type Built = (Vec<UndoFace>, [Vec<UndoFace>; 2]);
+/// The keyboard's keys, its three sets of legends (search, a list's name, a network's
+/// password) and the Networks page's footer legends, drawn off the main thread.
+type Built = (Vec<UndoFace>, [Vec<UndoFace>; 3], Vec<UndoFace>);
+
+/// What the keyboard is typing now and how its page reads: the field, the line under it, the
+/// matches, and which legends.
+pub(super) struct Typing {
+    pub shown: String,
+    pub line: String,
+    pub matches: Vec<String>,
+    pub legend: usize,
+}
 
 #[derive(Default)]
 pub struct Collections {
@@ -44,9 +54,11 @@ pub struct Collections {
     names: Vec<&'static str>,
     faces: KeyboardFaces,
     /// The keyboard's legends for a search and for a list's name.
-    legends: [Vec<(TexId, u32)>; 2],
+    legends: [Vec<(TexId, u32)>; 3],
+    /// A Join and X Forget, dark then light.
+    pub(super) network_legends: Vec<(TexId, u32)>,
     building: Option<Receiver<Built>>,
-    faces_for: Option<(String, String, bool)>,
+    faces_for: Option<(String, String, usize)>,
     match_slots: Vec<Option<TexId>>,
     /// A plain shelf key also sends its button: the press that opened a page is not the
     /// page's.
@@ -353,6 +365,9 @@ fn make_list(app: &mut App) {
 }
 
 pub(super) fn draw(app: &App, out: &mut Vec<Draw>) {
+    if app.draw_network_keyboard(out) {
+        return;
+    }
     if !matches!(app.phase, Phase::Shelf) {
         return;
     }
@@ -398,12 +413,20 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                 let spawned = std::thread::Builder::new()
                     .name("slot-keyboard".into())
                     .spawn(move || {
+                        let network: Vec<UndoFace> = [false, true]
+                            .into_iter()
+                            .flat_map(|light| {
+                                slot_ui::network_legend_faces(slot_ui::footer_ink(light))
+                            })
+                            .collect();
                         let _ = tx.send((
                             slot_ui::keyboard_key_faces(),
                             [
                                 slot_ui::keyboard_legend_faces("Search"),
                                 slot_ui::keyboard_legend_faces("Make List"),
+                                slot_ui::keyboard_legend_faces("Join"),
                             ],
+                            network,
                         ));
                     });
                 if spawned.is_ok() {
@@ -411,7 +434,11 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                 }
             }
             Some(rx) => {
-                if let Ok((keys, legends)) = rx.try_recv() {
+                if let Ok((keys, legends, network)) = rx.try_recv() {
+                    c.network_legends = network
+                        .iter()
+                        .map(|f| (compositor.create_texture(f.w, f.h, &f.rgba), f.w))
+                        .collect();
                     c.faces.keys = keys
                         .iter()
                         .map(|f| (compositor.create_texture(f.w, f.h, &f.rgba), f.w, f.h))
@@ -426,30 +453,38 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
             }
         }
     }
-    let (shown, count, lines, naming) = match (&c.search, &c.naming) {
-        (Some(search), _) => (
-            search.keyboard.shown(),
-            search.count_text(),
-            search.shown(),
-            false,
-        ),
-        (None, Some((keyboard, _))) => (
-            keyboard.shown(),
-            "Name the new list".to_string(),
-            Vec::new(),
-            true,
-        ),
-        (None, None) => {
-            c.faces_for = None;
-            return;
-        }
+    let typing = match (&c.search, &c.naming) {
+        (Some(search), _) => Some(Typing {
+            shown: search.keyboard.shown(),
+            line: search.count_text(),
+            matches: search.shown(),
+            legend: 0,
+        }),
+        (None, Some((keyboard, _))) => Some(Typing {
+            shown: keyboard.shown(),
+            line: "Name the new list".to_string(),
+            matches: Vec::new(),
+            legend: 1,
+        }),
+        (None, None) => None,
     };
-    let wanted = (shown.clone(), count.clone(), naming);
+    let Some(Typing {
+        shown,
+        line: count,
+        matches: lines,
+        legend,
+    }) = typing.or_else(|| app.network_typing())
+    else {
+        app.overlay.shelves.faces_for = None;
+        return;
+    };
+    let c = &mut app.overlay.shelves;
+    let wanted = (shown.clone(), count.clone(), legend);
     if c.faces_for.as_ref() == Some(&wanted) {
         return;
     }
     c.faces_for = Some(wanted);
-    c.faces.legend = c.legends[naming as usize].clone();
+    c.faces.legend = c.legends[legend].clone();
     let query = slot_ui::keyboard_query_face(&shown);
     c.faces.query = Some(put(compositor, c.faces.query.map(|q| q.0), query));
     let count = slot_ui::keyboard_line_face(&count);
@@ -489,6 +524,11 @@ impl App {
 
     pub fn shelf_stems(&self) -> Vec<String> {
         self.shelf().carts.iter().map(|c| c.stem.clone()).collect()
+    }
+
+    /// The keyboard's faces, for every page that types: search, a list's name, a password.
+    pub(super) fn keyboard_faces(&self) -> &KeyboardFaces {
+        &self.overlay.shelves.faces
     }
 
     pub fn search(&self) -> Option<&Search> {

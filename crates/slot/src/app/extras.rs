@@ -131,10 +131,12 @@ impl App {
     /// The extras rows the carousel menu hides: a clamshell shows Lid Power Off and anything
     /// else Sleep Power Off. Neither is on an in-game page.
     pub(super) fn extras_hidden(&self) -> Vec<QuickRow> {
-        vec![match self.lid {
+        let mut hidden = vec![match self.lid {
             true => QuickRow::SleepOff,
             false => QuickRow::LidOff,
-        }]
+        }];
+        hidden.extend(self.network_hidden());
+        hidden
     }
 
     /// How long a doze lasts before the power goes off, or `None` to sleep until woken. With
@@ -217,6 +219,7 @@ impl App {
                 true => QuickValue::Hour12,
                 false => QuickValue::Hour24,
             })),
+            _ if self.network_value(row).is_some() => self.network_value(row),
             _ => self.screen_value(row),
         }
     }
@@ -261,6 +264,7 @@ impl App {
                 self.extras.set(SLEEP_OFF, Some(&text));
             }
             _ if self.change_screen(row, right) => {}
+            _ if self.change_network(row) => return true,
             _ => return false,
         }
         self.save_extras();

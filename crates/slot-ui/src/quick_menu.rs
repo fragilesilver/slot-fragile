@@ -112,10 +112,16 @@ pub enum QuickRow {
     ShelfSearch,
     ShelfAddToList,
     PlayCheats,
+    Network,
+    WifiPower,
+    WifiNetworks,
+    WifiStatus,
+    WifiIp,
+    TimeSync,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 100] = [
+    pub const ALL: [QuickRow; 106] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -217,13 +223,21 @@ impl QuickRow {
         QuickRow::ShelfSearch,
         QuickRow::ShelfAddToList,
         QuickRow::PlayCheats,
+        QuickRow::Network,
+        QuickRow::WifiPower,
+        QuickRow::WifiNetworks,
+        QuickRow::WifiStatus,
+        QuickRow::WifiIp,
+        QuickRow::TimeSync,
     ];
 
-    pub const MAIN: [QuickRow; 5] = [
+    pub const MAIN: [QuickRow; 6] = [
         QuickRow::General,
         QuickRow::Screen,
         QuickRow::Game,
         QuickRow::Controls,
+        // --- extras ---
+        QuickRow::Network,
         QuickRow::About,
     ];
 
@@ -426,6 +440,11 @@ impl QuickRow {
             QuickRow::Shader | QuickRow::ColourCorrection | QuickRow::Palette | QuickRow::Bezel => {
                 &QuickRow::PLAY_SCREEN
             }
+            QuickRow::WifiPower
+            | QuickRow::WifiNetworks
+            | QuickRow::WifiStatus
+            | QuickRow::WifiIp
+            | QuickRow::TimeSync => &QuickRow::NETWORK,
             _ => &QuickRow::MAIN,
         }
     }
@@ -445,6 +464,7 @@ impl QuickRow {
             QuickRow::Theme => Some(QuickRow::General),
             QuickRow::ControlsShelf => Some(QuickRow::Controls),
             QuickRow::ShelfPrev => Some(QuickRow::ControlsShelf),
+            QuickRow::WifiPower => Some(QuickRow::Network),
             _ => None,
         }
     }
@@ -485,6 +505,7 @@ impl QuickRow {
             QuickRow::ScreenGba => Some(QuickRow::SCREEN_GBA[0]),
             QuickRow::ScreenGbc => Some(QuickRow::SCREEN_GBC[0]),
             QuickRow::ScreenGb => Some(QuickRow::SCREEN_GB[0]),
+            QuickRow::Network => Some(QuickRow::NETWORK[0]),
             _ => None,
         }
     }
@@ -536,6 +557,12 @@ impl QuickRow {
             QuickRow::PlayThisGame => "This Game",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => "Button Guide",
             QuickRow::PlayCheats => "Cheats",
+            QuickRow::Network => "Network",
+            QuickRow::WifiPower => "Wi-Fi",
+            QuickRow::WifiNetworks => "Networks",
+            QuickRow::WifiStatus => "Status",
+            QuickRow::WifiIp => "IP Address",
+            QuickRow::TimeSync => "Time Sync",
             QuickRow::ThisShader => "Shader",
             QuickRow::ThisColour => "Color Correction",
             QuickRow::ThisFfSpeed => "Fast Forward",
@@ -643,6 +670,12 @@ impl QuickRow {
             QuickRow::FastForwardPitch => "Fast forward sound keeps its normal pitch.",
             QuickRow::PlayThisGame => "Settings this game keeps for itself.",
             QuickRow::PlayCheats => "Turn this game's cheats on and off.",
+            QuickRow::Network => "Wi-Fi and the time from the internet.",
+            QuickRow::WifiPower => "Turn the Wi-Fi on or off.",
+            QuickRow::WifiNetworks => "Pick a network to join.",
+            QuickRow::WifiStatus => "The network the Wi-Fi is on.",
+            QuickRow::WifiIp => "The address the network gave.",
+            QuickRow::TimeSync => "Set the clock from the internet when online.",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => {
                 "Every button and what it does, as set now."
             }
@@ -704,6 +737,8 @@ impl QuickRow {
                 | QuickRow::ControlsGuide
                 | QuickRow::PlayGuide
                 | QuickRow::PlayCheats
+                | QuickRow::Network
+                | QuickRow::WifiNetworks
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba
                 | QuickRow::ScreenGbc
@@ -1220,7 +1255,12 @@ pub fn prompt_legends(ink: [u8; 3], no: &str, yes: &str) -> [UndoFace; 2] {
 }
 
 /// `hint_on_right` puts the word after the button, for a legend parked on the left of the footer.
-fn with_hint(button: UndoFace, label: &str, ink: Option<[u8; 3]>, hint_on_right: bool) -> UndoFace {
+pub(crate) fn with_hint(
+    button: UndoFace,
+    label: &str,
+    ink: Option<[u8; 3]>,
+    hint_on_right: bool,
+) -> UndoFace {
     let word = match ink {
         Some(ink) => word_ink(label, ink),
         None => word_face(label),
@@ -1238,7 +1278,7 @@ fn with_hint(button: UndoFace, label: &str, ink: Option<[u8; 3]>, hint_on_right:
     UndoFace { rgba, w, h }
 }
 
-fn button_face(which: ButtonLegend) -> UndoFace {
+pub(crate) fn button_face(which: ButtonLegend) -> UndoFace {
     let (rgba, w, h) = button_legend(which);
     UndoFace {
         rgba: rgba.to_vec(),

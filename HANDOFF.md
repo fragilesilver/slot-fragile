@@ -212,7 +212,35 @@ Four commits, each with the suite green; no behaviour change for GB, GBC or GBA.
 - Upstream tests changed: the PLAY page rows, the opening rows list, and the in-game hidden
   rows list (Cheats is hidden in those tests' games).
 
-Next is Phase 9 (Wi-Fi + NTP) in `FRAGILE_PLAN.md`.
+## Phase 9 (done 2026-10-21)
+
+- Main menu gains **Network** (before About): Wi-Fi On/Off (extras `wifi`), Networks, Status,
+  IP Address (the three hidden while the Wi-Fi is off) and Time Sync (`app/network.rs`).
+- Radio (`slot/src/wifi.rs`, unslot's): a worker thread owns it; `card/System/slotwifi.sh` starts
+  wpa_supplicant on wlan0 with `Config/wifi.conf` and a `wpa_cli -a` watcher that runs BaseOS's
+  `udhcpc` on connect; scanning, joining (SSID as hex, password checked 8..63 printable or 64
+  hex) and forgetting go over the control socket in `/var/run/wpa_supplicant`, never a shell.
+  Off the device `SimWifi` stands in (Cafe Guest open, Home-5G password "password").
+- Link play: `slotlink.sh` (same as unslot's) writes `/run/slotlink.session` and, for a join,
+  stops our supplicant to run its own on wlan0. The worker watches that mark: while it is
+  there it asks nothing of the radio (Status says "Link play"); when it goes, the Wi-Fi comes
+  back if it was on. `slotwifi.sh up` also waits for the mark to clear.
+- Networks page: each network with Connected / Joining / Saved / Strong / Good / Weak /
+  Can't join; A joins (open or saved at once, else the keyboard for the password, START or OK
+  joins, a bad length says why on the keyboard); X forgets a saved one. Footer: Back, Forget
+  (saved only), Join.
+- Time Sync (`slot/src/timesync.rs`): `timedatectl set-ntp yes|no`; reads `/data/ntp-enabled` and
+  `/run/baseos-ntp-synchronized` for Off / On, waiting / On, synced. Slot's clock is the system
+  UTC plus its own offset, so the time zone set on the clock screen is kept.
+- The keyboard keeps letter case on its keys and field now (it was all capitals, wrong for a
+  lower-case password).
+- `Config/wifi.conf` is on the card and wpa_supplicant writes the password into it in plain
+  text; FAT has no file modes, so anyone with the card can read it.
+- Not done: the Wi-Fi icon in the corner. Not run on the device yet: joining, the DHCP lease,
+  reconnecting after a reboot, a link session taking and giving back the radio, NTP syncing.
+- Upstream tests changed: the main menu labels and walk, and the opening rows list.
+
+Next is Phase 10 (RetroAchievements) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

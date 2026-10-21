@@ -45,5 +45,7 @@ pub mod session;
 pub mod state_writer;
 pub mod text_faces;
 pub mod thumb;
+pub mod timesync;
 pub mod video_mode;
 pub mod wallpaper;
+pub mod wifi;

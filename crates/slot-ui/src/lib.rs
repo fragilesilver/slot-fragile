@@ -23,6 +23,7 @@ mod polaroids;
 mod power_menu;
 mod quick_menu;
 mod quick_menu_extras;
+pub use quick_menu_extras::network_legend_faces;
 mod rebuild;
 mod refusal;
 mod shelf;

@@ -663,3 +663,66 @@ fn the_button_guide_renders_from_controls() {
     let top = slot_ui::list_row_top(&page, page.cursor() - start) as usize;
     beside("Button Guide", pointer(&px, top));
 }
+
+#[test]
+fn the_network_page_its_list_and_the_password_keyboard_render() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    let mut e = slot_store::read_extras(d.path());
+    e.set_flag("wifi", true);
+    slot_store::write_extras(d.path(), &e).unwrap();
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    let settle = |f: &mut Frontend,
+                  c: &mut Compositor,
+                  input: &mut Script,
+                  done: &dyn Fn(&Frontend) -> bool| {
+        for _ in 0..400 {
+            f.compose(c);
+            f.advance(input);
+            if done(f) {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        panic!("the page never settled");
+    };
+    settle(&mut f, &mut c, &mut input, &|f| {
+        !f.app().wifi_view().networks.is_empty()
+    });
+    tap(&mut f, &mut input, Btn::Menu);
+    for row in [QuickRow::Network, QuickRow::WifiNetworks] {
+        for _ in 0..row.position(&f.app().hidden_rows()) {
+            tap(&mut f, &mut input, Btn::Down);
+        }
+        if row == QuickRow::WifiNetworks {
+            composed(&mut f, &mut c, "network");
+        }
+        tap(&mut f, &mut input, Btn::A);
+    }
+    settle(&mut f, &mut c, &mut input, &|f| {
+        f.app().overlay_page().is_some_and(|p| p.rows().len() == 4)
+    });
+    let px = composed(&mut f, &mut c, "networks");
+    let page = f.app().overlay_page().unwrap().clone();
+    beside(
+        "Networks",
+        pointer(&px, slot_ui::list_row_top(&page, 0) as usize),
+    );
+    tap(&mut f, &mut input, Btn::A);
+    assert_eq!(f.app().network_password(), Some(""));
+    settle(&mut f, &mut c, &mut input, &|_| true);
+    let px = composed(&mut f, &mut c, "password");
+    let lit = at(&px, OUT_W as usize / 2, 50);
+    assert!(
+        lit.iter().all(|v| *v < 0x60),
+        "the keyboard's field is not drawn over the menu: {lit:?}"
+    );
+}

@@ -177,6 +177,9 @@ impl App {
 
     /// A menu value that is text slot only knows at run time, for the frontend to draw.
     pub fn named_value(&self, row: QuickRow) -> Option<String> {
+        if let Some(text) = self.network_text(row) {
+            return Some(text);
+        }
         let platform = card_shader_row_platform(row)?;
         Some(
             self.card_shader_for(platform)
