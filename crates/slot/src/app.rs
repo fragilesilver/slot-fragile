@@ -31,6 +31,7 @@ use crate::video_mode::{self, VideoMode};
 
 mod battery;
 mod extras;
+mod guide;
 mod overlay;
 mod profile;
 mod screen;
@@ -1085,7 +1086,9 @@ impl App {
             | QuickRow::CardShaderGbc
             | QuickRow::MotionBlurGba
             | QuickRow::MotionBlurGb
-            | QuickRow::MotionBlurGbc => None,
+            | QuickRow::MotionBlurGbc
+            | QuickRow::ControlsGuide
+            | QuickRow::PlayGuide => None,
         }
     }
 
@@ -2513,6 +2516,9 @@ impl App {
     }
 
     fn open_in_game_row(&mut self, row: QuickRow) {
+        if self.open_overlay_row(row) {
+            return;
+        }
         match row {
             QuickRow::Resume => self.in_game_menu = None,
             QuickRow::States => self.open_states(),
@@ -2559,6 +2565,9 @@ impl App {
     }
 
     fn open_quick_row(&mut self, row: QuickRow) {
+        if self.open_overlay_row(row) {
+            return;
+        }
         match row {
             QuickRow::DateTime => {
                 self.phase = clock_screen(self.utc_secs(), self.state.utc_offset_min, true);
@@ -2661,7 +2670,9 @@ impl App {
             | QuickRow::CardShaderGbc
             | QuickRow::MotionBlurGba
             | QuickRow::MotionBlurGb
-            | QuickRow::MotionBlurGbc => {}
+            | QuickRow::MotionBlurGbc
+            | QuickRow::ControlsGuide
+            | QuickRow::PlayGuide => {}
         }
     }
 
@@ -2851,7 +2862,9 @@ impl App {
             | QuickRow::CardShaderGbc
             | QuickRow::MotionBlurGba
             | QuickRow::MotionBlurGb
-            | QuickRow::MotionBlurGbc => return,
+            | QuickRow::MotionBlurGbc
+            | QuickRow::ControlsGuide
+            | QuickRow::PlayGuide => return,
         }
         self.persist();
     }
@@ -3724,6 +3737,10 @@ impl App {
                 picker.draw(self.canvas(), line, hint, back, out);
                 return;
             }
+            Phase::QuickMenu { .. } if self.guide_open() => {
+                slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
+                self.draw_overlay(out);
+            }
             Phase::QuickMenu { row } => QuickMenu {
                 row: *row,
                 hidden: &self.hidden_rows(),
@@ -3867,7 +3884,8 @@ impl App {
         {
             let hidden = self.in_game_hidden();
             let bound = self.bound_faces();
-            QuickMenu {
+            let footer_top = OUT_H as f32 - MOUTH_H + self.menu_footer_offset();
+            let menu = QuickMenu {
                 row,
                 bound: Some(&bound),
                 named: Some(self.named_faces()),
@@ -3885,10 +3903,12 @@ impl App {
                 bezel: self.quick_bezel_faces[bezel_slot(self.playing_platform())],
                 over_game: true,
                 footer_legends: false,
-                footer_top: OUT_H as f32 - MOUTH_H + self.menu_footer_offset(),
+                footer_top,
                 canvas: self.canvas(),
+            };
+            if !self.draw_guide_over_game(footer_top, out) {
+                menu.draw(out);
             }
-            .draw(out);
             if row.page() != QuickRow::PLAY_SCREEN {
                 slot_ui::draw_corners(
                     self.canvas(),
@@ -4071,6 +4091,9 @@ impl App {
     }
 
     fn draw_menu_legends(&self, row: QuickRow, y: f32, out: &mut Vec<Draw>) {
+        if self.draw_guide_legend(y, out) {
+            return;
+        }
         let Some(faces) = &self.quick_menu_faces else {
             return;
         };

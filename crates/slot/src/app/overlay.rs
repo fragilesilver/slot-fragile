@@ -1,5 +1,6 @@
-//! Pages of rows made at run time, drawn over the screen they open from. The first is About's
-//! Details; cheats, networks and the button sheet open the same way in later phases.
+//! Pages of rows made at run time, drawn over the screen they open from: About's Details, and
+//! the Button Guide from the Controls page or the in-game Settings. Cheats and networks open
+//! the same way in later phases.
 
 use slot_gfx::OUT_H;
 use slot_input::{Action, Btn};
@@ -10,6 +11,14 @@ use super::{App, Phase, HINT_EDGE, LINK_LEGEND_EDGE, LINK_LEGEND_Y};
 
 pub enum Overlay {
     Details(ListPage),
+    Guide(ListPage, From),
+}
+
+/// Which menu a page was opened from, so it closes when that menu does and B goes back to it.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum From {
+    Menu,
+    InGame,
 }
 
 /// Everything the open page needs, in the one field `App` keeps for it.
@@ -41,13 +50,13 @@ impl Overlays {
 impl Overlay {
     fn page(&self) -> &ListPage {
         match self {
-            Overlay::Details(page) => page,
+            Overlay::Details(page) | Overlay::Guide(page, _) => page,
         }
     }
 
     fn page_mut(&mut self) -> &mut ListPage {
         match self {
-            Overlay::Details(page) => page,
+            Overlay::Details(page) | Overlay::Guide(page, _) => page,
         }
     }
 }
@@ -89,6 +98,34 @@ impl App {
         self.overlay.faces.clear();
     }
 
+    /// A on a row that opens one of these pages. Says whether it was one.
+    pub(super) fn open_overlay_row(&mut self, row: QuickRow) -> bool {
+        let from = match row {
+            QuickRow::ControlsGuide => From::Menu,
+            QuickRow::PlayGuide => From::InGame,
+            _ => return false,
+        };
+        let rows = self.guide_rows();
+        let mut page = ListPage::new(rows);
+        if from == From::InGame {
+            page.set_cursor(self.guide_in_game_at());
+        }
+        self.overlay.open = Some(Overlay::Guide(page, from));
+        self.overlay.faces.clear();
+        true
+    }
+
+    fn guide_from(&self) -> Option<From> {
+        match &self.overlay.open {
+            Some(Overlay::Guide(_, from)) => Some(*from),
+            _ => None,
+        }
+    }
+
+    pub(super) fn guide_open(&self) -> bool {
+        self.guide_from().is_some()
+    }
+
     fn close_overlay(&mut self) {
         self.overlay.open = None;
         self.overlay.faces.clear();
@@ -97,13 +134,17 @@ impl App {
     /// Takes the action when a page is open, and says so. A page left behind by its screen,
     /// eg the power going off under it, is closed and takes nothing.
     pub(super) fn overlay_input(&mut self, action: Action) -> bool {
-        if self.overlay.open.is_none() {
-            return false;
-        }
-        if !matches!(self.phase, Phase::About) {
+        let alive = match (&self.overlay.open, self.guide_from()) {
+            (None, _) => return false,
+            (_, Some(From::Menu)) => matches!(self.phase, Phase::QuickMenu { .. }),
+            (_, Some(From::InGame)) => self.in_game_menu.is_some(),
+            (_, None) => matches!(self.phase, Phase::About),
+        };
+        if !alive {
             self.close_overlay();
             return false;
         }
+        let guide = self.guide_open();
         let Some(page) = self.overlay.open.as_mut().map(Overlay::page_mut) else {
             return false;
         };
@@ -113,6 +154,7 @@ impl App {
             Action::GbaDown(Btn::L1) => page.page_up(),
             Action::GbaDown(Btn::R1) => page.page_down(),
             Action::GbaDown(Btn::B) => self.close_overlay(),
+            Action::QuickMenu if guide => self.close_overlay(),
             Action::QuickMenu => {
                 self.close_overlay();
                 self.phase = Phase::QuickMenu {
@@ -153,6 +195,33 @@ impl App {
     /// way a binding row does, rather than the mouth the middle one would sit on.
     pub(super) fn about_footer_plugged(&self) -> bool {
         self.overlay.open.is_none() && self.overlay.details_legend.is_some()
+    }
+
+    /// The menu footer under the Button Guide: Back alone. Says whether it drew.
+    pub(super) fn draw_guide_legend(&self, y: f32, out: &mut Vec<Draw>) -> bool {
+        let Some(faces) = self.quick_menu_faces.as_ref().filter(|_| self.guide_open()) else {
+            return false;
+        };
+        let back = [faces.legend, faces.legend_light][self.light() as usize][0];
+        self.draw_side_legend(back, false, y, out);
+        true
+    }
+
+    /// The Button Guide over the game, under the same scrim as the in-game menu. Says whether
+    /// it drew, so the menu stays when it did not.
+    pub(super) fn draw_guide_over_game(&self, footer_top: f32, out: &mut Vec<Draw>) -> bool {
+        if self.guide_from() != Some(From::InGame) {
+            return false;
+        }
+        out.push(Draw::Rect {
+            x: 0.0,
+            y: 0.0,
+            w: self.canvas().w,
+            h: footer_top.max(0.0),
+            colour: [0.0, 0.0, 0.0, 0.65],
+        });
+        self.draw_overlay(out);
+        true
     }
 
     /// The About footer: Back alone over an open page, or Back, Details and Restart on the

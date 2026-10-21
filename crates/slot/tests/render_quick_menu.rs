@@ -411,6 +411,7 @@ fn the_controls_pages_render() {
     tap(&mut f, &mut input, Btn::B);
     tap(&mut f, &mut input, Btn::B);
     tap(&mut f, &mut input, Btn::Up);
+    tap(&mut f, &mut input, Btn::Up);
     tap(&mut f, &mut input, Btn::A);
     assert_eq!(f.app().quick_menu(), Some(QuickRow::ScSave));
     composed(&mut f, &mut c, "controls-shortcuts");
@@ -629,4 +630,36 @@ fn the_card_shader_row_shows_the_files_name() {
         ink(&named) > ink(&off) + 40,
         "the file's name is not drawn as the value"
     );
+}
+
+#[test]
+fn the_button_guide_renders_from_controls() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::Menu);
+    for row in [QuickRow::Controls, QuickRow::ControlsGuide] {
+        for _ in 0..row.position(&f.app().hidden_rows()) {
+            tap(&mut f, &mut input, Btn::Down);
+        }
+        tap(&mut f, &mut input, Btn::A);
+    }
+    f.compose(&mut c);
+    for _ in 0..8 {
+        tap(&mut f, &mut input, Btn::Down);
+    }
+    f.compose(&mut c);
+    let px = composed(&mut f, &mut c, "button-guide");
+    let page = f.app().overlay_page().expect("no guide").clone();
+    let (start, _) = page.window();
+    let top = slot_ui::list_row_top(&page, page.cursor() - start) as usize;
+    beside("Button Guide", pointer(&px, top));
 }

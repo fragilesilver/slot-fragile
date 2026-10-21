@@ -131,7 +131,17 @@ Phase 1 is done.
   Screen page, not the in-game Screen page, which upstream's tests pin.
 - Not measured on the Mali-G31 yet: the card shaders' frame cost, LCD Grid V2 most of all.
 
-Next is Phase 5 (button cheat sheet) in `FRAGILE_PLAN.md`.
+## Phase 5 (done 2026-10-21)
+
+- Button Guide (`app/guide.rs`): a list page of every button, from Controls (between Shortcuts
+  and In-Game) and from the in-game Settings (after This Game, where it opens on its In Game
+  part). Shortcuts, shelf keys and game buttons come from the bindings as set, so a remap shows
+  at once; the gestures nothing remaps are worded from upstream's own guide (`site/index.html`).
+- The overlay (`app/overlay.rs`) now opens from the carousel menu and the in-game menu as well
+  as About; it knows which, closes with that menu, and B or MENU go back to its row.
+- Upstream tests changed only where the Controls and Settings pages grew a row.
+
+Next is Phase 6 (search and list shelves) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

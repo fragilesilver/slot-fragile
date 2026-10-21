@@ -107,10 +107,12 @@ pub enum QuickRow {
     MotionBlurGba,
     MotionBlurGb,
     MotionBlurGbc,
+    ControlsGuide,
+    PlayGuide,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 95] = [
+    pub const ALL: [QuickRow; 97] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -207,6 +209,8 @@ impl QuickRow {
         QuickRow::MotionBlurGba,
         QuickRow::MotionBlurGb,
         QuickRow::MotionBlurGbc,
+        QuickRow::ControlsGuide,
+        QuickRow::PlayGuide,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -232,9 +236,10 @@ impl QuickRow {
         QuickRow::DateTime,
     ];
 
-    pub const CONTROL_PAGES: [QuickRow; 3] = [
+    pub const CONTROL_PAGES: [QuickRow; 4] = [
         QuickRow::ControlsShelf,
         QuickRow::Shortcuts,
+        QuickRow::ControlsGuide,
         QuickRow::ControlsInGame,
     ];
 
@@ -324,11 +329,12 @@ impl QuickRow {
         QuickRow::ExitGame,
     ];
 
-    pub const SETTINGS: [QuickRow; 4] = [
+    pub const SETTINGS: [QuickRow; 5] = [
         QuickRow::PlayScreen,
         QuickRow::PlayGameplay,
         QuickRow::PlayControls,
         QuickRow::PlayThisGame,
+        QuickRow::PlayGuide,
     ];
 
     pub const PLAY_SCREEN: [QuickRow; 4] = [
@@ -384,16 +390,18 @@ impl QuickRow {
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
             | QuickRow::BatteryBadge => &QuickRow::GENERAL,
-            QuickRow::ControlsShelf | QuickRow::Shortcuts | QuickRow::ControlsInGame => {
-                &QuickRow::CONTROL_PAGES
-            }
+            QuickRow::ControlsShelf
+            | QuickRow::Shortcuts
+            | QuickRow::ControlsInGame
+            | QuickRow::ControlsGuide => &QuickRow::CONTROL_PAGES,
             QuickRow::Resume | QuickRow::States | QuickRow::Settings | QuickRow::ExitGame => {
                 &QuickRow::PLAY
             }
             QuickRow::PlayScreen
             | QuickRow::PlayGameplay
             | QuickRow::PlayControls
-            | QuickRow::PlayThisGame => &QuickRow::SETTINGS,
+            | QuickRow::PlayThisGame
+            | QuickRow::PlayGuide => &QuickRow::SETTINGS,
             QuickRow::ThisShader
             | QuickRow::ThisColour
             | QuickRow::ThisFfSpeed
@@ -513,6 +521,7 @@ impl QuickRow {
             QuickRow::BatteryBadge => "Battery Badge",
             QuickRow::FastForwardPitch => "Fast Forward Pitch",
             QuickRow::PlayThisGame => "This Game",
+            QuickRow::ControlsGuide | QuickRow::PlayGuide => "Button Guide",
             QuickRow::ThisShader => "Shader",
             QuickRow::ThisColour => "Color Correction",
             QuickRow::ThisFfSpeed => "Fast Forward",
@@ -617,6 +626,9 @@ impl QuickRow {
             QuickRow::BatteryBadge => "Show the battery in a corner while you play.",
             QuickRow::FastForwardPitch => "Fast forward sound keeps its normal pitch.",
             QuickRow::PlayThisGame => "Settings this game keeps for itself.",
+            QuickRow::ControlsGuide | QuickRow::PlayGuide => {
+                "Every button and what it does, as set now."
+            }
             QuickRow::ThisShader => "Screen effect for this game only.",
             QuickRow::ThisColour => "Color correction for this game only.",
             QuickRow::ThisFfSpeed => "Fast forward speed for this game only.",
@@ -672,6 +684,8 @@ impl QuickRow {
                 | QuickRow::ControlsInGame
                 | QuickRow::PlayControls
                 | QuickRow::PlayThisGame
+                | QuickRow::ControlsGuide
+                | QuickRow::PlayGuide
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba
                 | QuickRow::ScreenGbc

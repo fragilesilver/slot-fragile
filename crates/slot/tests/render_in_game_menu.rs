@@ -388,3 +388,47 @@ fn a_card_shader_draws_the_game_and_a_broken_one_says_so() {
         "the game went black behind a broken shader"
     );
 }
+
+#[test]
+fn the_button_guide_renders_over_the_game() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 4.0);
+    tap(&mut f, &mut input, Btn::Menu);
+    run_for(&mut f, &mut input, 0.5);
+    for btn in [Btn::Down, Btn::Down, Btn::A] {
+        tap(&mut f, &mut input, btn);
+    }
+    for _ in 0..QuickRow::PlayGuide.position(&f.app().in_game_hidden()) {
+        tap(&mut f, &mut input, Btn::Down);
+    }
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 0.3);
+    assert!(
+        f.app().overlay_page().is_some(),
+        "the guide did not open in game"
+    );
+    f.compose(&mut c);
+    let px = composed(&mut f, &mut c, "button-guide");
+    let page = f.app().overlay_page().unwrap().clone();
+    let (start, _) = page.window();
+    let top = slot_ui::list_row_top(&page, page.cursor() - start) as usize;
+    let ink = (top..top + 40)
+        .flat_map(|y| (64..400).map(move |x| (x, y)))
+        .filter(|&(x, y)| at(&px, x, y).iter().map(|c| u32::from(*c)).sum::<u32>() > 600)
+        .count();
+    assert!(
+        ink > 100,
+        "the selected row on the guide is not lit: {ink} bright pixels"
+    );
+}
