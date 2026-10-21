@@ -926,7 +926,7 @@ impl App {
     }
 
     pub fn in_game_hidden(&self) -> Vec<QuickRow> {
-        let no_bezel = self.playing_platform() == Platform::Gba && !self.framed_panel();
+        let no_bezel = !self.playing_platform().spec().bezels && !self.framed_panel();
         let mut hidden = Vec::new();
         if !self.palette_live {
             hidden.push(QuickRow::Palette);
@@ -937,7 +937,7 @@ impl App {
         if self.single_cart() {
             hidden.push(QuickRow::ExitGame);
         }
-        if self.playing_platform() != Platform::Gba {
+        if !self.playing_platform().spec().shoulders {
             hidden.extend([QuickRow::GameL, QuickRow::GameR]);
         }
         if !self.left_stick {
@@ -1125,9 +1125,9 @@ impl App {
     }
 
     pub fn bezel_files(&self, platform: Platform) -> Vec<String> {
-        match platform {
-            Platform::Gba => Vec::new(),
-            _ => self
+        match platform.spec().bezels {
+            false => Vec::new(),
+            true => self
                 .root()
                 .map(|root| crate::bezel::list(root, platform))
                 .unwrap_or_default(),
@@ -1136,7 +1136,7 @@ impl App {
 
     fn bezel_choices(&self, platform: Platform) -> Vec<BezelPick> {
         let mut choices = vec![BezelPick::None];
-        if platform != Platform::Gba {
+        if platform.spec().bezels {
             choices.push(BezelPick::Default);
         }
         if self.framed_panel() {
@@ -1608,7 +1608,7 @@ impl App {
     }
 
     fn slot_owns_the_shoulders(&self) -> bool {
-        matches!(self.phase, Phase::Playing { .. }) && self.platform != Platform::Gba
+        matches!(self.phase, Phase::Playing { .. }) && !self.platform.spec().shoulders
     }
 
     pub fn taken_buttons(&self) -> Vec<Btn> {
@@ -4781,7 +4781,7 @@ impl App {
         let Some(cart) = self.shelf().carts.get(self.shelf().index) else {
             return;
         };
-        if cart.platform != Platform::Gba {
+        if cart.platform.spec().cores.len() < 2 {
             return;
         }
         let seat = slot_store::core_for(&root, &cart.stem);
@@ -4839,7 +4839,7 @@ impl App {
             self.game_menu = Some(GameMenu::Pick(self.last_role));
             return;
         }
-        if self.platform != Platform::Gba {
+        if !self.platform.spec().link {
             self.hud.toast(Toast::NoLink, self.now());
             return;
         }
@@ -5603,9 +5603,5 @@ fn free_stamp(ring: &StateRing, now: i64) -> String {
 }
 
 fn bezel_slot(platform: Platform) -> usize {
-    match platform {
-        Platform::Gba => 0,
-        Platform::Gb => 1,
-        Platform::Gbc => 2,
-    }
+    platform.index()
 }

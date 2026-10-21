@@ -18,18 +18,19 @@ pub struct Cart {
 
 impl Cart {
     pub fn read_header(&mut self) {
-        match self.platform {
-            Platform::Gba => {
+        match self.platform.spec().header {
+            crate::Header::Gba => {
                 if let Some((title, code)) = header_title_code(&self.rom) {
                     self.title = title;
                     self.code = code;
                 }
             }
-            _ => {
+            crate::Header::Gb => {
                 if let Some(title) = crate::gb::title(&self.rom) {
                     self.title = title;
                 }
             }
+            crate::Header::None => {}
         }
     }
 }

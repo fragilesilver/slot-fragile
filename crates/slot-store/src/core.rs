@@ -34,24 +34,19 @@ impl Core {
     }
 
     pub fn parse(s: &str) -> Option<Core> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "mgba" => Some(Core::Mgba),
-            "gpsp" => Some(Core::Gpsp),
-            _ => None,
-        }
+        let s = s.trim();
+        Core::ALL
+            .into_iter()
+            .find(|c| c.as_str().eq_ignore_ascii_case(s))
     }
 
+    /// Whether the system's row in `spec.rs` lists it. Ported from cloudwithax/unslot@6339c18.
     pub fn runs(self, platform: Platform) -> bool {
-        match self {
-            Core::Mgba => true,
-            Core::Gpsp => platform == Platform::Gba,
-        }
+        platform.spec().cores.contains(&self)
     }
 
     pub fn default_for(platform: Platform) -> Core {
-        match platform {
-            Platform::Gba | Platform::Gb | Platform::Gbc => Core::Mgba,
-        }
+        platform.spec().cores[0]
     }
 }
 

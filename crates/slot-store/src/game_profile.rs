@@ -128,10 +128,7 @@ fn platform_of(key: &str) -> Option<Platform> {
 }
 
 fn allowed_shaders(platform: Platform) -> &'static [Shader] {
-    match platform {
-        Platform::Gba => &Shader::GBA,
-        Platform::Gb | Platform::Gbc => &Shader::GB,
-    }
+    platform.spec().shaders
 }
 
 impl GameProfiles {

@@ -16,6 +16,7 @@ mod ring;
 mod scan;
 mod shaders;
 mod slot_state;
+mod spec;
 mod stamp;
 
 pub use atomic::atomic_write;
@@ -44,6 +45,7 @@ pub use slot_state::{
     WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, FF_SPEED_DEFAULT,
     LID_OFF_MIN, RECENTS_MAX, UTC_OFFSET_MAX, UTC_OFFSET_MIN, VOLUME_MAX,
 };
+pub use spec::{Header, Spec};
 pub use stamp::{
     civil_from_days, days_from_civil, days_in_month, format_stamp, parse_stamp, stamp_now,
 };

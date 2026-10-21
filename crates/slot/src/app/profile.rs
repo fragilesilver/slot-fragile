@@ -134,10 +134,7 @@ impl App {
     }
 
     fn step_own_shader(&mut self, right: bool) {
-        let choices: &[Shader] = match self.playing_platform() {
-            Platform::Gba => &Shader::GBA,
-            Platform::Gb | Platform::Gbc => &Shader::GB,
-        };
+        let choices: &[Shader] = self.playing_platform().spec().shaders;
         let to = self.screen_shader().step(choices, right);
         self.set_own(ProfileField::Shader(to));
     }

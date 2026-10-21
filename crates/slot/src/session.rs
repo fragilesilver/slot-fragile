@@ -579,7 +579,7 @@ impl Session {
         self.app.set_named_core(loaded.opened.named);
         let ring = self.sink.ring();
         let (core, rom, sav, resume) = (loaded.opened.core, loaded.rom, loaded.sav, loaded.resume);
-        let emu = match loaded.player.filter(|_| loaded.platform == Platform::Gba) {
+        let emu = match loaded.player.filter(|_| loaded.platform.spec().link) {
             Some(p) => EmuHandle::spawn_linked(core, rom, ring, sav, resume, p),
             None => EmuHandle::spawn(core, rom, ring, sav, resume),
         };
