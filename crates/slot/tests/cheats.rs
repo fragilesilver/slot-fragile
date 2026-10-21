@@ -216,3 +216,19 @@ fn a_linked_game_plays_without_cheats_and_gets_them_back_after() {
         "the cheats did not come back after the link"
     );
 }
+
+#[test]
+fn a_game_boy_game_reads_its_cheats_from_its_own_folder() {
+    let d = common::tmp_root_with_gb_carts(&["Tetris", "Zelda"]);
+    std::fs::write(
+        d.path().join("Cheats/GB/Tetris.cht"),
+        "cheats = 1\ncheat0_desc = \"Infinite Lines\"\ncheat0_code = \"00A-17B-C49\"\n",
+    )
+    .unwrap();
+    let mut a = app_playing_in(d.path(), "Tetris");
+    assert!(!a.in_game_hidden().contains(&QuickRow::PlayCheats));
+    open_cheats(&mut a);
+    press(&mut a, Btn::A);
+    assert_eq!(a.take_cheats(), Some(vec!["00A-17B-C49".to_string()]));
+    assert!(d.path().join("Config/Cheats/GB/Tetris.txt").exists());
+}
