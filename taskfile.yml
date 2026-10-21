@@ -352,7 +352,7 @@ tasks:
           CMD: ./target-device/device/slot --init-root {{.OUT}}
       - cp target-device/device/slot {{.OUT}}/System/slot
       - cp -R card/System/* {{.OUT}}/System/
-      - for d in Bezels Labels Wallpapers; do cp card/$d/README.txt {{.OUT}}/$d/; done
+      - for d in Bezels Cheats Labels Wallpapers; do cp card/$d/README.txt {{.OUT}}/$d/; done
       - for p in GB GBC; do cp card/Bezels/$p/*.png {{.OUT}}/Bezels/$p/; done
       - cp card/Shaders/*.glsl card/Shaders/README.txt {{.OUT}}/Shaders/
       - file vendor/mgba_libretro.so | grep -q aarch64

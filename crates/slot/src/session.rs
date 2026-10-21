@@ -315,6 +315,11 @@ impl Session {
                 }
             }
         }
+        if let Some(emu) = &self.emu {
+            if let Some(codes) = self.app.take_cheats() {
+                emu.set_cheats(codes);
+            }
+        }
         if let Some(on) = self.app.take_motion_blur() {
             let (key, value) = crate::core::motion_blur_option(self.app.core(), on);
             if let Some(emu) = &self.emu {

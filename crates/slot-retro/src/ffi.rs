@@ -158,6 +158,9 @@ pub struct Api {
     pub get_memory_data: unsafe extern "C" fn(c_uint) -> *mut c_void,
     pub get_memory_size: unsafe extern "C" fn(c_uint) -> usize,
     pub get_system_info: unsafe extern "C" fn(*mut SystemInfo),
+    /// Optional: a core without cheats need not export them.
+    pub cheat_reset: Option<unsafe extern "C" fn()>,
+    pub cheat_set: Option<unsafe extern "C" fn(c_uint, bool, *const c_char)>,
 }
 
 impl Api {
@@ -189,6 +192,8 @@ impl Api {
             get_memory_data: get!("retro_get_memory_data"),
             get_memory_size: get!("retro_get_memory_size"),
             get_system_info: get!("retro_get_system_info"),
+            cheat_reset: lib.get(b"retro_cheat_reset\0").ok().map(|f| *f),
+            cheat_set: lib.get(b"retro_cheat_set\0").ok().map(|f| *f),
         })
     }
 }

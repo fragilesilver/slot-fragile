@@ -111,10 +111,11 @@ pub enum QuickRow {
     PlayGuide,
     ShelfSearch,
     ShelfAddToList,
+    PlayCheats,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 99] = [
+    pub const ALL: [QuickRow; 100] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -215,6 +216,7 @@ impl QuickRow {
         QuickRow::PlayGuide,
         QuickRow::ShelfSearch,
         QuickRow::ShelfAddToList,
+        QuickRow::PlayCheats,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -329,9 +331,11 @@ impl QuickRow {
         QuickRow::EjectSave,
     ];
 
-    pub const PLAY: [QuickRow; 4] = [
+    pub const PLAY: [QuickRow; 5] = [
         QuickRow::Resume,
         QuickRow::States,
+        // --- extras ---
+        QuickRow::PlayCheats,
         QuickRow::Settings,
         QuickRow::ExitGame,
     ];
@@ -401,9 +405,11 @@ impl QuickRow {
             | QuickRow::Shortcuts
             | QuickRow::ControlsInGame
             | QuickRow::ControlsGuide => &QuickRow::CONTROL_PAGES,
-            QuickRow::Resume | QuickRow::States | QuickRow::Settings | QuickRow::ExitGame => {
-                &QuickRow::PLAY
-            }
+            QuickRow::Resume
+            | QuickRow::States
+            | QuickRow::Settings
+            | QuickRow::ExitGame
+            | QuickRow::PlayCheats => &QuickRow::PLAY,
             QuickRow::PlayScreen
             | QuickRow::PlayGameplay
             | QuickRow::PlayControls
@@ -529,6 +535,7 @@ impl QuickRow {
             QuickRow::FastForwardPitch => "Fast Forward Pitch",
             QuickRow::PlayThisGame => "This Game",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => "Button Guide",
+            QuickRow::PlayCheats => "Cheats",
             QuickRow::ThisShader => "Shader",
             QuickRow::ThisColour => "Color Correction",
             QuickRow::ThisFfSpeed => "Fast Forward",
@@ -635,6 +642,7 @@ impl QuickRow {
             QuickRow::BatteryBadge => "Show the battery in a corner while you play.",
             QuickRow::FastForwardPitch => "Fast forward sound keeps its normal pitch.",
             QuickRow::PlayThisGame => "Settings this game keeps for itself.",
+            QuickRow::PlayCheats => "Turn this game's cheats on and off.",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => {
                 "Every button and what it does, as set now."
             }
@@ -695,6 +703,7 @@ impl QuickRow {
                 | QuickRow::PlayThisGame
                 | QuickRow::ControlsGuide
                 | QuickRow::PlayGuide
+                | QuickRow::PlayCheats
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba
                 | QuickRow::ScreenGbc

@@ -82,6 +82,8 @@ enum Cmd {
     BeginCable(u8, Box<dyn LinkChannel>),
     SetOption(String, String),
     Refresh,
+    // --- extras ---
+    SetCheats(Vec<String>),
 }
 
 struct Shared {
@@ -189,6 +191,7 @@ impl EmuHandle {
             shared: shared.clone(),
             cmds: rx,
             player,
+            cheats: std::sync::Mutex::new(Vec::new()),
         };
         let worker_link = link.clone();
         let join = std::thread::Builder::new()
@@ -248,6 +251,11 @@ impl EmuHandle {
 
     pub fn end_link(&self) {
         request(&self.cmds, &self.shared, Cmd::EndLink);
+    }
+
+    /// Replace the running game's cheats with these codes, all on; empty clears them.
+    pub fn set_cheats(&self, codes: Vec<String>) {
+        request(&self.cmds, &self.shared, Cmd::SetCheats(codes));
     }
 
     pub fn set_option(&self, key: &str, value: &str) {
@@ -484,6 +492,8 @@ struct Worker {
     shared: Arc<Shared>,
     cmds: Receiver<Cmd>,
     player: Option<u8>,
+    /// The codes last given, put back after a state is loaded.
+    cheats: std::sync::Mutex<Vec<String>>,
 }
 
 impl Worker {
@@ -920,6 +930,14 @@ impl Worker {
                 if let Err(e) = core.unserialize(&self.for_core(state)) {
                     eprintln!("slot: {e}");
                 }
+                let cheats = self.cheats.lock().unwrap_or_else(|e| e.into_inner());
+                if !cheats.is_empty() {
+                    core.set_cheats(&cheats);
+                }
+            }
+            Cmd::SetCheats(codes) => {
+                core.set_cheats(&codes);
+                *self.cheats.lock().unwrap_or_else(|e| e.into_inner()) = codes;
             }
             Cmd::Refresh => match core.serialize() {
                 Ok(state) => {

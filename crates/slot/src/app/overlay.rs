@@ -1,6 +1,6 @@
 //! Pages of rows made at run time, drawn over the screen they open from: About's Details, and
-//! the Button Guide from the Controls page or the in-game Settings, and Add to List from the
-//! shelf. Cheats and networks open the same way in later phases.
+//! the Button Guide from the Controls page or the in-game Settings, Add to List from the shelf,
+//! and Cheats from the in-game menu. Networks open the same way in a later phase.
 
 use slot_gfx::OUT_H;
 use slot_input::{Action, Btn};
@@ -14,6 +14,8 @@ pub enum Overlay {
     Guide(ListPage, From),
     /// The lists, and whether the cart under the shelf's cursor is on each.
     Lists(ListPage, slot_store::collections::CartKey),
+    /// The playing game's cheats, over the game like the in-game Button Guide.
+    Cheats(ListPage),
 }
 
 /// Which menu a page was opened from, so it closes when that menu does and B goes back to it.
@@ -31,6 +33,8 @@ pub struct Overlays {
     pub(super) faces: Vec<ListRowFaces>,
     /// The Search shelf, the list shelves and their keyboard.
     pub(super) shelves: super::shelves::Collections,
+    /// The playing game's cheats and what the core has of them.
+    pub(super) cheats: super::cheats::Cheats,
     /// "A Details" on the About sticker, dark and light.
     details_legend: Option<[(TexId, u32); 2]>,
     /// The About sticker's own size, when it is not upstream's: the RG35XX Pro's is taller.
@@ -54,13 +58,19 @@ impl Overlays {
 impl Overlay {
     fn page(&self) -> &ListPage {
         match self {
-            Overlay::Details(page) | Overlay::Guide(page, _) | Overlay::Lists(page, _) => page,
+            Overlay::Details(page)
+            | Overlay::Guide(page, _)
+            | Overlay::Lists(page, _)
+            | Overlay::Cheats(page) => page,
         }
     }
 
     fn page_mut(&mut self) -> &mut ListPage {
         match self {
-            Overlay::Details(page) | Overlay::Guide(page, _) | Overlay::Lists(page, _) => page,
+            Overlay::Details(page)
+            | Overlay::Guide(page, _)
+            | Overlay::Lists(page, _)
+            | Overlay::Cheats(page) => page,
         }
     }
 }
@@ -107,6 +117,10 @@ impl App {
         let from = match row {
             QuickRow::ControlsGuide => From::Menu,
             QuickRow::PlayGuide => From::InGame,
+            QuickRow::PlayCheats => {
+                self.open_cheats();
+                return true;
+            }
             _ => return false,
         };
         let rows = self.guide_rows();
@@ -122,12 +136,17 @@ impl App {
     fn guide_from(&self) -> Option<From> {
         match &self.overlay.open {
             Some(Overlay::Guide(_, from)) => Some(*from),
+            Some(Overlay::Cheats(_)) => Some(From::InGame),
             _ => None,
         }
     }
 
     pub(super) fn guide_open(&self) -> bool {
         self.guide_from().is_some()
+    }
+
+    fn cheats_open(&self) -> bool {
+        matches!(self.overlay.open, Some(Overlay::Cheats(_)))
     }
 
     fn close_overlay(&mut self) {
@@ -143,13 +162,14 @@ impl App {
             Some(Overlay::Guide(_, From::Menu)) => matches!(self.phase, Phase::QuickMenu { .. }),
             Some(Overlay::Guide(_, From::InGame)) => self.in_game_menu.is_some(),
             Some(Overlay::Lists(..)) => matches!(self.phase, Phase::Shelf),
+            Some(Overlay::Cheats(_)) => self.in_game_menu.is_some(),
             Some(Overlay::Details(_)) => matches!(self.phase, Phase::About),
         };
         if !alive {
             self.close_overlay();
             return false;
         }
-        if super::shelves::lists_input(self, action) {
+        if super::shelves::lists_input(self, action) || self.cheats_input(action) {
             return true;
         }
         let guide = self.guide_open() || matches!(self.overlay.open, Some(Overlay::Lists(..)));
@@ -210,8 +230,11 @@ impl App {
         let Some(faces) = self.quick_menu_faces.as_ref().filter(|_| self.guide_open()) else {
             return false;
         };
-        let back = [faces.legend, faces.legend_light][self.light() as usize][0];
-        self.draw_side_legend(back, false, y, out);
+        let legend = [faces.legend, faces.legend_light][self.light() as usize];
+        self.draw_side_legend(legend[0], false, y, out);
+        if self.cheats_open() {
+            self.draw_side_legend(legend[5], true, y, out);
+        }
         true
     }
 

@@ -1,0 +1,20 @@
+# Ported from fragilesilver/slot-for-android@2149dba, cores/mgba/zzz-cheat-reset-removes-hooks.patch.
+--- a/src/platform/libretro/libretro.c
++++ b/src/platform/libretro/libretro.c
+@@ -2933,7 +2933,15 @@
+ }
+ 
+ void retro_cheat_reset(void) {
+-	mCheatDeviceClear(core->cheatDevice(core));
++	struct mCheatDevice* device = core->cheatDevice(core);
++	// mCheatDeviceClear frees each set without running its remove hook, so a GBA master
++	// code's breakpoint was left in ROM with nothing behind it: the next write of cheats took
++	// the breakpoint itself as the "original" opcode and the game spun on it. Remove the sets
++	// properly first, which puts the real opcode back.
++	while (mCheatSetsSize(&device->cheats)) {
++		mCheatRemoveSet(device, *mCheatSetsGetPointer(&device->cheats, 0));
++	}
++	mCheatDeviceClear(device);
+ }
+ 
+ void retro_cheat_set(unsigned index, bool enabled, const char* code) {

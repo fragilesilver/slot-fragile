@@ -188,7 +188,31 @@ Four commits, each with the suite green; no behaviour change for GB, GBC or GBA.
 - Left for the phases that use them: disk control and the emu `Disc`/`Reset` jobs (12), cheat
   symbols and `SetCheats` (8), per-system Controls and Screen pages for new systems (12).
 
-Next is Phase 8 (cheats) in `FRAGILE_PLAN.md`.
+## Phase 8 (done 2026-10-21)
+
+- Files (`slot/src/cheats.rs`, roygravy's): `Cheats/<GBA|GB|GBC>/` holds RetroArch `.cht` files
+  named like the ROM (a code kind in brackets allowed, else matched by title before the first
+  bracket), all merged; also plain `CODE # name` lists as `.txt` there or loose in `Cheats/`
+  (the Android port's). Which are on: `Config/Cheats/<dir>/<stem>.txt`, names, gone when none.
+  `card/Cheats/README.txt` ships with the card.
+- Menu: in-game PLAY page gains Cheats after States, hidden when the game has none or a link
+  is up. It opens a list page over the game (`Overlay::Cheats`, `app/cheats.rs`); A turns a
+  cheat on or off, B goes back to the row, MENU closes the menu.
+- Core: `RetroCore::set_cheats(codes)`; the libretro core resets then sets only the codes that
+  are on (mGBA ignores the enabled flag), through optional symbols. The emu keeps the list and
+  sets it again after a state load. `App::take_cheats` hands the session the codes whenever
+  they differ from what the core has: on core ready, on a toggle, none while linked, back after.
+- mGBA: `cores/mgba/zzz-cheat-reset-removes-hooks.patch` (from the Android port) so clearing a
+  GBA master code puts the real opcode back instead of leaving the game spinning on the hook.
+  Checked here: the patch applies on our pinned mGBA with our other patches and the core builds
+  on Linux. gpSP at our pin implements `retro_cheat_set`/`reset` itself (unencrypted codes).
+- Not tested here with a real core and ROM, so not yet known to work on device: that codes take
+  effect in mGBA and gpSP, and that toggling a master code no longer freezes. No cheat icon on
+  the HUD (the plan's roygravy icon); the Cheats row is the only sign.
+- Upstream tests changed: the PLAY page rows, the opening rows list, and the in-game hidden
+  rows list (Cheats is hidden in those tests' games).
+
+Next is Phase 9 (Wi-Fi + NTP) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

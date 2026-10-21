@@ -432,3 +432,48 @@ fn the_button_guide_renders_over_the_game() {
         "the selected row on the guide is not lit: {ink} bright pixels"
     );
 }
+
+#[test]
+fn the_cheats_page_renders_over_the_game() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    std::fs::write(
+        d.path().join("Cheats/GBA/Emerald.txt"),
+        "D8BAE4D9 4864DCE5 # Master Code\nA86CDBA5 19BB1D4C # Max Money\n",
+    )
+    .unwrap();
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 4.0);
+    tap(&mut f, &mut input, Btn::Menu);
+    run_for(&mut f, &mut input, 0.5);
+    for _ in 0..QuickRow::PlayCheats.position(&f.app().in_game_hidden()) {
+        tap(&mut f, &mut input, Btn::Down);
+    }
+    assert_eq!(f.app().in_game_menu(), Some(QuickRow::PlayCheats));
+    tap(&mut f, &mut input, Btn::A);
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 0.3);
+    assert_eq!(f.app().cheats_on(), ["Master Code"]);
+    f.compose(&mut c);
+    let px = composed(&mut f, &mut c, "cheats");
+    let page = f
+        .app()
+        .overlay_page()
+        .expect("the Cheats page did not open")
+        .clone();
+    let top = slot_ui::list_row_top(&page, 0) as usize;
+    let ink = (top..top + 40)
+        .flat_map(|y| (64..400).map(move |x| (x, y)))
+        .filter(|&(x, y)| at(&px, x, y).iter().map(|c| u32::from(*c)).sum::<u32>() > 600)
+        .count();
+    assert!(ink > 100, "the lit cheat is not drawn: {ink} bright pixels");
+}

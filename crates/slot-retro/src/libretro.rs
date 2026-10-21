@@ -682,6 +682,22 @@ impl RetroCore for LibretroCore {
         &self.host.video
     }
 
+    /// Only the codes that are on are sent: mGBA's port ignores the flag and adds every line it
+    /// is given (fragilesilver/slot-for-android@2149dba). Clearing first relies on
+    /// `cores/mgba/zzz-cheat-reset-removes-hooks.patch` to take a master code's hook out too.
+    fn set_cheats(&mut self, codes: &[String]) {
+        let (Some(reset), Some(set)) = (self.api.cheat_reset, self.api.cheat_set) else {
+            return;
+        };
+        let _a = Active::bind(&mut self.host);
+        unsafe { reset() };
+        for (i, code) in codes.iter().enumerate() {
+            if let Ok(code) = CString::new(code.as_str()) {
+                unsafe { set(i as c_uint, true, code.as_ptr()) };
+            }
+        }
+    }
+
     fn set_native(&mut self, native: bool) {
         self.host.canvas = match native {
             true => Canvas::Native,

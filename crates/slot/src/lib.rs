@@ -10,6 +10,7 @@ pub mod card_log;
 #[cfg(unix)]
 pub mod card_space;
 pub mod cart_faces;
+pub mod cheats;
 pub mod core;
 pub mod core_picker;
 #[cfg(unix)]

@@ -30,6 +30,7 @@ use crate::persist::{self, Snapshot};
 use crate::video_mode::{self, VideoMode};
 
 mod battery;
+mod cheats;
 mod extras;
 mod guide;
 mod overlay;
@@ -946,6 +947,9 @@ impl App {
         if !self.state.turbo {
             hidden.extend([QuickRow::GameTurboA, QuickRow::GameTurboB]);
         }
+        if self.cheats_hidden() {
+            hidden.push(QuickRow::PlayCheats);
+        }
         hidden
     }
 
@@ -1047,6 +1051,7 @@ impl App {
             | QuickRow::ShelfFavorite
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
+            | QuickRow::PlayCheats
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
             | QuickRow::GameUp
@@ -2624,6 +2629,7 @@ impl App {
             | QuickRow::ShelfFavorite
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
+            | QuickRow::PlayCheats
             | QuickRow::PlayControls
             | QuickRow::GameUp
             | QuickRow::GameDown
@@ -2814,6 +2820,7 @@ impl App {
             | QuickRow::ShelfFavorite
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
+            | QuickRow::PlayCheats
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
             | QuickRow::GameUp
@@ -3616,6 +3623,7 @@ impl App {
 
     pub fn on_core_ready(&mut self) {
         self.motion_blur_changed();
+        self.cheats_core_ready();
         let Phase::Inserting {
             cart, core_ready, ..
         } = &mut self.phase
