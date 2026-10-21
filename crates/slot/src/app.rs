@@ -1146,22 +1146,10 @@ impl App {
         choices
     }
 
-    fn bezel_pick(&mut self, platform: Platform) -> &mut BezelPick {
-        match platform {
-            Platform::Gba => &mut self.state.bezel_gba,
-            Platform::Gb => &mut self.state.bezel_gb,
-            Platform::Gbc => &mut self.state.bezel_gbc,
-        }
-    }
-
     pub fn resolved_bezel(&self, platform: Platform) -> BezelPick {
-        let pick = match platform {
-            Platform::Gba => &self.state.bezel_gba,
-            Platform::Gb => &self.state.bezel_gb,
-            Platform::Gbc => &self.state.bezel_gbc,
-        };
-        match self.bezel_choices(platform).contains(pick) {
-            true => pick.clone(),
+        let pick = self.platform_bezel(platform);
+        match self.bezel_choices(platform).contains(&pick) {
+            true => pick,
             false => BezelPick::None,
         }
     }
@@ -1171,12 +1159,13 @@ impl App {
         let key = self.resolved_bezel(platform).key();
         let at = choices.iter().position(|c| c.key() == key).unwrap_or(0);
         let n = choices.len();
-        *self.bezel_pick(platform) = choices[if right {
+        let to = choices[if right {
             (at + 1) % n
         } else {
             (at + n - 1) % n
         }]
         .clone();
+        self.set_platform_bezel(platform, to);
     }
 
     pub fn sp_frame(&self) -> bool {
@@ -2124,11 +2113,7 @@ impl App {
         if let Some(own) = self.game_profile().shader {
             return own;
         }
-        match self.playing_platform() {
-            Platform::Gba => self.state.shader_gba,
-            Platform::Gb => self.state.shader_gb,
-            Platform::Gbc => self.state.shader_gbc,
-        }
+        self.platform_shader(self.playing_platform())
     }
 
     pub fn colour_correction(&self) -> bool {
@@ -2143,11 +2128,7 @@ impl App {
         if let Some(own) = self.own_colour_for(platform) {
             return own;
         }
-        match platform {
-            Platform::Gba => self.state.colour_correction_gba,
-            Platform::Gb => self.state.colour_correction_gb,
-            Platform::Gbc => self.state.colour_correction_gbc,
-        }
+        self.platform_colour(platform)
     }
 
     pub fn light(&self) -> bool {
@@ -2903,13 +2884,12 @@ impl App {
         if self.shortcut_own_shader(right) {
             return;
         }
-        let (shader, choices) = match self.playing_platform() {
-            Platform::Gba => (&mut self.state.shader_gba, &Shader::GBA[..]),
-            Platform::Gb => (&mut self.state.shader_gb, &Shader::GB[..]),
-            Platform::Gbc => (&mut self.state.shader_gbc, &Shader::GB[..]),
-        };
-        *shader = shader.step(choices, right);
-        let said = match *shader {
+        let platform = self.playing_platform();
+        let to = self
+            .platform_shader(platform)
+            .step(platform.spec().shaders, right);
+        self.set_platform_shader(platform, to);
+        let said = match to {
             Shader::Off => Toast::ShaderOff,
             Shader::Lcd3x => Toast::ShaderLcd3x,
             Shader::Grid => Toast::ShaderGrid,

@@ -84,7 +84,7 @@ impl App {
         self.extras = read_extras(root);
     }
 
-    fn save_extras(&self) {
+    pub(super) fn save_extras(&self) {
         let Some(root) = &self.root else {
             return;
         };

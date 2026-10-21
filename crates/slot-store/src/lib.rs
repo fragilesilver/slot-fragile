@@ -12,6 +12,7 @@ mod gb_palette;
 mod gba;
 pub mod ini;
 mod platform;
+pub mod platform_settings;
 mod ring;
 mod scan;
 mod shaders;

@@ -4,17 +4,13 @@
 //! each console's Screen page, shown on every panel so upstream's page layouts hold; on a 3:2
 //! panel the setting changes nothing.
 
-use slot_store::Platform;
+use slot_store::{platform_settings, BezelPick, Platform, Shader};
 use slot_ui::{QuickRow, QuickValue, Toast};
 
 use super::{App, VideoMode};
 
-fn card_shader_key(platform: Platform) -> &'static str {
-    match platform {
-        Platform::Gba => "card_shader_gba",
-        Platform::Gb => "card_shader_gb",
-        Platform::Gbc => "card_shader_gbc",
-    }
+fn card_shader_key(platform: Platform) -> String {
+    format!("card_shader_{}", platform.key())
 }
 
 fn card_shader_row_platform(row: QuickRow) -> Option<Platform> {
@@ -26,12 +22,8 @@ fn card_shader_row_platform(row: QuickRow) -> Option<Platform> {
     }
 }
 
-fn motion_blur_key(platform: Platform) -> &'static str {
-    match platform {
-        Platform::Gba => "motion_blur_gba",
-        Platform::Gb => "motion_blur_gb",
-        Platform::Gbc => "motion_blur_gbc",
-    }
+fn motion_blur_key(platform: Platform) -> String {
+    format!("motion_blur_{}", platform.key())
 }
 
 fn motion_blur_row_platform(row: QuickRow) -> Option<Platform> {
@@ -43,17 +35,41 @@ fn motion_blur_row_platform(row: QuickRow) -> Option<Platform> {
     }
 }
 
-fn integer_key(platform: Platform) -> &'static str {
-    match platform {
-        Platform::Gba => "integer_gba",
-        Platform::Gb => "integer_gb",
-        Platform::Gbc => "integer_gbc",
-    }
+fn integer_key(platform: Platform) -> String {
+    format!("integer_{}", platform.key())
 }
 
 impl App {
+    pub(super) fn platform_shader(&self, platform: Platform) -> Shader {
+        platform_settings::shader(&self.state, &self.extras, platform)
+    }
+
+    pub(super) fn platform_colour(&self, platform: Platform) -> bool {
+        platform_settings::colour(&self.state, &self.extras, platform)
+    }
+
+    pub(super) fn platform_bezel(&self, platform: Platform) -> BezelPick {
+        platform_settings::bezel(&self.state, &self.extras, platform)
+    }
+
+    /// The caller saves slot.state; a system Fragile adds keeps its setting in extras.state,
+    /// saved here.
+    pub(super) fn set_platform_shader(&mut self, platform: Platform, to: Shader) {
+        platform_settings::set_shader(&mut self.state, &mut self.extras, platform, to);
+        if platform_settings::in_extras(platform) {
+            self.save_extras();
+        }
+    }
+
+    pub(super) fn set_platform_bezel(&mut self, platform: Platform, to: BezelPick) {
+        platform_settings::set_bezel(&mut self.state, &mut self.extras, platform, to);
+        if platform_settings::in_extras(platform) {
+            self.save_extras();
+        }
+    }
+
     pub fn integer_scale(&self, platform: Platform) -> bool {
-        self.extras.flag(integer_key(platform), false)
+        self.extras.flag(&integer_key(platform), false)
     }
 
     /// The picture size the compositor draws at a whole multiple, while Integer Scale is on for
@@ -89,7 +105,7 @@ impl App {
 
     /// The core's own frame blending, per console. Off unless asked for.
     pub fn motion_blur(&self, platform: Platform) -> bool {
-        self.extras.flag(motion_blur_key(platform), false)
+        self.extras.flag(&motion_blur_key(platform), false)
     }
 
     /// The blending the running core should have, once after it loads and after each change.
@@ -109,7 +125,7 @@ impl App {
         }
         if let Some(platform) = motion_blur_row_platform(row) {
             let on = !self.motion_blur(platform);
-            self.extras.set_flag(motion_blur_key(platform), on);
+            self.extras.set_flag(&motion_blur_key(platform), on);
             self.motion_blur_changed();
             return true;
         }
@@ -117,14 +133,14 @@ impl App {
             return false;
         };
         let on = !self.integer_scale(platform);
-        self.extras.set_flag(integer_key(platform), on);
+        self.extras.set_flag(&integer_key(platform), on);
         true
     }
 
     /// The shader from `Shaders/` a console draws with, by name; `None` for the built-in.
     pub fn card_shader_for(&self, platform: Platform) -> Option<String> {
         self.extras
-            .get(card_shader_key(platform))
+            .get(&card_shader_key(platform))
             .map(str::to_string)
     }
 
@@ -151,7 +167,7 @@ impl App {
         } else {
             (at + n - 1) % n
         }];
-        self.extras.set(card_shader_key(platform), to.as_deref());
+        self.extras.set(&card_shader_key(platform), to.as_deref());
     }
 
     /// A menu value that is text slot only knows at run time, for the frontend to draw.

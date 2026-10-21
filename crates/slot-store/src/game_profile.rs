@@ -73,11 +73,9 @@ impl GameProfile {
     }
 
     pub fn resolve(&self, platform: Platform, defaults: &SlotState) -> Resolved {
-        let (shader_default, colour_default) = match platform {
-            Platform::Gba => (defaults.shader_gba, defaults.colour_correction_gba),
-            Platform::Gb => (defaults.shader_gb, defaults.colour_correction_gb),
-            Platform::Gbc => (defaults.shader_gbc, defaults.colour_correction_gbc),
-        };
+        let extras = crate::ExtrasState::default();
+        let shader_default = crate::platform_settings::shader(defaults, &extras, platform);
+        let colour_default = crate::platform_settings::colour(defaults, &extras, platform);
         Resolved {
             shader: self.shader.unwrap_or(shader_default),
             colour: self.colour.unwrap_or(colour_default),
