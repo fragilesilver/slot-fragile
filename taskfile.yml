@@ -317,7 +317,11 @@ tasks:
         if [ "$(uname -s)-$(uname -m)" = "Linux-aarch64" ]; then
           sh -c '{{.CMD}}'
         else
-          docker run --rm --platform linux/arm64 -v "$PWD":/src -w /src rust:1-bullseye sh -c '{{.CMD}}'
+          # Fragile: on Linux the container's files come out owned by root; give them back.
+          docker run --rm --platform linux/arm64 -v "$PWD":/src -w /src \
+            -e HOST_IDS="$(id -u):$(id -g)" rust:1-bullseye sh -c '{{.CMD}}; s=$?;
+            find /src -path /src/target -prune -o -path /src/forks -prune -o -uid 0 -print0 |
+            xargs -0 -r chown "$HOST_IDS"; exit $s'
         fi
 
   build:device:
