@@ -952,6 +952,9 @@ impl App {
         if self.cheats_hidden() {
             hidden.push(QuickRow::PlayCheats);
         }
+        if self.achievements_hidden() {
+            hidden.push(QuickRow::PlayAchievements);
+        }
         hidden
     }
 
@@ -1060,6 +1063,9 @@ impl App {
             | QuickRow::WifiStatus
             | QuickRow::WifiIp
             | QuickRow::TimeSync
+            | QuickRow::Cheevos
+            | QuickRow::CheevosAccount
+            | QuickRow::PlayAchievements
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
             | QuickRow::GameUp
@@ -2644,6 +2650,9 @@ impl App {
             | QuickRow::WifiStatus
             | QuickRow::WifiIp
             | QuickRow::TimeSync
+            | QuickRow::Cheevos
+            | QuickRow::CheevosAccount
+            | QuickRow::PlayAchievements
             | QuickRow::PlayControls
             | QuickRow::GameUp
             | QuickRow::GameDown
@@ -2841,6 +2850,9 @@ impl App {
             | QuickRow::WifiStatus
             | QuickRow::WifiIp
             | QuickRow::TimeSync
+            | QuickRow::Cheevos
+            | QuickRow::CheevosAccount
+            | QuickRow::PlayAchievements
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
             | QuickRow::GameUp

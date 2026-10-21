@@ -18,6 +18,8 @@ pub enum Overlay {
     Cheats(ListPage),
     /// The Wi-Fi networks in range, from Main menu → Network.
     Networks(ListPage),
+    /// The playing game's achievements, over the game.
+    Achievements(ListPage),
 }
 
 /// Which menu a page was opened from, so it closes when that menu does and B goes back to it.
@@ -66,7 +68,8 @@ impl Overlay {
             | Overlay::Guide(page, _)
             | Overlay::Lists(page, _)
             | Overlay::Cheats(page)
-            | Overlay::Networks(page) => page,
+            | Overlay::Networks(page)
+            | Overlay::Achievements(page) => page,
         }
     }
 
@@ -76,7 +79,8 @@ impl Overlay {
             | Overlay::Guide(page, _)
             | Overlay::Lists(page, _)
             | Overlay::Cheats(page)
-            | Overlay::Networks(page) => page,
+            | Overlay::Networks(page)
+            | Overlay::Achievements(page) => page,
         }
     }
 }
@@ -131,6 +135,14 @@ impl App {
                 self.open_networks();
                 return true;
             }
+            QuickRow::CheevosAccount => {
+                self.start_cheevos_sign_in();
+                return true;
+            }
+            QuickRow::PlayAchievements => {
+                self.open_achievements();
+                return true;
+            }
             QuickRow::Network => {
                 let row = QuickRow::NETWORK[0];
                 self.phase = Phase::QuickMenu { row };
@@ -153,6 +165,7 @@ impl App {
             Some(Overlay::Guide(_, from)) => Some(*from),
             Some(Overlay::Cheats(_)) => Some(From::InGame),
             Some(Overlay::Networks(_)) => Some(From::Menu),
+            Some(Overlay::Achievements(_)) => Some(From::InGame),
             _ => None,
         }
     }
@@ -173,6 +186,9 @@ impl App {
     /// Takes the action when a page is open, and says so. A page left behind by its screen,
     /// eg the power going off under it, is closed and takes nothing.
     pub(super) fn overlay_input(&mut self, action: Action) -> bool {
+        if self.typing_input(action) {
+            return true;
+        }
         let alive = match &self.overlay.open {
             None => return false,
             Some(Overlay::Guide(_, From::Menu)) => matches!(self.phase, Phase::QuickMenu { .. }),
@@ -180,6 +196,7 @@ impl App {
             Some(Overlay::Lists(..)) => matches!(self.phase, Phase::Shelf),
             Some(Overlay::Cheats(_)) => self.in_game_menu.is_some(),
             Some(Overlay::Networks(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
+            Some(Overlay::Achievements(_)) => self.in_game_menu.is_some(),
             Some(Overlay::Details(_)) => matches!(self.phase, Phase::About),
         };
         if !alive {

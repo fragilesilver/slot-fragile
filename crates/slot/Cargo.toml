@@ -6,12 +6,14 @@ rust-version.workspace = true
 license.workspace = true
 
 [features]
-default = ["host"]
+default = ["host", "cheevos"]
 host = ["dep:winit", "dep:cpal", "dep:gilrs", "slot-gfx/host"]
-device = ["slot-gfx/device"]
+device = ["slot-gfx/device", "cheevos"]
+cheevos = ["dep:slot-cheevos"]
 
 [dependencies]
 slot-gfx = { path = "../slot-gfx", default-features = false }
+slot-cheevos = { path = "../slot-cheevos", optional = true }
 slot-input = { path = "../slot-input" }
 slot-power = { path = "../slot-power" }
 slot-retro = { path = "../slot-retro" }

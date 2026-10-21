@@ -36,6 +36,7 @@ struct Host {
     size: (u32, u32),
     /// The display aspect from the core's geometry, 0 when it leaves it to the picture's size.
     aspect: f32,
+    memory_map: Vec<crate::memory::MemoryDescriptor>,
     format: PixelFormat,
     audio: Vec<i16>,
     inputs: [u16; 2],
@@ -87,6 +88,9 @@ unsafe extern "C" fn set_rumble_state(port: c_uint, effect: c_uint, strength: u1
 
 unsafe extern "C" fn environment(cmd: c_uint, data: *mut c_void) -> bool {
     match cmd {
+        crate::memory::SET_MEMORY_MAPS | crate::memory::SET_MEMORY_MAPS_PLAIN => {
+            with_host(|h| h.memory_map = crate::memory::descriptors(data)).is_some()
+        }
         SET_GEOMETRY | SET_SYSTEM_AV_INFO => {
             if data.is_null() {
                 return false;
@@ -511,6 +515,7 @@ impl LibretroCore {
             canvas: Canvas::Fixed(GBA_W, GBA_H),
             size: (GBA_W, GBA_H),
             aspect: 0.0,
+            memory_map: Vec::new(),
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],
@@ -698,6 +703,10 @@ impl RetroCore for LibretroCore {
         }
     }
 
+    fn memory_map(&self) -> &[crate::memory::MemoryDescriptor] {
+        &self.host.memory_map
+    }
+
     fn set_native(&mut self, native: bool) {
         self.host.canvas = match native {
             true => Canvas::Native,
@@ -808,6 +817,7 @@ mod tests {
             canvas: Canvas::Fixed(GBA_W, GBA_H),
             size: (GBA_W, GBA_H),
             aspect: 0.0,
+            memory_map: Vec::new(),
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],

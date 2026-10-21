@@ -29,9 +29,10 @@ const SEARCH_AT: usize = FAVORITES_AT + 1;
 const NEW_LIST: &str = "New List";
 const LIST_NAME_MAX: usize = 24;
 
-/// The keyboard's keys, its three sets of legends (search, a list's name, a network's
-/// password) and the Networks page's footer legends, drawn off the main thread.
-type Built = (Vec<UndoFace>, [Vec<UndoFace>; 3], Vec<UndoFace>);
+/// The keyboard's keys, its sets of legends (search, a list's name, a network's password, a
+/// RetroAchievements username and password) and the Networks page's footer legends, drawn off
+/// the main thread.
+type Built = (Vec<UndoFace>, [Vec<UndoFace>; 5], Vec<UndoFace>);
 
 /// What the keyboard is typing now and how its page reads: the field, the line under it, the
 /// matches, and which legends.
@@ -54,7 +55,7 @@ pub struct Collections {
     names: Vec<&'static str>,
     faces: KeyboardFaces,
     /// The keyboard's legends for a search and for a list's name.
-    legends: [Vec<(TexId, u32)>; 3],
+    legends: [Vec<(TexId, u32)>; 5],
     /// A Join and X Forget, dark then light.
     pub(super) network_legends: Vec<(TexId, u32)>,
     building: Option<Receiver<Built>>,
@@ -425,6 +426,8 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                                 slot_ui::keyboard_legend_faces("Search"),
                                 slot_ui::keyboard_legend_faces("Make List"),
                                 slot_ui::keyboard_legend_faces("Join"),
+                                slot_ui::keyboard_legend_faces("Next"),
+                                slot_ui::keyboard_legend_faces("Sign In"),
                             ],
                             network,
                         ));

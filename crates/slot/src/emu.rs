@@ -542,6 +542,7 @@ impl Worker {
                 self.shared.sav_refused.store(true, Ordering::Release);
             }
         }
+        let _cheevos = crate::cheevos::loaded(&rom, resume.is_some());
         if let Some(resume) = resume {
             eprintln!(
                 "slot: emu: resume state, {} bytes, at {:.1} ms",
@@ -599,6 +600,7 @@ impl Worker {
             for cmd in self.cmds.try_iter() {
                 self.apply(cmd, core.as_mut(), &mut transport, &mut cable, &link);
             }
+            crate::cheevos::idle(core.as_ref());
 
             if let Some(t) = transport.as_mut() {
                 match cable.as_mut() {
@@ -614,6 +616,7 @@ impl Worker {
                             } else {
                                 match core.unserialize(&state) {
                                     Ok(()) => {
+                                        crate::cheevos::reset();
                                         eprintln!(
                                         "slot: cable: restored {} bytes, running the host's game",
                                         state.len()
@@ -752,6 +755,7 @@ impl Worker {
                         }
                         None => core.run_frame(input),
                     }
+                    crate::cheevos::frame(core.as_ref());
                     let took = frame_began.elapsed();
                     if last {
                         drawn = took;
@@ -930,6 +934,7 @@ impl Worker {
                 if let Err(e) = core.unserialize(&self.for_core(state)) {
                     eprintln!("slot: {e}");
                 }
+                crate::cheevos::reset();
                 let cheats = self.cheats.lock().unwrap_or_else(|e| e.into_inner());
                 if !cheats.is_empty() {
                     core.set_cheats(&cheats);

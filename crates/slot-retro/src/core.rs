@@ -104,6 +104,10 @@ pub trait RetroCore: Send {
     /// Replace the game's cheats with these codes, all on; empty clears them. A core with no
     /// cheats ignores it. Ported from roygravy/slot@4504afe, crates/slot-retro/src/core.rs.
     fn set_cheats(&mut self, _codes: &[String]) {}
+    /// The game's memory as the core maps it, for RetroAchievements.
+    fn memory_map(&self) -> &[crate::memory::MemoryDescriptor] {
+        &[]
+    }
     fn take_audio(&mut self) -> Vec<i16>;
     fn serialize(&mut self) -> Result<Vec<u8>, CoreError>;
     fn unserialize(&mut self, data: &[u8]) -> Result<(), CoreError>;

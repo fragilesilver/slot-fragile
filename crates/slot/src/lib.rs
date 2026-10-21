@@ -11,6 +11,7 @@ pub mod card_log;
 pub mod card_space;
 pub mod cart_faces;
 pub mod cheats;
+pub mod cheevos;
 pub mod core;
 pub mod core_picker;
 #[cfg(unix)]

@@ -1,0 +1,11 @@
+--- a/src/rc_client.c
++++ b/src/rc_client.c
+@@ -6221,7 +6221,7 @@
+   memset(&client_event, 0, sizeof(client_event));
+   client_event.subset = &subset->public_;
+ 
+-  if (subset == client->game->subsets)
++  if (!client->game || subset == client->game->subsets)
+     client_event.type = RC_CLIENT_EVENT_GAME_COMPLETED;
+   else
+     client_event.type = RC_CLIENT_EVENT_SUBSET_COMPLETED;

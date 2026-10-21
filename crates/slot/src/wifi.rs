@@ -23,6 +23,23 @@ const TICK: Duration = Duration::from_secs(1);
 /// What `slotlink.sh` writes while a link session owns wlan0.
 pub const LINK_MARK: &str = "/run/slotlink.session";
 
+/// Whether the Wi-Fi has a network, for whatever wants the internet. Off the device the
+/// computer's own connection is assumed.
+static ONLINE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(!cfg!(all(feature = "device", unix)));
+
+pub fn online() -> bool {
+    ONLINE.load(std::sync::atomic::Ordering::Acquire)
+}
+
+#[cfg(all(feature = "device", unix))]
+fn set_online(on: bool) {
+    ONLINE.store(on, std::sync::atomic::Ordering::Release);
+}
+
+#[cfg(not(all(feature = "device", unix)))]
+fn set_online(_on: bool) {}
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Security {
     Open,
@@ -194,7 +211,11 @@ fn work(
     view: Arc<Mutex<WifiView>>,
     linked: Box<dyn Fn() -> bool + Send>,
 ) {
-    let set = |f: &dyn Fn(&mut WifiView)| f(&mut view.lock().unwrap_or_else(|e| e.into_inner()));
+    let set = |f: &dyn Fn(&mut WifiView)| {
+        let mut v = view.lock().unwrap_or_else(|e| e.into_inner());
+        f(&mut v);
+        set_online(v.on && !v.yielded && v.connected.is_some());
+    };
     // Whether the radio should be on: what was asked for last, kept through a link session.
     let mut wanted = false;
     let mut yielded = false;

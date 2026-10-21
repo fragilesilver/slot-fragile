@@ -157,6 +157,7 @@ impl Frontend {
 
     pub fn boot_with(platform: Box<dyn Platform>, sink: Box<dyn crate::audio::AudioSink>) -> Self {
         let now = Instant::now();
+        crate::cheevos::start(platform.root());
         let cart_faces = CartFaces::spawn(platform.root().to_path_buf());
         let mut session = Session::boot_with(platform.root().to_path_buf(), sink);
         crate::boot_time::mark("session");
@@ -641,6 +642,7 @@ impl Frontend {
         );
         self.draws.clear();
         self.session.app().draw(&mut self.draws);
+        crate::cheevos::overlay(compositor, &mut self.draws);
         compositor.draw_list(&self.draws);
     }
 

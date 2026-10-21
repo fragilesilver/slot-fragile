@@ -1,0 +1,11 @@
+--- a/src/rc_client.c
++++ b/src/rc_client.c
+@@ -4728,7 +4728,7 @@
+             ach_data->hardcore ? award_achievement_response.new_player_score : award_achievement_response.new_player_score_softcore);
+       }
+ 
+-      if (award_achievement_response.achievements_remaining == 0) {
++      if (award_achievement_response.achievements_remaining == 0 && ach_data->client->game) {
+         rc_client_subset_info_t* subset;
+         for (subset = ach_data->client->game->subsets; subset; subset = subset->next) {
+           if (subset->mastery == RC_CLIENT_MASTERY_STATE_NONE &&

@@ -118,10 +118,13 @@ pub enum QuickRow {
     WifiStatus,
     WifiIp,
     TimeSync,
+    Cheevos,
+    CheevosAccount,
+    PlayAchievements,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 106] = [
+    pub const ALL: [QuickRow; 109] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -229,6 +232,9 @@ impl QuickRow {
         QuickRow::WifiStatus,
         QuickRow::WifiIp,
         QuickRow::TimeSync,
+        QuickRow::Cheevos,
+        QuickRow::CheevosAccount,
+        QuickRow::PlayAchievements,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -345,11 +351,12 @@ impl QuickRow {
         QuickRow::EjectSave,
     ];
 
-    pub const PLAY: [QuickRow; 5] = [
+    pub const PLAY: [QuickRow; 6] = [
         QuickRow::Resume,
         QuickRow::States,
         // --- extras ---
         QuickRow::PlayCheats,
+        QuickRow::PlayAchievements,
         QuickRow::Settings,
         QuickRow::ExitGame,
     ];
@@ -423,7 +430,8 @@ impl QuickRow {
             | QuickRow::States
             | QuickRow::Settings
             | QuickRow::ExitGame
-            | QuickRow::PlayCheats => &QuickRow::PLAY,
+            | QuickRow::PlayCheats
+            | QuickRow::PlayAchievements => &QuickRow::PLAY,
             QuickRow::PlayScreen
             | QuickRow::PlayGameplay
             | QuickRow::PlayControls
@@ -444,7 +452,9 @@ impl QuickRow {
             | QuickRow::WifiNetworks
             | QuickRow::WifiStatus
             | QuickRow::WifiIp
-            | QuickRow::TimeSync => &QuickRow::NETWORK,
+            | QuickRow::TimeSync
+            | QuickRow::Cheevos
+            | QuickRow::CheevosAccount => &QuickRow::NETWORK,
             _ => &QuickRow::MAIN,
         }
     }
@@ -563,6 +573,9 @@ impl QuickRow {
             QuickRow::WifiStatus => "Status",
             QuickRow::WifiIp => "IP Address",
             QuickRow::TimeSync => "Time Sync",
+            QuickRow::Cheevos => "RetroAchievements",
+            QuickRow::CheevosAccount => "Account",
+            QuickRow::PlayAchievements => "Achievements",
             QuickRow::ThisShader => "Shader",
             QuickRow::ThisColour => "Color Correction",
             QuickRow::ThisFfSpeed => "Fast Forward",
@@ -676,6 +689,9 @@ impl QuickRow {
             QuickRow::WifiStatus => "The network the Wi-Fi is on.",
             QuickRow::WifiIp => "The address the network gave.",
             QuickRow::TimeSync => "Set the clock from the internet when online.",
+            QuickRow::Cheevos => "Earn achievements, softcore, while you play.",
+            QuickRow::CheevosAccount => "Sign in to RetroAchievements.",
+            QuickRow::PlayAchievements => "This game's achievements and the ones you have.",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => {
                 "Every button and what it does, as set now."
             }
@@ -739,6 +755,8 @@ impl QuickRow {
                 | QuickRow::PlayCheats
                 | QuickRow::Network
                 | QuickRow::WifiNetworks
+                | QuickRow::CheevosAccount
+                | QuickRow::PlayAchievements
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba
                 | QuickRow::ScreenGbc

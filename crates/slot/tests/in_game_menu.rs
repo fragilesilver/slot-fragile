@@ -96,13 +96,19 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::Palette,
             QuickRow::Bezel,
             QuickRow::LeftStick,
-            QuickRow::PlayCheats
+            QuickRow::PlayCheats,
+            QuickRow::PlayAchievements
         ]
     );
     a.set_palette_live(true);
     assert_eq!(
         a.in_game_hidden(),
-        &[QuickRow::Bezel, QuickRow::LeftStick, QuickRow::PlayCheats]
+        &[
+            QuickRow::Bezel,
+            QuickRow::LeftStick,
+            QuickRow::PlayCheats,
+            QuickRow::PlayAchievements
+        ]
     );
 }
 

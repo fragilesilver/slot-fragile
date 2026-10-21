@@ -240,7 +240,35 @@ Four commits, each with the suite green; no behaviour change for GB, GBC or GBA.
   reconnecting after a reboot, a link session taking and giving back the radio, NTP syncing.
 - Upstream tests changed: the main menu labels and walk, and the opening rows list.
 
-Next is Phase 10 (RetroAchievements) in `FRAGILE_PLAN.md`.
+## Phase 10 (done 2026-10-21)
+
+- nickclyde's RetroAchievements, softcore only: `crates/slot-cheevos` (rcheevos v12.5.0 vendored
+  with his two patches, `fetch-rcheevos.sh` to refresh it, a C shim, `rc_client` with HTTP on its
+  own thread over `ureq` 2 + rustls), `slot-retro/src/memory.rs` (the core's memory map) and
+  `slot/src/cheevos/` behind the `cheevos` feature (on for host and device). Hooks:
+  `frontend.rs` start and overlay; `emu.rs` loaded, idle, frame, and reset after a state load
+  and after the cable restore; guarded by `slot/tests/cheevos_hooks.rs`.
+- Not as nickclyde has it: his own Wi-Fi script and `Watcher` are left out; sign-in waits for
+  `crate::wifi::online()` (Phase 9's radio: on, connected, not yielded to a link). The user
+  agent says Fragile. Fragile adds `Cheevos::achievements()` and `logout()`, and a shim function
+  over `rc_client_create_achievement_list`.
+- Network page gains RetroAchievements (On/Off, extras `cheevos`, default on; off stops new
+  games being followed) and Account (Sign in / Waiting for Wi-Fi / Signing in / the user's
+  name / Sign-in failed). A on Account types the username, then the password; both go to
+  `Config/retroachievements.txt` (a `host=` line is kept) and the client signs in, signing the
+  old account out first. Once the server answers, the password is replaced by its token.
+- In game, PLAY gains Achievements after Cheats, hidden until the playing game's achievements
+  are known; it lists each with Unlocked or its points. Unlock, mastery, offline and sign-in
+  toasts are nickclyde's overlay.
+- Pinned to releases at least two weeks old: rustls 0.23.45, rustls-webpki 0.103.15,
+  webpki-roots 1.0.9 (newer ones were days old).
+- Device: the TLS stack (ring, rustls, ureq) and a cc-built C object were cross-built in the
+  same arm64 container the device build uses and the binary ran there; see the Phase 10 device
+  build note below for the full build.
+- Not run on the device yet: signing in, a game being recognised, an unlock arriving.
+- Upstream tests changed: the PLAY page rows, the opening rows list, the in-game hidden rows.
+
+Next is Phase 11 (Gambatte) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 
