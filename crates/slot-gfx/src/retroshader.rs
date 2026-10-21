@@ -91,6 +91,9 @@ pub struct RetroShader {
     frame_direction: Uniform,
     output_size: Uniform,
     input_size: [Uniform; 2],
+    texture_size: [Uniform; 2],
+    /// The frame's texture size, set again when a native system's picture changes size.
+    sized: std::cell::Cell<(u32, u32)>,
 }
 
 /// The file with its `#version` lines taken out and the stage and version put back in front,
@@ -131,8 +134,8 @@ impl RetroShader {
         };
         let shader = unsafe {
             gl::UseProgram(prog);
-            // The frame and its predecessor never change units, and the frame never changes
-            // size, so everything but the geometry and the count is set once here.
+            // The frame and its predecessor never change units, so everything but the geometry,
+            // the count and a native picture's size is set once here.
             for (name, unit) in [("Texture", 0), ("OrigTexture", 0), ("PrevTexture", 1)] {
                 let loc = crate::gl::uniform_location(prog, name);
                 if loc >= 0 {
@@ -177,6 +180,8 @@ impl RetroShader {
                 frame_direction: uniform("FrameDirection"),
                 output_size: uniform("OutputSize"),
                 input_size: [uniform("InputSize"), uniform("OrigInputSize")],
+                texture_size: [uniform("TextureSize"), uniform("OrigTextureSize")],
+                sized: std::cell::Cell::new((SRC_W, SRC_H)),
             }
         };
         Ok(shader)
@@ -192,6 +197,7 @@ impl RetroShader {
         rect: (f32, f32, f32, f32),
         src: [f32; 4],
         frame: u32,
+        size: (u32, u32),
     ) {
         let (x, y, w, h) = rect;
         let (tw, th) = (OUT_W as f32, OUT_H as f32);
@@ -215,8 +221,15 @@ impl RetroShader {
                 gl::UniformMatrix4fv(self.mvp, 1, gl::FALSE, mvp.as_ptr());
             }
             self.output_size.set_vec2(w, h);
-            for size in self.input_size {
-                size.set_vec2(src[2] * SRC_W as f32, src[3] * SRC_H as f32);
+            let (sw, sh) = (size.0 as f32, size.1 as f32);
+            if self.sized.get() != size {
+                self.sized.set(size);
+                for u in self.texture_size {
+                    u.set_vec2(sw, sh);
+                }
+            }
+            for u in self.input_size {
+                u.set_vec2(src[2] * sw, src[3] * sh);
             }
             if self.shown.get() != src {
                 self.shown.set(src);

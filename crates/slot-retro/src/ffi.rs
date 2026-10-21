@@ -17,6 +17,9 @@ pub const GET_LOG_INTERFACE: c_uint = 27;
 pub const GET_SAVE_DIRECTORY: c_uint = 31;
 pub const SET_AUDIO_BUFFER_STATUS_CALLBACK: c_uint = 62;
 pub const SET_NETPACKET_INTERFACE: c_uint = 78;
+// --- extras ---
+pub const SET_SYSTEM_AV_INFO: c_uint = 32;
+pub const SET_GEOMETRY: c_uint = 37;
 
 pub const RUMBLE_STRONG: c_uint = 0;
 pub const RUMBLE_WEAK: c_uint = 1;
@@ -64,6 +67,15 @@ pub struct SystemTiming {
 pub struct SystemAvInfo {
     pub geometry: GameGeometry,
     pub timing: SystemTiming,
+}
+
+#[repr(C)]
+pub struct SystemInfo {
+    pub library_name: *const c_char,
+    pub library_version: *const c_char,
+    pub valid_extensions: *const c_char,
+    pub need_fullpath: bool,
+    pub block_extract: bool,
 }
 
 #[repr(C)]
@@ -145,6 +157,7 @@ pub struct Api {
     pub unserialize: unsafe extern "C" fn(*const c_void, usize) -> bool,
     pub get_memory_data: unsafe extern "C" fn(c_uint) -> *mut c_void,
     pub get_memory_size: unsafe extern "C" fn(c_uint) -> usize,
+    pub get_system_info: unsafe extern "C" fn(*mut SystemInfo),
 }
 
 impl Api {
@@ -175,6 +188,7 @@ impl Api {
             unserialize: get!("retro_unserialize"),
             get_memory_data: get!("retro_get_memory_data"),
             get_memory_size: get!("retro_get_memory_size"),
+            get_system_info: get!("retro_get_system_info"),
         })
     }
 }

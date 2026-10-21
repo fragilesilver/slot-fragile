@@ -47,7 +47,7 @@ pub fn open_core(
     link: Option<u8>,
 ) -> Opened {
     let paths = candidates(root, core);
-    match open_named(root, core, platform, serial, colour, palette, link, &paths) {
+    let mut opened = match open_named(root, core, platform, serial, colour, palette, link, &paths) {
         Some(core) => Opened { core, named: true },
         None => {
             report_missing(core, &paths);
@@ -56,7 +56,9 @@ pub fn open_core(
                 named: false,
             }
         }
-    }
+    };
+    opened.core.set_native(platform.spec().native);
+    opened
 }
 
 pub fn open_core_for(
@@ -78,10 +80,13 @@ pub fn open_core_for_palette(
     palette: Option<GbPalette>,
     paths: &[PathBuf],
 ) -> Box<dyn RetroCore> {
-    open_named(root, core, platform, serial, colour, palette, None, paths).unwrap_or_else(|| {
-        report_missing(core, paths);
-        Box::new(MockCore::new())
-    })
+    let mut opened = open_named(root, core, platform, serial, colour, palette, None, paths)
+        .unwrap_or_else(|| {
+            report_missing(core, paths);
+            Box::new(MockCore::new())
+        });
+    opened.set_native(platform.spec().native);
+    opened
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -41,6 +41,13 @@ pub struct GamePass {
     /// The frame before this one, for card shaders that blend with it (`PrevTexture`).
     prev: gl::types::GLuint,
     frames: u32,
+    // --- extras ---
+    /// The game texture's size: the Game Boy family's 240x160 canvas, or a native system's
+    /// picture as its core draws it.
+    size: (u32, u32),
+    u_src: gl::types::GLint,
+    /// The shape a native system's picture is shown at, letterboxed in the game's rect.
+    aspect: Option<f32>,
 }
 
 impl GamePass {
@@ -57,14 +64,11 @@ impl GamePass {
             Some(&[255]),
         );
         let (u_rect, u_bright, u_uv, u_mode, u_paper_size, u_pic, u_fbo, u_origin);
+        let u_src = crate::gl::uniform_location(prog, "u_src");
         unsafe {
             gl::UseProgram(prog);
             gl::Uniform1i(crate::gl::uniform_location(prog, "u_game"), 0);
-            gl::Uniform2f(
-                crate::gl::uniform_location(prog, "u_src"),
-                SRC_W as f32,
-                SRC_H as f32,
-            );
+            gl::Uniform2f(u_src, SRC_W as f32, SRC_H as f32);
             gl::Uniform2f(
                 crate::gl::uniform_location(prog, "u_target"),
                 OUT_W as f32,
@@ -105,6 +109,9 @@ impl GamePass {
             card: None,
             prev,
             frames: 0,
+            size: (SRC_W, SRC_H),
+            u_src,
+            aspect: None,
         })
     }
 
@@ -122,10 +129,43 @@ impl GamePass {
 
     fn placed(&self) -> (f32, f32, f32, f32) {
         let foot = self.bottom;
-        match self.fills {
+        let rect = match self.fills {
             true => (0.0, 0.0, OUT_W as f32, OUT_H as f32 - foot),
             false => screen_rect_above(self.power, foot),
+        };
+        match self.aspect {
+            Some(aspect) => letterbox(rect, aspect, self.fbo_scale),
+            None => rect,
         }
+    }
+
+    /// Shows a native system's picture at this shape, or the Game Boy family's way for `None`.
+    pub fn set_aspect(&mut self, aspect: Option<f32>) {
+        self.aspect = aspect.filter(|a| a.is_finite() && *a > 0.0);
+    }
+
+    pub fn texture_size(&self) -> (u32, u32) {
+        self.size
+    }
+
+    /// A frame of its own size: the texture is made again when the size changes.
+    pub fn upload_sized(&mut self, xrgb8888: &[u8], size: (u32, u32)) {
+        let (w, h) = size;
+        if w == 0 || h == 0 || xrgb8888.len() < (w * h * 4) as usize {
+            return;
+        }
+        if size != self.size {
+            let made = || crate::gl::texture(w, h, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::BGRA, None);
+            let (game, prev) = (made(), made());
+            unsafe {
+                gl::DeleteTextures(1, &self.game);
+                gl::DeleteTextures(1, &self.prev);
+                gl::UseProgram(self.prog);
+                gl::Uniform2f(self.u_src, w as f32, h as f32);
+            }
+            (self.game, self.prev, self.size) = (game, prev, size);
+        }
+        self.put(xrgb8888);
     }
 
     pub fn set_fills_frame(&mut self, on: bool) {
@@ -184,9 +224,10 @@ impl GamePass {
     }
 
     pub fn upload(&mut self, xrgb8888: &[u8]) {
-        if xrgb8888.len() < (SRC_W * SRC_H * 4) as usize {
-            return;
-        }
+        self.upload_sized(xrgb8888, (SRC_W, SRC_H));
+    }
+
+    fn put(&mut self, xrgb8888: &[u8]) {
         // Last frame becomes `prev`, and its texture takes this one.
         std::mem::swap(&mut self.game, &mut self.prev);
         self.frames = self.frames.wrapping_add(1);
@@ -198,8 +239,8 @@ impl GamePass {
                 0,
                 0,
                 0,
-                SRC_W as i32,
-                SRC_H as i32,
+                self.size.0 as i32,
+                self.size.1 as i32,
                 gl::BGRA,
                 gl::UNSIGNED_BYTE,
                 xrgb8888.as_ptr() as *const std::ffi::c_void,
@@ -213,13 +254,15 @@ impl GamePass {
                 Some(src) => ((0.0, 0.0, OUT_W as f32, OUT_H as f32), src),
                 None => (self.placed(), self.footed(self.src)),
             };
-            return card.draw(self.game, self.prev, rect, src, self.frames);
+            return card.draw(self.game, self.prev, rect, src, self.frames, self.size);
         }
         if let Some(src) = self.integer {
             return self.draw_whole(self.game, quad, src);
         }
         let src = match self.effect {
-            ScreenEffect::Grid => whole_scale_source(self.src, self.fbo_scale),
+            ScreenEffect::Grid if self.aspect.is_none() => {
+                whole_scale_source(self.src, self.fbo_scale)
+            }
             _ => self.src,
         };
         self.draw_source(self.game, quad, src);
@@ -289,6 +332,20 @@ impl GamePass {
         }
         quad.draw();
     }
+}
+
+/// The largest rect of `aspect` (as seen, after the viewport's own scale) centred in `rect`.
+fn letterbox(rect: (f32, f32, f32, f32), aspect: f32, fbo: [f32; 2]) -> (f32, f32, f32, f32) {
+    let (x, y, w, h) = rect;
+    if w <= 0.0 || h <= 0.0 {
+        return rect;
+    }
+    let seen = (w * fbo[0]) / (h * fbo[1]);
+    let (nw, nh) = match seen > aspect {
+        true => (w * aspect / seen, h),
+        false => (w, h * seen / aspect),
+    };
+    (x + (w - nw) / 2.0, y + (h - nh) / 2.0, nw, nh)
 }
 
 fn whole_scale_source(src: [f32; 4], fbo: [f32; 2]) -> [f32; 4] {

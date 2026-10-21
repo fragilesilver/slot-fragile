@@ -114,6 +114,22 @@ impl Compositor {
         self.game.upload(xrgb8888);
     }
 
+    // --- extras ---
+
+    /// A frame at its own size, as a native system's core draws it.
+    pub fn upload_game_sized(&mut self, xrgb8888: &[u8], size: (u32, u32)) {
+        self.game.upload_sized(xrgb8888, size);
+    }
+
+    /// The shape to letterbox a native system's picture to; `None` for the Game Boy family.
+    pub fn set_game_aspect(&mut self, aspect: Option<f32>) {
+        self.game.set_aspect(aspect);
+    }
+
+    pub fn game_texture_size(&self) -> (u32, u32) {
+        self.game.texture_size()
+    }
+
     pub fn draw_game(&mut self) {
         self.in_game_rect(|c| c.game.draw(&c.quad));
     }

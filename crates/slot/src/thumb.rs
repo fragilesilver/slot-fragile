@@ -1,7 +1,15 @@
 use slot_retro::{GBA_H, GBA_W};
 
 pub fn png(xrgb8888: &[u8]) -> Option<Vec<u8>> {
-    let n = (GBA_W * GBA_H) as usize;
+    png_sized(xrgb8888, (GBA_W, GBA_H))
+}
+
+/// A frame of any size, as a native system's core draws it.
+pub fn png_sized(xrgb8888: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
+    let n = (w * h) as usize;
+    if n == 0 {
+        return None;
+    }
     if xrgb8888.len() < n * 4 {
         return None;
     }
@@ -11,7 +19,7 @@ pub fn png(xrgb8888: &[u8]) -> Option<Vec<u8>> {
     }
 
     let mut out = Vec::new();
-    let mut enc = png::Encoder::new(&mut out, GBA_W, GBA_H);
+    let mut enc = png::Encoder::new(&mut out, w, h);
     enc.set_color(png::ColorType::Rgb);
     enc.set_depth(png::BitDepth::Eight);
     let mut writer = enc.write_header().ok()?;

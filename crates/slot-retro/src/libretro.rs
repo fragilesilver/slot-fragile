@@ -22,8 +22,20 @@ enum PixelFormat {
     Rgb565,
 }
 
+/// Where a frame goes: centred in a canvas of a fixed size, the Game Boy family's way, or as
+/// it comes, whatever size the core draws. Ported from cloudwithax/unslot@6339c18.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum Canvas {
+    Fixed(u32, u32),
+    Native,
+}
+
 struct Host {
     video: Vec<u8>,
+    canvas: Canvas,
+    size: (u32, u32),
+    /// The display aspect from the core's geometry, 0 when it leaves it to the picture's size.
+    aspect: f32,
     format: PixelFormat,
     audio: Vec<i16>,
     inputs: [u16; 2],
@@ -75,6 +87,17 @@ unsafe extern "C" fn set_rumble_state(port: c_uint, effect: c_uint, strength: u1
 
 unsafe extern "C" fn environment(cmd: c_uint, data: *mut c_void) -> bool {
     match cmd {
+        SET_GEOMETRY | SET_SYSTEM_AV_INFO => {
+            if data.is_null() {
+                return false;
+            }
+            let geometry = match cmd {
+                SET_GEOMETRY => &*(data as *const GameGeometry),
+                _ => &(*(data as *const SystemAvInfo)).geometry,
+            };
+            let aspect = geometry.aspect_ratio;
+            with_host(|h| h.aspect = if aspect > 0.0 { aspect } else { 0.0 }).is_some()
+        }
         GET_CAN_DUPE => {
             if data.is_null() {
                 return false;
@@ -318,16 +341,30 @@ unsafe extern "C" fn video_refresh(
         return;
     }
     with_host(|h| {
-        let cols = width.min(GBA_W) as usize;
-        let rows = height.min(GBA_H) as usize;
-        let ox = (GBA_W as usize - cols) / 2;
-        let oy = (GBA_H as usize - rows) / 2;
-        if cols != GBA_W as usize || rows != GBA_H as usize {
-            h.video.fill(0);
-        }
+        let (cw, cols, rows, ox, oy) = match h.canvas {
+            Canvas::Fixed(cw, ch) => {
+                let cols = width.min(cw) as usize;
+                let rows = height.min(ch) as usize;
+                if cols != cw as usize || rows != ch as usize {
+                    h.video.fill(0);
+                }
+                let (ox, oy) = ((cw as usize - cols) / 2, (ch as usize - rows) / 2);
+                (cw as usize, cols, rows, ox, oy)
+            }
+            Canvas::Native => {
+                if width == 0 || height == 0 {
+                    return;
+                }
+                if h.size != (width, height) {
+                    h.size = (width, height);
+                    h.video.resize((width * height * 4) as usize, 0);
+                }
+                (width as usize, width as usize, height as usize, 0, 0)
+            }
+        };
         for y in 0..rows {
             let src = (data as *const u8).add(y * pitch);
-            let row = ((y + oy) * GBA_W as usize + ox) * 4;
+            let row = ((y + oy) * cw + ox) * 4;
             match h.format {
                 PixelFormat::Xrgb8888 => {
                     ptr::copy_nonoverlapping(src, h.video.as_mut_ptr().add(row), cols * 4);
@@ -471,6 +508,9 @@ impl LibretroCore {
         }
         let mut host = Box::new(Host {
             video: vec![0; VIDEO_BYTES],
+            canvas: Canvas::Fixed(GBA_W, GBA_H),
+            size: (GBA_W, GBA_H),
+            aspect: 0.0,
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],
@@ -509,6 +549,20 @@ impl LibretroCore {
             state_size: None,
             _lib: lib,
         })
+    }
+
+    /// Whether the core opens the game from its path itself, as a disc image's core does, so
+    /// slot need not read the whole file in first.
+    fn needs_fullpath(&self) -> bool {
+        let mut info = SystemInfo {
+            library_name: ptr::null(),
+            library_version: ptr::null(),
+            valid_extensions: ptr::null(),
+            need_fullpath: false,
+            block_extract: false,
+        };
+        unsafe { (self.api.get_system_info)(&mut info) };
+        info.need_fullpath
     }
 
     fn unload(&mut self) {
@@ -567,14 +621,20 @@ impl RetroCore for LibretroCore {
     fn load(&mut self, rom: &Path) -> Result<(), CoreError> {
         self.unload();
         self.state_size = None;
-        self.rom = std::fs::read(rom)?;
+        self.rom = match self.needs_fullpath() {
+            true => Vec::new(),
+            false => std::fs::read(rom)?,
+        };
         self.rom_path = Some(
             CString::new(rom.as_os_str().as_encoded_bytes())
                 .map_err(|_| CoreError::Load("rom path contains a nul".into()))?,
         );
         let info = GameInfo {
             path: self.rom_path.as_ref().map_or(ptr::null(), |p| p.as_ptr()),
-            data: self.rom.as_ptr() as *const c_void,
+            data: match self.rom.is_empty() {
+                true => ptr::null(),
+                false => self.rom.as_ptr() as *const c_void,
+            },
             size: self.rom.len(),
             meta: ptr::null(),
         };
@@ -590,6 +650,8 @@ impl RetroCore for LibretroCore {
         self.loaded = true;
         let mut av = SystemAvInfo::default();
         unsafe { (self.api.get_system_av_info)(&mut av) };
+        let aspect = av.geometry.aspect_ratio;
+        self.host.aspect = if aspect > 0.0 { aspect } else { 0.0 };
         self.av = AvInfo {
             fps: av.timing.fps,
             sample_rate: av.timing.sample_rate,
@@ -618,6 +680,24 @@ impl RetroCore for LibretroCore {
 
     fn video_xrgb8888(&self) -> &[u8] {
         &self.host.video
+    }
+
+    fn set_native(&mut self, native: bool) {
+        self.host.canvas = match native {
+            true => Canvas::Native,
+            false => Canvas::Fixed(GBA_W, GBA_H),
+        };
+    }
+
+    fn video_size(&self) -> (u32, u32) {
+        match self.host.canvas {
+            Canvas::Fixed(w, h) => (w, h),
+            Canvas::Native => self.host.size,
+        }
+    }
+
+    fn aspect(&self) -> Option<f32> {
+        (self.host.canvas == Canvas::Native && self.host.aspect > 0.0).then_some(self.host.aspect)
     }
 
     fn take_audio(&mut self) -> Vec<i16> {
@@ -709,6 +789,9 @@ mod tests {
     fn host_with(options: HashMap<String, CString>, options_dirty: bool) -> Box<Host> {
         Box::new(Host {
             video: vec![0; VIDEO_BYTES],
+            canvas: Canvas::Fixed(GBA_W, GBA_H),
+            size: (GBA_W, GBA_H),
+            aspect: 0.0,
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],
@@ -1712,6 +1795,47 @@ mod tests {
             &kept[lit..lit + 3],
             &[100u8, 50, 100 ^ 50],
             "the picture was blanked or moved where a duplicate should have kept it"
+        );
+    }
+
+    // --- extras: a native system's picture ---
+
+    #[test]
+    fn a_native_canvas_takes_the_picture_at_its_own_size() {
+        let mut host = host_with(HashMap::new(), false);
+        host.canvas = Canvas::Native;
+        let _active = Active::bind(&mut host);
+        let frame = gradient(256, 224);
+        unsafe { video_refresh(frame.as_ptr() as *const c_void, 256, 224, 256 * 4) };
+        let (size, len, first) =
+            unsafe { with_host(|h| (h.size, h.video.len(), h.video[4])) }.unwrap();
+        assert_eq!(size, (256, 224));
+        assert_eq!(len, 256 * 224 * 4);
+        assert_eq!(
+            first, frame[4],
+            "the picture was not copied from its first row"
+        );
+    }
+
+    #[test]
+    fn the_cores_geometry_sets_the_shape_it_is_shown_at() {
+        let mut host = host_with(HashMap::new(), false);
+        let _active = Active::bind(&mut host);
+        let mut geometry = GameGeometry {
+            base_width: 256,
+            base_height: 224,
+            max_width: 512,
+            max_height: 448,
+            aspect_ratio: 4.0 / 3.0,
+        };
+        assert!(unsafe { environment(SET_GEOMETRY, &mut geometry as *mut _ as *mut c_void) });
+        assert_eq!(unsafe { with_host(|h| h.aspect) }, Some(4.0 / 3.0));
+        geometry.aspect_ratio = 0.0;
+        unsafe { environment(SET_GEOMETRY, &mut geometry as *mut _ as *mut c_void) };
+        assert_eq!(
+            unsafe { with_host(|h| h.aspect) },
+            Some(0.0),
+            "no aspect should leave the shape to the picture"
         );
     }
 }

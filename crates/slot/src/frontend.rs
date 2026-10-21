@@ -564,7 +564,9 @@ impl Frontend {
             let px = (slot_gfx::SRC_W * slot_gfx::SRC_H) as usize;
             compositor.upload_game(&[b, g, r, 0xff].repeat(px));
         } else if let Some(frame) = self.session.frame() {
-            compositor.upload_game(&frame);
+            let shape = frame.shape();
+            compositor.upload_game_sized(&frame, shape.size);
+            compositor.set_game_aspect(shape.aspect);
             crate::latency::taken();
         }
         self.cart_faces.sync(self.session.app_mut(), compositor);

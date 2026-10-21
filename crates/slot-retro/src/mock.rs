@@ -12,8 +12,14 @@ fn samples_at(frame: u64) -> u64 {
     (frame as f64 * SAMPLE_RATE / FPS) as u64
 }
 
+/// The picture a native system's mock draws, as a SNES core would, shown at 4:3.
+pub const MOCK_NATIVE: (u32, u32) = (256, 224);
+pub const MOCK_NATIVE_ASPECT: f32 = 4.0 / 3.0;
+
 pub struct MockCore {
     frame: u64,
+    size: (u32, u32),
+    native: bool,
     video: Vec<u8>,
     audio: Vec<i16>,
     sram: Option<Vec<u8>>,
@@ -30,6 +36,8 @@ impl MockCore {
     pub fn new() -> Self {
         let mut c = MockCore {
             frame: 0,
+            size: (GBA_W, GBA_H),
+            native: false,
             video: vec![0; (GBA_W * GBA_H * 4) as usize],
             audio: Vec::new(),
             sram: None,
@@ -41,10 +49,11 @@ impl MockCore {
 
     fn render(&mut self) {
         let t = self.frame as u32;
+        let (w, h) = self.size;
         let mut i = 0;
-        for y in 0..GBA_H {
-            let g = (y * 255 / (GBA_H - 1)) as u8;
-            for x in 0..GBA_W {
+        for y in 0..h {
+            let g = (y * 255 / (h - 1)) as u8;
+            for x in 0..w {
                 let r = x.wrapping_add(t) as u8;
                 let b = if (x.wrapping_add(y).wrapping_add(t) / 8) % 2 == 0 {
                     0
@@ -92,6 +101,24 @@ impl RetroCore for MockCore {
 
     fn video_xrgb8888(&self) -> &[u8] {
         &self.video
+    }
+
+    fn set_native(&mut self, native: bool) {
+        self.native = native;
+        self.size = match native {
+            true => MOCK_NATIVE,
+            false => (GBA_W, GBA_H),
+        };
+        self.video = vec![0; (self.size.0 * self.size.1 * 4) as usize];
+        self.render();
+    }
+
+    fn video_size(&self) -> (u32, u32) {
+        self.size
+    }
+
+    fn aspect(&self) -> Option<f32> {
+        self.native.then_some(MOCK_NATIVE_ASPECT)
     }
 
     fn take_audio(&mut self) -> Vec<i16> {

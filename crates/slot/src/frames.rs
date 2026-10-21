@@ -8,8 +8,24 @@ pub struct Frames {
     taken: AtomicU64,
 }
 
+/// A frame's size and the shape to show it at, when it is not the Game Boy family's canvas.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Shape {
+    pub size: (u32, u32),
+    pub aspect: Option<f32>,
+}
+
+impl Default for Shape {
+    fn default() -> Self {
+        Shape {
+            size: (slot_retro::GBA_W, slot_retro::GBA_H),
+            aspect: None,
+        }
+    }
+}
+
 struct Inner {
-    ready: Option<Vec<u8>>,
+    ready: Option<(Vec<u8>, Shape)>,
     spare: Vec<Vec<u8>>,
     allocated: usize,
 }
@@ -39,18 +55,23 @@ impl Frames {
     }
 
     pub fn publish(&self, buf: Vec<u8>) {
+        self.publish_shaped(buf, Shape::default());
+    }
+
+    pub fn publish_shaped(&self, buf: Vec<u8>, shape: Shape) {
         let mut i = self.lock();
-        if let Some(dropped) = i.ready.replace(buf) {
+        if let Some((dropped, _)) = i.ready.replace((buf, shape)) {
             i.spare.push(dropped);
         }
     }
 
     pub fn latest(self: &Arc<Self>) -> Option<FrameRef> {
-        let buf = self.lock().ready.take()?;
+        let (buf, shape) = self.lock().ready.take()?;
         self.taken.fetch_add(1, Ordering::Relaxed);
         Some(FrameRef {
             frames: self.clone(),
             buf,
+            shape,
         })
     }
 
@@ -78,6 +99,13 @@ impl Frames {
 pub struct FrameRef {
     frames: Arc<Frames>,
     buf: Vec<u8>,
+    shape: Shape,
+}
+
+impl FrameRef {
+    pub fn shape(&self) -> Shape {
+        self.shape
+    }
 }
 
 impl Deref for FrameRef {

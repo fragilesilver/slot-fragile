@@ -1038,3 +1038,42 @@ fn every_shader_shipped_on_the_card_compiles_and_draws() {
     }
     c.set_card_shader(None).unwrap();
 }
+
+// --- extras: a native system's picture ---
+
+#[test]
+fn a_native_picture_is_letterboxed_to_its_shape_and_the_texture_follows_its_size() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    let (w, h) = (256u32, 224u32);
+    let white: Vec<u8> = std::iter::repeat_n([255u8, 255, 255, 255], (w * h) as usize)
+        .flatten()
+        .collect();
+    c.begin_frame();
+    c.set_screen_effect(ScreenEffect::None);
+    c.set_screen_power(1.0);
+    c.set_game_fills_frame(true);
+    c.upload_game_sized(&white, (w, h));
+    c.set_game_aspect(Some(4.0 / 3.0));
+    c.draw_game();
+    let frame = c.read_frame();
+    assert_eq!(c.game_texture_size(), (w, h));
+    // 4:3 in 720x480 is 640x480, centred: 40 px of black either side.
+    let lit = |x: usize| px(&frame, x, OUT_H as usize / 2)[0] > 200;
+    assert!(!lit(20), "the left bar is lit");
+    assert!(!lit(OUT_W as usize - 20), "the right bar is lit");
+    assert!(
+        lit(60) && lit(OUT_W as usize - 60),
+        "the picture is not 640 wide"
+    );
+    assert!(lit(OUT_W as usize / 2));
+
+    c.set_game_aspect(None);
+    c.upload_game(&flat_shot([0, 0, 0]));
+    assert_eq!(
+        c.game_texture_size(),
+        (SRC_W, SRC_H),
+        "a Game Boy frame after it kept the native size"
+    );
+}

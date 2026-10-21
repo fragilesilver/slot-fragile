@@ -12,5 +12,5 @@ pub use ffi::{
 };
 pub use libretro::LibretroCore;
 pub use link::{Link, LinkChannel, LoopbackLink};
-pub use mock::MockCore;
+pub use mock::{MockCore, MOCK_NATIVE, MOCK_NATIVE_ASPECT};
 pub use rumble::Rumble;
