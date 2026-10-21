@@ -92,6 +92,8 @@ struct Shared {
     rewind: AtomicBool,
     rewind_fill: AtomicU8,
     turbo: AtomicBool,
+    /// X and Y are the pad's own, not turbo A and B: the mask goes to the core as it is.
+    face_buttons: AtomicBool,
     recording: AtomicBool,
     stop: AtomicBool,
     volume: AtomicU8,
@@ -160,6 +162,7 @@ impl EmuHandle {
             rewind: AtomicBool::new(false),
             rewind_fill: AtomicU8::new(0),
             turbo: AtomicBool::new(true),
+            face_buttons: AtomicBool::new(false),
             recording: AtomicBool::new(true),
             stop: AtomicBool::new(false),
             volume: AtomicU8::new(100),
@@ -367,6 +370,10 @@ impl EmuHandle {
 
     pub fn set_turbo(&self, on: bool) {
         self.shared.turbo.store(on, Ordering::Relaxed);
+    }
+
+    pub fn set_face_buttons(&self, on: bool) {
+        self.shared.face_buttons.store(on, Ordering::Relaxed);
     }
 
     pub fn set_rewind_recording(&self, on: bool) {
@@ -688,6 +695,7 @@ impl Worker {
                     ran += 1;
                     let last = ran >= ceiling || cost.last(began.elapsed(), budget);
                     let input = match self.shared.turbo.load(Ordering::Relaxed) {
+                        _ if self.shared.face_buttons.load(Ordering::Relaxed) => input,
                         true => input.turbo(turbo_frame),
                         false => input.without_turbo(),
                     };

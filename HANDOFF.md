@@ -159,7 +159,36 @@ Phase 1 is done.
   `overlay.rs` and `frontend.rs`.
 - Upstream test changed: the Shelf keys label list (two rows more).
 
-Next is Phase 7 (platform/core generalisation) in `FRAGILE_PLAN.md`.
+## Phase 7 (done 2026-10-21)
+
+Four commits, each with the suite green; no behaviour change for GB, GBC or GBA.
+- 7a `slot-store/src/spec.rs` (after unslot): each system is a `Spec` row (name, dir,
+  extensions, native, picture, header, cores, shaders, bezels, shoulders, triggers, turbo, rewind,
+  link, bios). `Platform::name/dir_name/extensions/picture` and `Core::runs/default_for/parse`
+  read it; the GBA-only checks in app.rs and session.rs read its fields. Adding a system is a
+  variant, a `COUNT` bump and a row.
+- 7b `slot-store/src/platform_settings.rs`: shader, colour correction and bezel per platform.
+  The Game Boy family stays in upstream's `slot.state` keys, unchanged (golden file
+  `slot-store/tests/golden/slot.state` must read and write back byte for byte); a later system
+  keeps them in extras.state (`shader.<dir>` and so on). Not as the plan had it: no map inside
+  `SlotState`, so upstream's file and parser are untouched.
+- 7c native picture: a core for a `native` system draws into a canvas of its own size; size and
+  aspect (`SET_GEOMETRY`/AV info) ride with each frame (`frames::Shape`); `GamePass` remakes its
+  textures on a size change and letterboxes to the aspect; thumbnails keep the size;
+  `need_fullpath` cores get the path only. Mock core has a 256x224 4:3 mode
+  (`MockCore::set_native`).
+- 7d buttons: `GameButton` gains X, Y, L2, R2 (after upstream's twelve; `ALL` unchanged,
+  `EVERY` has all 16). `GameButton::of` picks the pad from the Spec row; `Pad::extra_mask` adds
+  only that pad's extras; the emu's face-button mode sends X and Y as themselves when the
+  system has no turbo. The controls file names an extra button only once it is moved. No L3/R3
+  (no `Device` for them on the RG35XX family); `ButtonMask` has the bits.
+- Core credits: `slot-store/src/core_credits.rs` (a match, so a new core needs a credit to
+  build), CREDITS.md "Cores" table, About > Details "Cores" rows; a test checks each licence file
+  and CREDITS.md line.
+- Left for the phases that use them: disk control and the emu `Disc`/`Reset` jobs (12), cheat
+  symbols and `SetCheats` (8), per-system Controls and Screen pages for new systems (12).
+
+Next is Phase 8 (cheats) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

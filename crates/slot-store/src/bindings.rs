@@ -212,9 +212,73 @@ pub enum GameButton {
     R,
     TurboA,
     TurboB,
+    // --- extras: buttons of a pad that has them, for a system whose row says so ---
+    X,
+    Y,
+    L2,
+    R2,
 }
 
 impl GameButton {
+    /// The buttons past upstream's twelve: X and Y where turbo does not take them, L2 and R2
+    /// where the games read them.
+    pub const EXTRA: [GameButton; 4] =
+        [GameButton::X, GameButton::Y, GameButton::L2, GameButton::R2];
+
+    /// Every button, upstream's and the extras, in index order.
+    pub const EVERY: [GameButton; 16] = [
+        GameButton::Up,
+        GameButton::Down,
+        GameButton::Left,
+        GameButton::Right,
+        GameButton::A,
+        GameButton::B,
+        GameButton::Select,
+        GameButton::Start,
+        GameButton::L,
+        GameButton::R,
+        GameButton::TurboA,
+        GameButton::TurboB,
+        GameButton::X,
+        GameButton::Y,
+        GameButton::L2,
+        GameButton::R2,
+    ];
+
+    /// A pad of its own X and Y, and L and R: a Super Nintendo's.
+    const FACE: [GameButton; 12] = [
+        GameButton::Up,
+        GameButton::Down,
+        GameButton::Left,
+        GameButton::Right,
+        GameButton::A,
+        GameButton::B,
+        GameButton::X,
+        GameButton::Y,
+        GameButton::Select,
+        GameButton::Start,
+        GameButton::L,
+        GameButton::R,
+    ];
+
+    /// The face pad with triggers too: a PlayStation's.
+    const FACE_TRIGGERS: [GameButton; 14] = [
+        GameButton::Up,
+        GameButton::Down,
+        GameButton::Left,
+        GameButton::Right,
+        GameButton::A,
+        GameButton::B,
+        GameButton::X,
+        GameButton::Y,
+        GameButton::Select,
+        GameButton::Start,
+        GameButton::L,
+        GameButton::R,
+        GameButton::L2,
+        GameButton::R2,
+    ];
+
     pub const ALL: [GameButton; 12] = [
         GameButton::Up,
         GameButton::Down,
@@ -244,9 +308,12 @@ impl GameButton {
     ];
 
     pub fn of(platform: Platform) -> &'static [GameButton] {
-        match platform.spec().shoulders {
-            true => &GameButton::ALL,
-            false => &GameButton::GAME_BOY,
+        let spec = platform.spec();
+        match (spec.shoulders, spec.turbo, spec.triggers) {
+            (_, false, true) => &GameButton::FACE_TRIGGERS,
+            (_, false, false) => &GameButton::FACE,
+            (true, true, _) => &GameButton::ALL,
+            (false, true, _) => &GameButton::GAME_BOY,
         }
     }
 
@@ -264,6 +331,10 @@ impl GameButton {
             GameButton::R => "R Button",
             GameButton::TurboA => "Turbo A",
             GameButton::TurboB => "Turbo B",
+            GameButton::X => "X Button",
+            GameButton::Y => "Y Button",
+            GameButton::L2 => "L2 Button",
+            GameButton::R2 => "R2 Button",
         }
     }
 
@@ -281,6 +352,10 @@ impl GameButton {
             GameButton::R => "r",
             GameButton::TurboA => "turbo_a",
             GameButton::TurboB => "turbo_b",
+            GameButton::X => "x",
+            GameButton::Y => "y",
+            GameButton::L2 => "l2",
+            GameButton::R2 => "r2",
         }
     }
 
@@ -298,6 +373,10 @@ impl GameButton {
             GameButton::R => Device::R1,
             GameButton::TurboA => Device::X,
             GameButton::TurboB => Device::Y,
+            GameButton::X => Device::X,
+            GameButton::Y => Device::Y,
+            GameButton::L2 => Device::L2,
+            GameButton::R2 => Device::R2,
         }
     }
 
@@ -402,13 +481,13 @@ impl Shortcut {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Controls {
-    game: [Option<Binding>; 12],
+    game: [Option<Binding>; 16],
 }
 
 impl Default for Controls {
     fn default() -> Self {
         Controls {
-            game: GameButton::ALL.map(|g| Binding::plain(g.default_device())),
+            game: GameButton::EVERY.map(|g| Binding::plain(g.default_device())),
         }
     }
 }
@@ -422,9 +501,13 @@ impl Controls {
         self.game[button.index()] = binding;
     }
 
+    /// Upstream's twelve always, an extra button only once it is moved, so the file reads as
+    /// upstream's until then.
     fn text(&self) -> String {
+        let moved = |g: &&GameButton| self.game(**g) != Binding::plain(g.default_device());
         GameButton::ALL
             .iter()
+            .chain(GameButton::EXTRA.iter().filter(moved))
             .map(|g| format!("{}={}\n", g.key(), Binding::key(self.game(*g))))
             .collect()
     }
@@ -432,7 +515,7 @@ impl Controls {
     fn parse(text: &str) -> Controls {
         let mut c = Controls::default();
         for (key, value) in text.lines().filter_map(|l| l.split_once('=')) {
-            let game = GameButton::ALL
+            let game = GameButton::EVERY
                 .into_iter()
                 .find(|g| g.key().eq_ignore_ascii_case(key.trim()));
             if let (Some(g), Some(binding)) = (game, Binding::parse(value)) {

@@ -28,16 +28,27 @@ impl Pad {
     pub fn mask(&self, controls: &Controls) -> ButtonMask {
         let bits = GameButton::ALL
             .into_iter()
-            .filter(|g| {
-                controls.game(*g).is_some_and(|binding| {
-                    let b = device_btn(binding.button);
-                    match binding.modifier {
-                        None => self.held.contains(&b),
-                        Some(Modifier::Menu) => self.chorded.contains(&b),
-                        Some(Modifier::Select | Modifier::Button(_)) => false,
-                    }
-                })
-            })
+            .filter(|g| self.pressed(controls, *g))
+            .fold(0, |bits, g| bits | bit(g));
+        ButtonMask(bits)
+    }
+
+    fn pressed(&self, controls: &Controls, g: GameButton) -> bool {
+        controls.game(g).is_some_and(|binding| {
+            let b = device_btn(binding.button);
+            match binding.modifier {
+                None => self.held.contains(&b),
+                Some(Modifier::Menu) => self.chorded.contains(&b),
+                Some(Modifier::Select | Modifier::Button(_)) => false,
+            }
+        })
+    }
+
+    /// The extra buttons the playing system's pad has (`GameButton::of`), held now. Fragile's.
+    pub fn extra_mask(&self, controls: &Controls, pad: &[GameButton]) -> ButtonMask {
+        let bits = GameButton::EXTRA
+            .into_iter()
+            .filter(|g| pad.contains(g) && self.pressed(controls, *g))
             .fold(0, |bits, g| bits | bit(g));
         ButtonMask(bits)
     }
@@ -62,5 +73,9 @@ fn bit(g: GameButton) -> u16 {
         GameButton::R => ButtonMask::R,
         GameButton::TurboA => ButtonMask::X,
         GameButton::TurboB => ButtonMask::Y,
+        GameButton::X => ButtonMask::X,
+        GameButton::Y => ButtonMask::Y,
+        GameButton::L2 => ButtonMask::L2,
+        GameButton::R2 => ButtonMask::R2,
     }
 }

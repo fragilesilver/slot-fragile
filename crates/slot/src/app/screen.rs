@@ -40,6 +40,11 @@ fn integer_key(platform: Platform) -> String {
 }
 
 impl App {
+    /// The buttons the playing system's pad has.
+    pub fn game_pad(&self) -> &'static [slot_store::GameButton] {
+        slot_store::GameButton::of(self.playing_platform())
+    }
+
     pub(super) fn platform_shader(&self, platform: Platform) -> Shader {
         platform_settings::shader(&self.state, &self.extras, platform)
     }

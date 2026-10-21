@@ -227,7 +227,11 @@ impl Session {
             self.pad.apply(Action::GbaUp(btn));
         }
         if let Some(emu) = &self.emu {
-            let mask = self.pad.mask(&self.app.controls());
+            let mut mask = self.pad.mask(&self.app.controls());
+            mask.0 |= self
+                .pad
+                .extra_mask(&self.app.controls(), self.app.game_pad())
+                .0;
             if trace() && mask.0 != self.sent {
                 eprintln!("slot: pad {:#06x}", mask.0);
             }
@@ -470,6 +474,7 @@ impl Session {
             );
             emu.set_rewinding(self.actually_rewinding());
             emu.set_turbo(self.app.turbo());
+            emu.set_face_buttons(!self.app.playing_platform().spec().turbo);
             emu.set_rewind_recording(self.app.records_rewind());
         }
     }

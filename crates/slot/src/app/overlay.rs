@@ -290,6 +290,11 @@ impl App {
             };
             rows.push(ListRow::new("Battery").with_value(format!("{}%{how}", b.percent)));
         }
+        rows.push(ListRow::new("\u{2014} Cores \u{2014}"));
+        rows.extend(slot_store::Core::ALL.map(|core| {
+            let c = slot_store::core_credits::credit(core);
+            ListRow::new(c.name).with_value(c.license)
+        }));
         rows
     }
 

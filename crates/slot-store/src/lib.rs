@@ -4,6 +4,7 @@ pub mod cart_shell;
 pub mod collections;
 mod config;
 mod core;
+pub mod core_credits;
 mod extras;
 pub mod find;
 mod game_profile;
