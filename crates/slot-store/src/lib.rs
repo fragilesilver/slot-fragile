@@ -1,9 +1,11 @@
 mod atomic;
 mod bindings;
 pub mod cart_shell;
+pub mod collections;
 mod config;
 mod core;
 mod extras;
+pub mod find;
 mod game_profile;
 pub mod gb;
 mod gb_palette;

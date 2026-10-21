@@ -102,6 +102,21 @@ impl Shelf {
         *cell.get_or_init(|| is_clear(cart))
     }
 
+    /// A new shelf for these carts that borrows `other`'s shadows, backings and star, for a
+    /// list made while slot runs, after those were handed out. Fragile's.
+    pub fn dressed_like(carts: Vec<Cart>, other: &Shelf) -> Self {
+        Shelf {
+            shadow: other.shadow,
+            gb_shadow: other.gb_shadow,
+            gbc_shadow: other.gbc_shadow,
+            backing: other.backing,
+            gb_backing: other.gb_backing,
+            gbc_backing: other.gbc_backing,
+            star: other.star,
+            ..Shelf::new(carts)
+        }
+    }
+
     pub fn restock(&mut self, carts: Vec<Cart>) -> Vec<TexId> {
         let old: Vec<TexId> = self
             .faces

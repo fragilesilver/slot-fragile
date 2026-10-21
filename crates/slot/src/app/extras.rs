@@ -188,7 +188,7 @@ impl App {
                 platform: c.platform,
                 stem: c.stem.clone(),
             });
-            if cart.is_some() {
+            if cart.is_some() && *rack != Rack::Search {
                 self.extras.set_cart(&mark_key(*rack), cart.as_ref());
             }
         }

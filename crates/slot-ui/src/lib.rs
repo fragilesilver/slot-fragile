@@ -67,7 +67,7 @@ pub use hud::{
 pub use icon::{badge_face, icon_box, icon_face, star_face, warm_fonts, Badge, Icon};
 pub use keyboard::{
     all_keys, key_text, keyboard_key_faces, keyboard_legend_faces, keyboard_line_face,
-    keyboard_query_face, Key, Keyboard, KeyboardFaces, Layer,
+    keyboard_query_face, Key, Keyboard, KeyboardFaces, Layer, SHOWN_MATCHES,
 };
 pub use link_art::{
     link_art, LinkArt, ADAPTER_BASE_X, ADAPTER_BASE_Y, ADAPTER_H, ADAPTER_W, ARCS, ARROW_H,

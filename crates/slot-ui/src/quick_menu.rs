@@ -109,10 +109,12 @@ pub enum QuickRow {
     MotionBlurGbc,
     ControlsGuide,
     PlayGuide,
+    ShelfSearch,
+    ShelfAddToList,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 97] = [
+    pub const ALL: [QuickRow; 99] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -211,6 +213,8 @@ impl QuickRow {
         QuickRow::MotionBlurGbc,
         QuickRow::ControlsGuide,
         QuickRow::PlayGuide,
+        QuickRow::ShelfSearch,
+        QuickRow::ShelfAddToList,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -243,10 +247,13 @@ impl QuickRow {
         QuickRow::ControlsInGame,
     ];
 
-    pub const SHELF_KEYS: [QuickRow; 3] = [
+    pub const SHELF_KEYS: [QuickRow; 5] = [
         QuickRow::ShelfPrev,
         QuickRow::ShelfNext,
         QuickRow::ShelfFavorite,
+        // --- extras ---
+        QuickRow::ShelfSearch,
+        QuickRow::ShelfAddToList,
     ];
 
     pub const CONTROLS: [QuickRow; 12] = [
@@ -572,9 +579,11 @@ impl QuickRow {
             | QuickRow::ScShaderBack
             | QuickRow::ScFastForward
             | QuickRow::ScRewind => self.shortcut().map_or("", Shortcut::label),
-            QuickRow::ShelfPrev | QuickRow::ShelfNext | QuickRow::ShelfFavorite => {
-                self.carousel_action().map_or("", CarouselAction::label)
-            }
+            QuickRow::ShelfPrev
+            | QuickRow::ShelfNext
+            | QuickRow::ShelfFavorite
+            | QuickRow::ShelfSearch
+            | QuickRow::ShelfAddToList => self.carousel_action().map_or("", CarouselAction::label),
             QuickRow::PlayScreen => "Screen",
             QuickRow::PlayGameplay => "Gameplay",
             QuickRow::Shader => "Shader",
@@ -735,6 +744,8 @@ impl QuickRow {
             QuickRow::ShelfPrev => CarouselAction::PreviousShelf,
             QuickRow::ShelfNext => CarouselAction::NextShelf,
             QuickRow::ShelfFavorite => CarouselAction::Favorite,
+            QuickRow::ShelfSearch => CarouselAction::Search,
+            QuickRow::ShelfAddToList => CarouselAction::AddToList,
             _ => return None,
         })
     }

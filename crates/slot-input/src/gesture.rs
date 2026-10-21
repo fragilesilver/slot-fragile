@@ -54,6 +54,9 @@ pub enum Action {
     PreviousShelf,
     NextShelf,
     Favorite,
+    // --- extras ---
+    Search,
+    AddToList,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]

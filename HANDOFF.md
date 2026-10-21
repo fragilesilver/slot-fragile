@@ -141,7 +141,25 @@ Phase 1 is done.
   as About; it knows which, closes with that menu, and B or MENU go back to its row.
 - Upstream tests changed only where the Controls and Settings pages grew a row.
 
-Next is Phase 6 (search and list shelves) in `FRAGILE_PLAN.md`.
+## Phase 6 (done 2026-10-21)
+
+- Search (nickclyde's, `app/shelves/search.rs`): X on the shelf opens the keyboard; matches
+  count as you type; START or OK puts them on a Search shelf after Favorites, named by the
+  query. B on that shelf clears it and goes back; X there edits the last search.
+- List shelves (`slot-store/src/collections.rs`): each `Config/Lists/<name>.txt` is a shelf
+  after Search, in name order. A line is `GBA/Name`, a bare name, a ROM file name or a path;
+  `#` lines are comments. A list with none of the card's games stays off the ring.
+- Add to List (Fragile's own, `app/shelves.rs`): MENU+Y opens a page of the lists with Yes/No
+  for the cart under the cursor; A puts it on or takes it off (the file is rewritten, other
+  lines kept). New List names one on the keyboard and makes the file.
+- Both keys are rebindable on Settings > Controls > Shelf (`CarouselAction::Search`,
+  `AddToList` in `carousel` config; defaults X and MENU+Y, which clash with nothing). A plain
+  shelf key also sends its button, so the press that opens a page is skipped by it.
+- Merge guards: `slot/tests/shelves_hooks.rs` lists the one-line hooks in `app.rs`,
+  `overlay.rs` and `frontend.rs`.
+- Upstream test changed: the Shelf keys label list (two rows more).
+
+Next is Phase 7 (platform/core generalisation) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

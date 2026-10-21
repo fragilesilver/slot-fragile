@@ -35,6 +35,7 @@ mod guide;
 mod overlay;
 mod profile;
 mod screen;
+pub mod shelves;
 pub use extras::StartShelf;
 use slot_store::{
     read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
@@ -302,13 +303,16 @@ enum Rack {
     Recents,
     Favorites,
     Of(Platform),
+    // --- extras ---
+    List(&'static str),
+    Search,
 }
 
 impl Rack {
     fn platform(self) -> Option<Platform> {
         match self {
             Rack::Of(p) => Some(p),
-            Rack::Recents | Rack::Favorites => None,
+            Rack::Recents | Rack::Favorites | Rack::List(_) | Rack::Search => None,
         }
     }
 
@@ -317,6 +321,8 @@ impl Rack {
             Rack::Recents => "recents".into(),
             Rack::Favorites => "favorites".into(),
             Rack::Of(p) => p.dir_name().to_ascii_lowercase(),
+            Rack::List(name) => format!("list/{name}"),
+            Rack::Search => "search".into(),
         }
     }
 
@@ -325,6 +331,8 @@ impl Rack {
             Rack::Recents => "Recents",
             Rack::Favorites => "Favorites",
             Rack::Of(p) => p.name(),
+            Rack::List(name) => name,
+            Rack::Search => "Search",
         }
     }
 }
@@ -660,6 +668,7 @@ impl App {
         app.load_profiles(root);
         app.restock_recents();
         app.restock_favorites();
+        shelves::stock(&mut app, root);
         app.restore_shelf_marks();
         if let Some((at, i)) = app.remembered_seat() {
             app.shelf_at = at;
@@ -1036,6 +1045,8 @@ impl App {
             | QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
+            | QuickRow::ShelfSearch
+            | QuickRow::ShelfAddToList
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
             | QuickRow::GameUp
@@ -1407,6 +1418,9 @@ impl App {
     }
 
     pub fn slot_text(&self) -> Option<String> {
+        if let Some(title) = shelves::search_title(self) {
+            return Some(title);
+        }
         match self.slot_letter {
             Some(letter) => Some(letter.to_string()),
             None => self.shelf_platform_name().map(str::to_string),
@@ -1703,6 +1717,7 @@ impl App {
             || self.repair_prompt()
             || self.shutting_down();
         let shelf = matches!(self.phase, Phase::Shelf)
+            && !shelves::covered(self)
             && self.core_picker.is_none()
             && !self.repair_prompt
             && self.reset_prompt.is_none();
@@ -2342,6 +2357,9 @@ impl App {
             }
             return;
         }
+        if shelves::input(self, action) {
+            return;
+        }
         if self.overlay_input(action) {
             return;
         }
@@ -2623,6 +2641,8 @@ impl App {
             | QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
+            | QuickRow::ShelfSearch
+            | QuickRow::ShelfAddToList
             | QuickRow::PlayControls
             | QuickRow::GameUp
             | QuickRow::GameDown
@@ -2811,6 +2831,8 @@ impl App {
             | QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
+            | QuickRow::ShelfSearch
+            | QuickRow::ShelfAddToList
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
             | QuickRow::GameUp
@@ -3928,6 +3950,7 @@ impl App {
         if let Some(menu) = self.game_menu {
             self.draw_game_menu(menu, out);
         }
+        shelves::draw(self, out);
         self.draw_battery_badge(out);
         self.hud.draw(self.canvas(), self.now(), out);
     }

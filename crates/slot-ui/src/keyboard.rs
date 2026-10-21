@@ -160,6 +160,12 @@ impl Keyboard {
         }
     }
 
+    pub fn with_max(mut self, max: usize) -> Self {
+        self.max = max;
+        self.text = self.text.chars().take(max).collect();
+        self
+    }
+
     pub fn with_text(mut self, text: &str) -> Self {
         self.text = text.chars().take(self.max).collect();
         self

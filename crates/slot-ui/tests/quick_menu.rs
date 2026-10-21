@@ -104,7 +104,13 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SHELF_KEYS.map(QuickRow::label),
-        ["Previous Shelf", "Next Shelf", "Favorite"]
+        [
+            "Previous Shelf",
+            "Next Shelf",
+            "Favorite",
+            "Search",
+            "Add to List"
+        ]
     );
     assert_eq!(
         QuickRow::SCREEN.map(QuickRow::label),

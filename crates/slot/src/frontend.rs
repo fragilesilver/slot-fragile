@@ -573,6 +573,7 @@ impl Frontend {
         sync_about(self.session.app_mut(), compositor, &mut self.about);
         sync_quick_clock(self.session.app_mut(), compositor, &mut self.quick_clock);
         sync_overlay(self.session.app_mut(), compositor, &mut self.overlay_faces);
+        crate::app::shelves::sync_faces(self.session.app_mut(), compositor);
         sync_named(self.session.app_mut(), compositor, &mut self.named_faces);
         sync_card_shader(self.session.app_mut(), compositor, &mut self.card_shader);
         sync_quick_palette(self.session.app_mut(), compositor, &mut self.quick_palette);

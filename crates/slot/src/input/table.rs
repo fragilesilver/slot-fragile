@@ -97,6 +97,8 @@ fn shelf_action(a: CarouselAction) -> Action {
         CarouselAction::PreviousShelf => Action::PreviousShelf,
         CarouselAction::NextShelf => Action::NextShelf,
         CarouselAction::Favorite => Action::Favorite,
+        CarouselAction::Search => Action::Search,
+        CarouselAction::AddToList => Action::AddToList,
     }
 }
 

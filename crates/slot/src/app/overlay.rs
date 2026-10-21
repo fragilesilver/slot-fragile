@@ -1,6 +1,6 @@
 //! Pages of rows made at run time, drawn over the screen they open from: About's Details, and
-//! the Button Guide from the Controls page or the in-game Settings. Cheats and networks open
-//! the same way in later phases.
+//! the Button Guide from the Controls page or the in-game Settings, and Add to List from the
+//! shelf. Cheats and networks open the same way in later phases.
 
 use slot_gfx::OUT_H;
 use slot_input::{Action, Btn};
@@ -12,6 +12,8 @@ use super::{App, Phase, HINT_EDGE, LINK_LEGEND_EDGE, LINK_LEGEND_Y};
 pub enum Overlay {
     Details(ListPage),
     Guide(ListPage, From),
+    /// The lists, and whether the cart under the shelf's cursor is on each.
+    Lists(ListPage, slot_store::collections::CartKey),
 }
 
 /// Which menu a page was opened from, so it closes when that menu does and B goes back to it.
@@ -24,9 +26,11 @@ pub enum From {
 /// Everything the open page needs, in the one field `App` keeps for it.
 #[derive(Default)]
 pub struct Overlays {
-    open: Option<Overlay>,
+    pub(super) open: Option<Overlay>,
     /// One per row in view, uploaded by the frontend from the page's own text.
-    faces: Vec<ListRowFaces>,
+    pub(super) faces: Vec<ListRowFaces>,
+    /// The Search shelf, the list shelves and their keyboard.
+    pub(super) shelves: super::shelves::Collections,
     /// "A Details" on the About sticker, dark and light.
     details_legend: Option<[(TexId, u32); 2]>,
     /// The About sticker's own size, when it is not upstream's: the RG35XX Pro's is taller.
@@ -50,13 +54,13 @@ impl Overlays {
 impl Overlay {
     fn page(&self) -> &ListPage {
         match self {
-            Overlay::Details(page) | Overlay::Guide(page, _) => page,
+            Overlay::Details(page) | Overlay::Guide(page, _) | Overlay::Lists(page, _) => page,
         }
     }
 
     fn page_mut(&mut self) -> &mut ListPage {
         match self {
-            Overlay::Details(page) | Overlay::Guide(page, _) => page,
+            Overlay::Details(page) | Overlay::Guide(page, _) | Overlay::Lists(page, _) => page,
         }
     }
 }
@@ -134,17 +138,21 @@ impl App {
     /// Takes the action when a page is open, and says so. A page left behind by its screen,
     /// eg the power going off under it, is closed and takes nothing.
     pub(super) fn overlay_input(&mut self, action: Action) -> bool {
-        let alive = match (&self.overlay.open, self.guide_from()) {
-            (None, _) => return false,
-            (_, Some(From::Menu)) => matches!(self.phase, Phase::QuickMenu { .. }),
-            (_, Some(From::InGame)) => self.in_game_menu.is_some(),
-            (_, None) => matches!(self.phase, Phase::About),
+        let alive = match &self.overlay.open {
+            None => return false,
+            Some(Overlay::Guide(_, From::Menu)) => matches!(self.phase, Phase::QuickMenu { .. }),
+            Some(Overlay::Guide(_, From::InGame)) => self.in_game_menu.is_some(),
+            Some(Overlay::Lists(..)) => matches!(self.phase, Phase::Shelf),
+            Some(Overlay::Details(_)) => matches!(self.phase, Phase::About),
         };
         if !alive {
             self.close_overlay();
             return false;
         }
-        let guide = self.guide_open();
+        if super::shelves::lists_input(self, action) {
+            return true;
+        }
+        let guide = self.guide_open() || matches!(self.overlay.open, Some(Overlay::Lists(..)));
         let Some(page) = self.overlay.open.as_mut().map(Overlay::page_mut) else {
             return false;
         };
