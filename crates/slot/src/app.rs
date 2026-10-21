@@ -1082,7 +1082,10 @@ impl App {
             | QuickRow::IntegerGbc
             | QuickRow::CardShaderGba
             | QuickRow::CardShaderGb
-            | QuickRow::CardShaderGbc => None,
+            | QuickRow::CardShaderGbc
+            | QuickRow::MotionBlurGba
+            | QuickRow::MotionBlurGb
+            | QuickRow::MotionBlurGbc => None,
         }
     }
 
@@ -2655,7 +2658,10 @@ impl App {
             | QuickRow::IntegerGbc
             | QuickRow::CardShaderGba
             | QuickRow::CardShaderGb
-            | QuickRow::CardShaderGbc => {}
+            | QuickRow::CardShaderGbc
+            | QuickRow::MotionBlurGba
+            | QuickRow::MotionBlurGb
+            | QuickRow::MotionBlurGbc => {}
         }
     }
 
@@ -2842,7 +2848,10 @@ impl App {
             | QuickRow::IntegerGbc
             | QuickRow::CardShaderGba
             | QuickRow::CardShaderGb
-            | QuickRow::CardShaderGbc => return,
+            | QuickRow::CardShaderGbc
+            | QuickRow::MotionBlurGba
+            | QuickRow::MotionBlurGb
+            | QuickRow::MotionBlurGbc => return,
         }
         self.persist();
     }
@@ -3591,6 +3600,7 @@ impl App {
     }
 
     pub fn on_core_ready(&mut self) {
+        self.motion_blur_changed();
         let Phase::Inserting {
             cart, core_ready, ..
         } = &mut self.phase

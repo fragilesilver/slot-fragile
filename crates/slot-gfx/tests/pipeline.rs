@@ -991,3 +991,50 @@ fn a_card_shader_under_integer_scale_is_told_the_game_boys_own_size() {
         "the shader drew outside the 3x window"
     );
 }
+
+#[test]
+fn every_shader_shipped_on_the_card_compiles_and_draws() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../card/Shaders");
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .expect("card/Shaders")
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|x| x == "glsl"))
+        .collect();
+    files.sort();
+    assert!(files.len() >= 4, "the card ships {} shaders", files.len());
+    let shot: Vec<u8> = (0..SRC_W * SRC_H)
+        .flat_map(|i| {
+            let (x, y) = (i % SRC_W, i / SRC_W);
+            [(x * 255 / SRC_W) as u8, (y * 255 / SRC_H) as u8, 160, 0]
+        })
+        .collect();
+    c.fit((OUT_W, OUT_H));
+    c.set_screen_power(1.0);
+    for file in files {
+        let name = file.file_stem().unwrap().to_string_lossy().into_owned();
+        let src = std::fs::read_to_string(&file).unwrap();
+        if let Err(e) = c.set_card_shader(Some(&src)) {
+            panic!("{name} does not compile: {e}");
+        }
+        c.begin_frame();
+        c.upload_game(&shot);
+        c.upload_game(&shot);
+        c.draw_game();
+        let frame = c.read_frame();
+        if let Ok(dir) = std::env::var("SCRATCH_PNG_DIR") {
+            // Raw RGBA, OUT_W x OUT_H: `magick -size 720x480 -depth 8 rgba:<file> out.png`.
+            std::fs::write(format!("{dir}/card-shader-{name}.rgba"), &frame).unwrap();
+        }
+        let lit = (0..OUT_H as usize)
+            .step_by(7)
+            .flat_map(|y| (0..OUT_W as usize).step_by(7).map(move |x| (x, y)))
+            .filter(|&(x, y)| px(&frame, x, y).iter().any(|ch| *ch > 30))
+            .count();
+        assert!(lit > 3000, "{name} drew a dark screen: {lit} lit samples");
+    }
+    c.set_card_shader(None).unwrap();
+}

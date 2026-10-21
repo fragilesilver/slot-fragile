@@ -117,7 +117,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Color Correction",
             "Bezel",
             "Integer Scale",
-            "Card Shader"
+            "Card Shader",
+            "Motion Blur"
         ]
     );
     assert_eq!(
@@ -127,7 +128,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Color Correction",
             "Bezel",
             "Integer Scale",
-            "Card Shader"
+            "Card Shader",
+            "Motion Blur"
         ]
     );
     assert_eq!(
@@ -138,7 +140,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Palettes",
             "Bezel",
             "Integer Scale",
-            "Card Shader"
+            "Card Shader",
+            "Motion Blur"
         ]
     );
     assert_eq!(

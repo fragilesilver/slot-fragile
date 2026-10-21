@@ -26,6 +26,23 @@ fn card_shader_row_platform(row: QuickRow) -> Option<Platform> {
     }
 }
 
+fn motion_blur_key(platform: Platform) -> &'static str {
+    match platform {
+        Platform::Gba => "motion_blur_gba",
+        Platform::Gb => "motion_blur_gb",
+        Platform::Gbc => "motion_blur_gbc",
+    }
+}
+
+fn motion_blur_row_platform(row: QuickRow) -> Option<Platform> {
+    match row {
+        QuickRow::MotionBlurGba => Some(Platform::Gba),
+        QuickRow::MotionBlurGb => Some(Platform::Gb),
+        QuickRow::MotionBlurGbc => Some(Platform::Gbc),
+        _ => None,
+    }
+}
+
 fn integer_key(platform: Platform) -> &'static str {
     match platform {
         Platform::Gba => "integer_gba",
@@ -63,13 +80,37 @@ impl App {
             // Drawn from `named_value`, since a file name has no ready-made face.
             return Some(None);
         }
+        if let Some(platform) = motion_blur_row_platform(row) {
+            return Some(Some(QuickValue::flag(self.motion_blur(platform))));
+        }
         let platform = Self::integer_row_platform(row)?;
         Some(Some(QuickValue::flag(self.integer_scale(platform))))
+    }
+
+    /// The core's own frame blending, per console. Off unless asked for.
+    pub fn motion_blur(&self, platform: Platform) -> bool {
+        self.extras.flag(motion_blur_key(platform), false)
+    }
+
+    /// The blending the running core should have, once after it loads and after each change.
+    pub fn take_motion_blur(&mut self) -> Option<bool> {
+        self.overlay.take_motion_blur()
+    }
+
+    pub(super) fn motion_blur_changed(&mut self) {
+        let on = self.motion_blur(self.playing_platform());
+        self.overlay.set_motion_blur(on);
     }
 
     pub(super) fn change_screen(&mut self, row: QuickRow, right: bool) -> bool {
         if let Some(platform) = card_shader_row_platform(row) {
             self.step_card_shader(platform, right);
+            return true;
+        }
+        if let Some(platform) = motion_blur_row_platform(row) {
+            let on = !self.motion_blur(platform);
+            self.extras.set_flag(motion_blur_key(platform), on);
+            self.motion_blur_changed();
             return true;
         }
         let Some(platform) = Self::integer_row_platform(row) else {

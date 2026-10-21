@@ -311,6 +311,13 @@ impl Session {
                 }
             }
         }
+        if let Some(on) = self.app.take_motion_blur() {
+            let (key, value) = crate::core::motion_blur_option(self.app.core(), on);
+            if let Some(emu) = &self.emu {
+                emu.set_option(key, value);
+                recoloured = true;
+            }
+        }
         if recoloured && self.held() && !self.app.link_active() {
             if let Some(emu) = &self.emu {
                 emu.refresh();

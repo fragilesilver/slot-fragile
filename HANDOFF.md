@@ -105,7 +105,33 @@ Phase 1 is done.
 - Upstream tests changed only where a page grew: the Gameplay labels, the Settings rows, and
   the list of rows that open.
 
-Next is Phase 4 (screen extras) in `FRAGILE_PLAN.md`.
+## Phase 4 (done 2026-10-21)
+
+- Integer Scale (`app/screen.rs`, `slot-gfx` `integer_rect` and `set_integer_scale`): per
+  console on its Screen page, 4:3 panels only. GB/GBC at 3x (480x432), GBA at 2x (480x320),
+  centred on 640x480; Stretch wins; the SP frame gives way. A card bezel shows at 3x only through
+  `<name> 3x.png` beside it (hidden from the bezel list). marghost's Classic GB/GBC bezels ship
+  on the card in both sizes (`card/Bezels/`, CC BY-SA, in `licenses/`).
+- Card shaders (`slot-gfx/src/retroshader.rs`, markbruno's, `slot-store/src/shaders.rs`): Card
+  Shader per console on its Screen page picks a single-pass RetroArch `.glsl` from `Shaders/`,
+  drawn instead of the built-in Shader. `PrevTexture` is the frame before; `TexCoord` and
+  `InputSize` follow the picture (GB, Stretch, Integer Scale). A file that fails keeps the
+  built-in on and shows "Card shader failed to load". Menu rows can show run-time text
+  (`App::named_value`, `QuickMenu::named`, the frontend's `sync_named` through `TextFaces`).
+- Shipped in `card/Shaders/`: Blend Grid (markbruno), GBA Color (public domain matrix), LCD Grid
+  V2 (cgwg, from Baggio94's GLES 2 port), See-Through LCD (written after roygravy's See-Through
+  Pixels). `pipeline.rs` compiles and draws every one of them.
+- Motion Blur per console (roygravy's way): the cores' own frame blending
+  (`mgba_interframe_blending=lcd_ghosting`, `gpsp_frame_mixing`), handed to the running core
+  like colour correction. No GPU cost, unlike a ghosting shader.
+- Not as `FRAGILE_PLAN.md` had it: no `ShaderPick` enum in `slot.state`. The card shader is its
+  own setting in extras.state beside upstream's Shader. Baggio94's presets ship as card shader
+  files instead of new built-in modes, and roygravy's ghosting is a core option, not an
+  fbo.rs previous-frame pass. Integer Scale, Card Shader and Motion Blur are on each console's
+  Screen page, not the in-game Screen page, which upstream's tests pin.
+- Not measured on the Mali-G31 yet: the card shaders' frame cost, LCD Grid V2 most of all.
+
+Next is Phase 5 (button cheat sheet) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

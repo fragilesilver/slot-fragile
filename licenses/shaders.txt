@@ -14,4 +14,20 @@ GNU General Public License version 2 or later.
 The paper texture (assets/paper.png, a 1024x1024 crop of textured_paper.png) is from the same shader.
 Changes: the grid bias is 1.0, so black pixels carry no grid.
 
+The card shaders in Shaders/ (Fragile):
+
+Blend Grid.glsl by markbruno (markbruno/slot-plus, examples/shaders/blend-grid.glsl).
+GNU General Public License version 3 or later.
+
+GBA Color.glsl: the gba-color colour matrix and gammas, "Color Mangler" by hunterk, modified by
+Pokefan531. Public domain. As used in Baggio94's slot-konkr presets.
+
+LCD Grid V2.glsl: lcd-grid-v2 by cgwg. GNU General Public License version 2 or later.
+Changes: the GLES 2 form without GLSL 1.30 arrays from Baggio94's slot-konkr, with the preset's
+values (gain 1.5, gamma 2.2, colour 0.75), and the subpixel range measured in texels per output
+pixel as the original does.
+
+See-Through LCD.glsl: written for Fragile after roygravy/slot's See-Through Pixels.
+GNU General Public License version 3 or later.
+
 slot itself is GNU General Public License version 3 or later, which these licenses permit.

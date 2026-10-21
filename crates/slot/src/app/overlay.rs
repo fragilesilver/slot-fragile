@@ -24,6 +24,18 @@ pub struct Overlays {
     sticker_size: Option<(u32, u32)>,
     /// Menu values made of run-time text, one per row in `QuickRow::ALL`, dim and lit.
     named: Vec<Option<slot_ui::FacePair>>,
+    /// Motion Blur for the running core to take up, as colour correction is.
+    motion_blur: Option<bool>,
+}
+
+impl Overlays {
+    pub(super) fn set_motion_blur(&mut self, on: bool) {
+        self.motion_blur = Some(on);
+    }
+
+    pub(super) fn take_motion_blur(&mut self) -> Option<bool> {
+        self.motion_blur.take()
+    }
 }
 
 impl Overlay {

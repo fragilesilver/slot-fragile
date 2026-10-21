@@ -104,10 +104,13 @@ pub enum QuickRow {
     CardShaderGba,
     CardShaderGb,
     CardShaderGbc,
+    MotionBlurGba,
+    MotionBlurGb,
+    MotionBlurGbc,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 92] = [
+    pub const ALL: [QuickRow; 95] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -201,6 +204,9 @@ impl QuickRow {
         QuickRow::CardShaderGba,
         QuickRow::CardShaderGb,
         QuickRow::CardShaderGbc,
+        QuickRow::MotionBlurGba,
+        QuickRow::MotionBlurGb,
+        QuickRow::MotionBlurGbc,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -272,29 +278,32 @@ impl QuickRow {
     pub const SCREEN: [QuickRow; 3] =
         [QuickRow::ScreenGba, QuickRow::ScreenGbc, QuickRow::ScreenGb];
 
-    pub const SCREEN_GBA: [QuickRow; 5] = [
+    pub const SCREEN_GBA: [QuickRow; 6] = [
         QuickRow::GbaShader,
         QuickRow::GbaColourCorrection,
         QuickRow::GbaBezel,
         QuickRow::IntegerGba,
         QuickRow::CardShaderGba,
+        QuickRow::MotionBlurGba,
     ];
 
-    pub const SCREEN_GBC: [QuickRow; 5] = [
+    pub const SCREEN_GBC: [QuickRow; 6] = [
         QuickRow::GbcShader,
         QuickRow::GbcColourCorrection,
         QuickRow::GbcBezel,
         QuickRow::IntegerGbc,
         QuickRow::CardShaderGbc,
+        QuickRow::MotionBlurGbc,
     ];
 
-    pub const SCREEN_GB: [QuickRow; 6] = [
+    pub const SCREEN_GB: [QuickRow; 7] = [
         QuickRow::GbShader,
         QuickRow::GbColourCorrection,
         QuickRow::GbPalettes,
         QuickRow::GbBezel,
         QuickRow::IntegerGb,
         QuickRow::CardShaderGb,
+        QuickRow::MotionBlurGb,
     ];
 
     pub const GAME: [QuickRow; 8] = [
@@ -340,18 +349,21 @@ impl QuickRow {
             | QuickRow::GbaColourCorrection
             | QuickRow::GbaBezel
             | QuickRow::IntegerGba
-            | QuickRow::CardShaderGba => &QuickRow::SCREEN_GBA,
+            | QuickRow::CardShaderGba
+            | QuickRow::MotionBlurGba => &QuickRow::SCREEN_GBA,
             QuickRow::GbcShader
             | QuickRow::GbcColourCorrection
             | QuickRow::GbcBezel
             | QuickRow::IntegerGbc
-            | QuickRow::CardShaderGbc => &QuickRow::SCREEN_GBC,
+            | QuickRow::CardShaderGbc
+            | QuickRow::MotionBlurGbc => &QuickRow::SCREEN_GBC,
             QuickRow::GbShader
             | QuickRow::GbColourCorrection
             | QuickRow::GbPalettes
             | QuickRow::GbBezel
             | QuickRow::IntegerGb
-            | QuickRow::CardShaderGb => &QuickRow::SCREEN_GB,
+            | QuickRow::CardShaderGb
+            | QuickRow::MotionBlurGb => &QuickRow::SCREEN_GB,
             QuickRow::FastForward
             | QuickRow::FastForwardSound
             | QuickRow::Rewind
@@ -510,6 +522,9 @@ impl QuickRow {
             QuickRow::CardShaderGba | QuickRow::CardShaderGb | QuickRow::CardShaderGbc => {
                 "Card Shader"
             }
+            QuickRow::MotionBlurGba | QuickRow::MotionBlurGb | QuickRow::MotionBlurGbc => {
+                "Motion Blur"
+            }
             QuickRow::ShowTitles => "Game Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
@@ -612,6 +627,9 @@ impl QuickRow {
             }
             QuickRow::CardShaderGba | QuickRow::CardShaderGb | QuickRow::CardShaderGbc => {
                 "A .glsl file from Shaders, used instead of Shader."
+            }
+            QuickRow::MotionBlurGba | QuickRow::MotionBlurGb | QuickRow::MotionBlurGbc => {
+                "Moving pixels fade out slowly, like an old LCD."
             }
             QuickRow::ShowTitles => "Show the game name above the cart.",
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
