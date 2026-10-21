@@ -447,10 +447,21 @@ impl LibretroCore {
     }
 
     pub fn open_with(dylib: &Path, system_dir: &Path, save_dir: &Path) -> Result<Self, CoreError> {
+        Self::open_with_options(dylib, system_dir, save_dir, &[])
+    }
+
+    /// `open_with`, with options the core reads during `retro_init`, before anything could
+    /// set them afterwards (Gambatte's boot ROM switch). Ported from roygravy/slot@e1bdb53.
+    pub fn open_with_options(
+        dylib: &Path,
+        system_dir: &Path,
+        save_dir: &Path,
+        before_init: &[(&str, &str)],
+    ) -> Result<Self, CoreError> {
         if LIVE.swap(true, Ordering::SeqCst) {
             return Err(CoreError::Unsupported("a core is already open".into()));
         }
-        Self::open_inner(dylib, system_dir, save_dir)
+        Self::open_inner(dylib, system_dir, save_dir, before_init)
             .inspect_err(|_| LIVE.store(false, Ordering::SeqCst))
     }
 
@@ -503,7 +514,12 @@ impl LibretroCore {
             .map(|s| s.to_string())
     }
 
-    fn open_inner(dylib: &Path, system_dir: &Path, save_dir: &Path) -> Result<Self, CoreError> {
+    fn open_inner(
+        dylib: &Path,
+        system_dir: &Path,
+        save_dir: &Path,
+        before_init: &[(&str, &str)],
+    ) -> Result<Self, CoreError> {
         let lib = unsafe { Library::new(dylib) }.map_err(|e| CoreError::Load(e.to_string()))?;
         let api = unsafe { Api::load(&lib) }?;
         let version = unsafe { (api.api_version)() };
@@ -531,6 +547,11 @@ impl LibretroCore {
             options_dirty: false,
             declared: std::collections::HashMap::new(),
         });
+        for (key, value) in before_init {
+            if let Ok(value) = CString::new(*value) {
+                host.options.insert(key.to_string(), value);
+            }
+        }
         unsafe {
             let _a = Active::bind(&mut host);
             (api.set_environment)(environment);

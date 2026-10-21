@@ -58,7 +58,7 @@ fn every_option_slot_sets_is_one_the_core_declares() {
     let mut ran = 0;
     for which in Core::ALL {
         let path = dylib_for(which);
-        if !path.exists() {
+        if !slot_retro::runs_here(&path) {
             eprintln!("no {} dylib on this host, skipping", which.as_str());
             continue;
         }
@@ -102,7 +102,7 @@ fn both_cores_declare_a_colour_correction_option() {
         (Core::Gpsp, "gpsp_color_correction"),
     ] {
         let path = dylib_for(which);
-        if !path.exists() {
+        if !slot_retro::runs_here(&path) {
             eprintln!("no {} dylib on this host, skipping", which.as_str());
             continue;
         }
@@ -119,7 +119,7 @@ fn both_cores_declare_a_colour_correction_option() {
 fn a_cable_session_leaves_the_bios_to_the_card() {
     let _g = common::core_lock();
     let path = dylib_for(Core::Mgba);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no mgba dylib on this host, skipping");
         return;
     }
@@ -144,7 +144,7 @@ fn a_cable_session_leaves_the_bios_to_the_card() {
 fn a_cable_session_sets_nothing_on_gpsp() {
     let _g = common::core_lock();
     let path = dylib_for(Core::Gpsp);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no gpsp dylib on this host, skipping");
         return;
     }
@@ -160,7 +160,7 @@ fn a_cable_session_sets_nothing_on_gpsp() {
 fn a_named_palette_forces_a_plain_game_boy_without_hardware_presets() {
     let _g = common::core_lock();
     let path = dylib_for(Core::Mgba);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no mgba dylib on this host, skipping");
         return;
     }
@@ -260,7 +260,7 @@ fn a_linked_game_never_takes_a_named_palette() {
 fn mgba_always_answers_the_game_boy_player_logo() {
     let _g = common::core_lock();
     let path = dylib_for(Core::Mgba);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no mgba dylib on this host, skipping");
         return;
     }

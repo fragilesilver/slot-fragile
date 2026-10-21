@@ -1,5 +1,6 @@
 mod core;
 mod ffi;
+mod here;
 mod libretro;
 mod link;
 mod memory;
@@ -11,6 +12,7 @@ pub use ffi::{
     NETPACKET_BROADCAST, NETPACKET_FLUSH_HINT, NETPACKET_RELIABLE, NETPACKET_UNRELIABLE,
     NETPACKET_UNSEQUENCED,
 };
+pub use here::runs_here;
 pub use libretro::LibretroCore;
 pub use link::{Link, LinkChannel, LoopbackLink};
 pub use memory::MemoryDescriptor;

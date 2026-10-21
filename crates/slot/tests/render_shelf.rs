@@ -129,8 +129,10 @@ fn let_it_hop(app: &mut App) {
     app.update(0.25);
 }
 
+// Fragile: a Game Boy cart now opens its own picker (Gambatte or mGBA), so START changes the
+// screen; what this test still holds is that the shelf under it is the plain one until then.
 #[test]
-fn start_draws_the_plain_shelf_on_a_game_boy_cart() {
+fn start_draws_the_game_boy_picker_on_a_game_boy_cart() {
     let Some((_g, _s, mut c)) = compositor() else {
         eprintln!("no GL on this host, skipping");
         return;
@@ -147,13 +149,10 @@ fn start_draws_the_plain_shelf_on_a_game_boy_cart() {
     let after = shot(&pressed, &mut c, "gb-after-start");
     assert_eq!(
         pressed.core_picker(),
-        None,
-        "a Game Boy cart opened the GBA picker"
+        Some(slot_store::Core::Gambatte),
+        "a Game Boy cart opened no picker on Gambatte"
     );
-    assert!(
-        after == plain,
-        "START put something on screen over a Game Boy cart"
-    );
+    assert!(after != plain, "START drew nothing over a Game Boy cart");
 
     let d = common::tmp_root_with_carts(&["Emerald", "Zzz"]);
     let twin = common::tmp_root_with_carts(&["Emerald", "Zzz"]);

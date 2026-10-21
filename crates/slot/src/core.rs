@@ -106,7 +106,11 @@ fn open_named(
         if !path.exists() {
             continue;
         }
-        match LibretroCore::open_with(path, &bios, &saves) {
+        let before_init = match core {
+            Core::Gambatte => crate::gambatte::BEFORE_INIT,
+            _ => &[],
+        };
+        match LibretroCore::open_with_options(path, &bios, &saves, before_init) {
             Ok(mut opened) => {
                 apply_core_options(
                     &mut opened,
@@ -178,6 +182,7 @@ pub fn colour_option(
             "gpsp_color_correction",
             if on { "enabled" } else { "disabled" },
         )),
+        Core::Gambatte => Some(crate::gambatte::colour_option(on)),
     }
 }
 
@@ -199,6 +204,7 @@ pub fn motion_blur_option(which: Core, on: bool) -> (&'static str, &'static str)
             if on { "lcd_ghosting" } else { "OFF" },
         ),
         Core::Gpsp => ("gpsp_frame_mixing", if on { "enabled" } else { "disabled" }),
+        Core::Gambatte => crate::gambatte::motion_blur_option(on),
     }
 }
 
@@ -211,7 +217,10 @@ pub fn apply_core_options(
     colour: bool,
     palette: Option<GbPalette>,
 ) {
-    core.set_option(&format!("{}_frameskip", which.as_str()), "auto");
+    // Fragile: Gambatte has no frame skip option.
+    if which != Core::Gambatte {
+        core.set_option(&format!("{}_frameskip", which.as_str()), "auto");
+    }
     if which == Core::Mgba {
         core.set_option("mgba_sgb_borders", "OFF");
         core.set_option("mgba_force_gbp", "ON");
@@ -241,6 +250,7 @@ pub fn apply_core_options(
             core.set_option(key, value);
         }
     }
+    crate::gambatte::apply_options(core, which, colour, palette);
 }
 
 #[cfg(test)]

@@ -15,7 +15,7 @@ fn vendored(name: &str) -> Option<LibretroCore> {
             "{name}_libretro.{}",
             std::env::consts::DLL_EXTENSION
         ));
-    if !p.exists() {
+    if !slot_retro::runs_here(&p) {
         eprintln!("skipping: no {}", p.display());
         return None;
     }

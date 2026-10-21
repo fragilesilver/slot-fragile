@@ -156,16 +156,17 @@ fn writing_the_default_still_records_it() {
     assert!(text.contains("Emerald = mgba"));
 }
 
+// Fragile: Game Boy and Game Boy Color games default to Gambatte.
 #[test]
-fn every_platform_defaults_to_mgba() {
+fn every_platform_defaults_to_its_first_core() {
     let d = tempfile::tempdir().unwrap();
     assert_eq!(
         core_for_platform(d.path(), "Tetris", Platform::Gb),
-        Core::Mgba
+        Core::Gambatte
     );
     assert_eq!(
         core_for_platform(d.path(), "Tetris Chromatic", Platform::Gbc),
-        Core::Mgba
+        Core::Gambatte
     );
     assert_eq!(
         core_for_platform(d.path(), "Emerald", Platform::Gba),
@@ -190,15 +191,21 @@ fn a_line_naming_a_core_the_platform_cannot_run_is_dropped() {
     write_selected_core(d.path(), "Tetris", Core::Gpsp).unwrap();
     assert_eq!(
         core_for_platform(d.path(), "Tetris", Platform::Gb),
-        Core::Mgba
+        Core::Gambatte
     );
     assert_eq!(
         core_for_platform(d.path(), "Tetris", Platform::Gbc),
-        Core::Mgba
+        Core::Gambatte
     );
 }
 
+// Fragile: three cores, but the board still has two sockets, so no system offers more.
 #[test]
 fn the_picker_board_has_exactly_two_sockets() {
-    assert_eq!(Core::ALL.len(), 2);
+    for p in Platform::ALL {
+        assert!(
+            p.spec().cores.len() <= 2,
+            "{p:?} offers more cores than sockets"
+        );
+    }
 }

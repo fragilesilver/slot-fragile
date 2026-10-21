@@ -26,7 +26,7 @@ fn each_core_resolves_to_its_own_dylib() {
 #[test]
 fn gpsp_loads_and_runs_a_frame() {
     let path = dylib_for(Core::Gpsp);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no gpSP dylib on this host, skipping");
         return;
     }
@@ -39,7 +39,7 @@ fn gpsp_loads_and_runs_a_frame() {
 #[test]
 fn gpsp_is_told_its_serial_mode_before_load() {
     let path = dylib_for(Core::Gpsp);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no gpSP dylib on this host, skipping");
         return;
     }
@@ -64,7 +64,7 @@ fn gpsp_is_told_its_serial_mode_before_load() {
 #[test]
 fn gpsp_is_told_the_serial_mode_it_is_handed() {
     let path = dylib_for(Core::Gpsp);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no gpSP dylib on this host, skipping");
         return;
     }
@@ -91,7 +91,7 @@ fn gpsp_is_told_the_serial_mode_it_is_handed() {
 #[test]
 fn gpsp_boots_through_the_bios_when_the_card_carries_one() {
     let path = dylib_for(Core::Gpsp);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no gpSP dylib on this host, skipping");
         return;
     }
@@ -127,7 +127,7 @@ fn gpsp_boots_through_the_bios_when_the_card_carries_one() {
 #[test]
 fn gpsp_is_left_on_its_own_boot_default_when_the_card_has_no_bios() {
     let path = dylib_for(Core::Gpsp);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no gpSP dylib on this host, skipping");
         return;
     }
@@ -153,7 +153,7 @@ fn gpsp_is_left_on_its_own_boot_default_when_the_card_has_no_bios() {
 #[test]
 fn mgba_is_given_its_own_frameskip_and_none_of_gpsps() {
     let path = dylib_for(Core::Mgba);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no mGBA dylib on this host, skipping");
         return;
     }
@@ -197,7 +197,7 @@ fn both_cores_are_told_about_colour_correction_in_their_own_words() {
         (Core::Gpsp, "gpsp_color_correction", "enabled", "disabled"),
     ] {
         let path = dylib_for(which);
-        if !path.exists() {
+        if !slot_retro::runs_here(&path) {
             eprintln!("no {} dylib on this host, skipping", which.as_str());
             continue;
         }
@@ -223,6 +223,7 @@ fn both_cores_are_told_about_colour_correction_in_their_own_words() {
         let theirs = match which {
             Core::Mgba => "gpsp_color_correction",
             Core::Gpsp => "mgba_color_correction",
+            Core::Gambatte => unreachable!("only mGBA and gpSP are looped over"),
         };
         assert_eq!(
             core.option(theirs),
@@ -236,7 +237,7 @@ fn both_cores_are_told_about_colour_correction_in_their_own_words() {
 #[test]
 fn gpsp_is_put_on_auto_frameskip() {
     let path = dylib_for(Core::Gpsp);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no gpSP dylib on this host, skipping");
         return;
     }
@@ -760,7 +761,7 @@ fn seconds_of_day() -> u32 {
 fn keeps_time_while_off(which: Core) {
     use slot_retro::{ButtonMask, RetroCore};
     let path = dylib_for(which);
-    if !path.exists() {
+    if !slot_retro::runs_here(&path) {
         eprintln!("no {} dylib on this host, skipping", which.as_str());
         return;
     }

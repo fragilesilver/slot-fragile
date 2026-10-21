@@ -534,7 +534,8 @@ impl Session {
         else {
             return;
         };
-        let core = slot_store::core_for_platform(&self.root, stem, platform);
+        let chosen = slot_store::core_for_platform(&self.root, stem, platform);
+        let (core, switched) = self.app.core_to_open(stem, platform, chosen);
         launch(&format!("opening {stem} on {}", core.as_str()));
         self.app.set_core(core);
         self.app.set_platform(platform);
@@ -543,7 +544,7 @@ impl Session {
         self.app.set_link_loaded(serial);
         let root = self.root.clone();
         let stem = stem.to_owned();
-        let clean = self.app.starting_clean();
+        let clean = self.app.starting_clean() || switched;
         let player = self.app.link_player();
         let chosen = self.app.gb_palette();
         let colour = self.app.colour_correction_for(platform);

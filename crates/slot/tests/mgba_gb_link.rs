@@ -9,7 +9,7 @@ fn vendored() -> Option<PathBuf> {
         "vendor/mgba_libretro.{}",
         std::env::consts::DLL_EXTENSION
     ));
-    p.exists().then_some(p)
+    slot_retro::runs_here(&p).then_some(p)
 }
 
 fn card_cart() -> Option<PathBuf> {

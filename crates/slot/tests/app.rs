@@ -799,17 +799,22 @@ fn start_on(mut pressed: App, mut untouched: App) -> (Option<Core>, f32, bool) {
     (pressed.core_picker(), pressed.shelf_shake(), moved)
 }
 
+// Fragile: a Game Boy cart chooses between Gambatte, its default, and mGBA.
 #[test]
-fn start_opens_no_picker_on_a_game_boy_cart() {
+fn start_opens_the_game_boy_picker_on_gambatte() {
     let (_d, gb) = on_shelf_gb(&["Tetris", "Zzz"]);
     let (_twin, gb_twin) = on_shelf_gb(&["Tetris", "Zzz"]);
     let (picker, shake, moved) = start_on(gb, gb_twin);
-    assert_eq!(picker, None, "a Game Boy cart opened the GBA picker");
+    assert_eq!(
+        picker,
+        Some(Core::Gambatte),
+        "a Game Boy cart opened no picker"
+    );
     assert_eq!(
         shake, 0.0,
         "START on a Game Boy cart was answered with a refusal shake"
     );
-    assert!(!moved, "START changed what the shelf draws");
+    assert!(moved, "the picker opened without being drawn");
 
     let (_d, gba) = on_shelf(&["Emerald", "Zzz"]);
     let (_twin, gba_twin) = on_shelf(&["Emerald", "Zzz"]);

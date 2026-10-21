@@ -148,3 +148,30 @@ fn a_menu_y(f: &mut Frontend, input: &mut Script) {
         step(f, input, Vec::new());
     }
 }
+
+#[test]
+fn a_game_boy_carts_picker_shows_gambatte_and_mgba() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = common::tmp_root_with_gb_carts(&["Tetris", "Zelda"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    settle(&mut f, &mut c, &mut input);
+    tap(&mut f, &mut input, Btn::Start);
+    settle(&mut f, &mut c, &mut input);
+    assert_eq!(
+        f.app().core_picker_choices(),
+        Some([slot_store::Core::Gambatte, slot_store::Core::Mgba])
+    );
+    composed(&mut f, &mut c, "picker-gb");
+    tap(&mut f, &mut input, Btn::Right);
+    settle(&mut f, &mut c, &mut input);
+    assert_eq!(f.app().core_picker(), Some(slot_store::Core::Mgba));
+    composed(&mut f, &mut c, "picker-gb-mgba");
+}

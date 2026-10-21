@@ -270,7 +270,36 @@ Four commits, each with the suite green; no behaviour change for GB, GBC or GBA.
 - Not run on the device yet: signing in, a game being recognised, an unlock arriving.
 - Upstream tests changed: the PLAY page rows, the opening rows list, the in-game hidden rows.
 
-Next is Phase 11 (Gambatte) in `FRAGILE_PLAN.md`.
+## Phase 11 (done 2026-10-22)
+
+- Gambatte (gambatte-libretro@d9d6cd0, 2026-08-21) is a third core and the default for GB and
+  GBC (`Spec.cores = [Gambatte, Mgba]`); GBA is unchanged. Your choice: Gambatte by default,
+  mGBA kept for link play. START on a GB cart opens the picker with Gambatte (left) and mGBA
+  (right); the picker's two choices now come from the Spec row (`CorePicker::open_among`), the
+  board draws those two sockets, and a game's saved choice is read with `core_for_platform`.
+- Options (`slot/src/gambatte.rs`, roygravy's): boot ROM on before `retro_init`
+  (`LibretroCore::open_with_options`), hardware Auto, GBC colour correction "GBC only" or off
+  in accurate mode, front light central, a chosen palette as `internal` + its Gambatte name
+  (all 48 map), Motion Blur as `gambatte_mix_frames`. No `gambatte_frameskip` (Gambatte has
+  none). Checked against a host build of the pinned core: every value is one it declares, for
+  every palette, and a game runs (`tests/gambatte_core.rs`, needs `SLOT_GAMBATTE_HOST`).
+- Link play: `Core::links()` is false for Gambatte only. A Gambatte game can open the link
+  screen; when the link reloads it, `App::core_to_open` opens it on mGBA from its save file,
+  and both cores' resumes become saved states of their own core (`StateRing::keep_resume_as_state`,
+  no picture), so neither later rolls the save back. Progress since the last in-game save
+  stays in those states.
+- Build: `cores/gambatte/build.sh`, `task core:gambatte` (in the arm64 container; built here:
+  `vendor/gambatte_libretro.so`, aarch64), shipped by `dist:device` and the deploy tasks with
+  its source archive in `System/licenses`. `licenses/gambatte-GPL-2.0.txt`; core credit added.
+- Linux host: the device's cores are .so in `vendor/` like a host core would be, so the
+  upstream real-core tests now skip a library built for another machine
+  (`slot_retro::runs_here`, reading the ELF header).
+- Upstream tests changed for the new default and picker: `app.rs` (START on a GB cart),
+  `render_shelf.rs`, three in `slot-store/tests/core.rs`, and an unreachable arm in `gpsp.rs`.
+- Not run on the device yet: Gambatte playing, its boot logo with a boot ROM, palettes, and a
+  GB link session handing over to mGBA.
+
+Next is Phase 12 (NES, SNES, PS1) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

@@ -127,7 +127,7 @@ fn l_widens_the_picture_like_a_gba_and_r_gives_back_the_centred_picture() {
         std::env::consts::DLL_EXTENSION
     );
     let dylib = repo_root().join("vendor").join(&file);
-    if !dylib.exists() {
+    if !slot_retro::runs_here(&dylib) {
         eprintln!("no {} dylib, skipping", core.as_str());
         return;
     }

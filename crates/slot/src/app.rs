@@ -31,6 +31,7 @@ use crate::video_mode::{self, VideoMode};
 
 mod battery;
 mod cheats;
+mod cores;
 mod extras;
 mod guide;
 mod network;
@@ -4356,7 +4357,11 @@ impl App {
                     alpha: 1.0,
                 });
             }
-            for (i, tex) in self.core_socket_faces.iter().copied().enumerate() {
+            let sockets = picker
+                .choices()
+                .map(|c| self.core_socket_faces.get(c.index()).copied());
+            for (i, tex) in sockets.into_iter().enumerate() {
+                let Some(tex) = tex else { continue };
                 let (x, y) = on_board(board, SOCKET_U[i], SOCKET_V);
                 out.push(Draw::Tex {
                     x: x.round(),
@@ -4802,12 +4807,13 @@ impl App {
         let Some(cart) = self.shelf().carts.get(self.shelf().index) else {
             return;
         };
-        if cart.platform.spec().cores.len() < 2 {
+        let cores = cart.platform.spec().cores;
+        if cores.len() < 2 {
             return;
         }
-        let seat = slot_store::core_for(&root, &cart.stem);
+        let seat = slot_store::core_for_platform(&root, &cart.stem, cart.platform);
         let now = self.now();
-        let mut picker = CorePicker::open(seat, now);
+        let mut picker = CorePicker::open_among(seat, [cores[0], cores[1]], now);
         if self.core_faces_ready() {
             picker.start(now);
         }
@@ -4847,7 +4853,8 @@ impl App {
         if self.link_active() {
             return self.refuse();
         }
-        if self.core == Core::Mgba {
+        // Fragile: a game on Gambatte links on mGBA's cable, opened again on mGBA.
+        if self.core == Core::Mgba || !self.core.links() {
             let wireless = self
                 .seated()
                 .is_some_and(|stem| self.link_mode(stem).0 == LinkKind::Wireless);
@@ -4999,7 +5006,7 @@ impl App {
             return;
         };
         let loaded = self.link_loaded.unwrap_or("auto");
-        if self.core == Core::Mgba {
+        if self.core == Core::Mgba || !self.core.links() {
             let player = role.client_id() as u8;
             if self.link_player == Some(player) {
                 return self.start_link(

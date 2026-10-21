@@ -10,15 +10,18 @@ pub enum Core {
     #[default]
     Mgba,
     Gpsp,
+    // --- extras ---
+    Gambatte,
 }
 
 impl Core {
-    pub const ALL: [Core; 2] = [Core::Mgba, Core::Gpsp];
+    pub const ALL: [Core; 3] = [Core::Mgba, Core::Gpsp, Core::Gambatte];
 
     pub fn as_str(&self) -> &'static str {
         match self {
             Core::Mgba => "mgba",
             Core::Gpsp => "gpsp",
+            Core::Gambatte => "gambatte",
         }
     }
 
@@ -30,6 +33,7 @@ impl Core {
         match self {
             Core::Mgba => "mGBA",
             Core::Gpsp => "gpSP",
+            Core::Gambatte => "Gambatte",
         }
     }
 
@@ -47,6 +51,12 @@ impl Core {
 
     pub fn default_for(platform: Platform) -> Core {
         platform.spec().cores[0]
+    }
+
+    /// Whether two of it can play linked: mGBA's patched link mode and gpSP's link adapter.
+    /// Gambatte has neither, so a game linked on it is opened on mGBA.
+    pub fn links(self) -> bool {
+        self != Core::Gambatte
     }
 }
 

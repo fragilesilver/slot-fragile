@@ -105,6 +105,30 @@ impl StateRing {
         Ok(Some(to))
     }
 
+    // --- extras ---
+
+    /// Turns the resume into a saved state stamped `stamp`, so it can still be loaded from the
+    /// state list, and evicts nothing for it. It has no picture: a resume is kept without one.
+    /// Fragile's, for a game moved to another core whose resume this core cannot take.
+    pub fn keep_resume_as_state(&self, stamp: &str) -> std::io::Result<Option<PathBuf>> {
+        let from = self.path(RESUME, STATE_EXT);
+        if !from.exists() {
+            return Ok(None);
+        }
+        let mut to = self.path(stamp, STATE_EXT);
+        let mut n = 0u32;
+        while to.exists() {
+            n += 1;
+            let Some(next) = bump(stamp, n) else {
+                return self.retire_resume(stamp);
+            };
+            to = self.path(&next, STATE_EXT);
+        }
+        std::fs::rename(&from, &to)?;
+        sync_dir(&to);
+        Ok(Some(to))
+    }
+
     fn free_refused(&self, stamp: &str) -> PathBuf {
         let base = format!("{REFUSED}-{stamp}");
         let first = self.path(&base, STATE_EXT);
@@ -147,4 +171,10 @@ fn is_stamp(s: &str) -> bool {
             b'0' => c.is_ascii_digit(),
             _ => c == *shape,
         })
+}
+
+/// `stamp` moved on by `n` seconds, so two kept resumes in one second do not share a name.
+fn bump(stamp: &str, n: u32) -> Option<String> {
+    let secs = crate::parse_stamp(stamp)?;
+    Some(crate::format_stamp(secs + i64::from(n)))
 }

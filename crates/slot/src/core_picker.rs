@@ -46,6 +46,9 @@ struct Close {
 #[derive(Copy, Clone)]
 pub struct CorePicker {
     seat: Core,
+    /// The two sockets, left then right. Fragile's: GBA games choose mGBA or gpSP as upstream
+    /// has it, GB and GBC games Gambatte or mGBA.
+    choices: [Core; 2],
     opened: Millis,
     started: Option<Millis>,
     hop: Option<Hop>,
@@ -55,8 +58,13 @@ pub struct CorePicker {
 
 impl CorePicker {
     pub fn open(seat: Core, now: Millis) -> Self {
+        CorePicker::open_among(seat, [Core::Mgba, Core::Gpsp], now)
+    }
+
+    pub fn open_among(seat: Core, choices: [Core; 2], now: Millis) -> Self {
         CorePicker {
             seat,
+            choices,
             opened: now,
             started: None,
             hop: None,
@@ -79,6 +87,10 @@ impl CorePicker {
 
     pub fn seat(&self) -> Core {
         self.seat
+    }
+
+    pub fn choices(&self) -> [Core; 2] {
+        self.choices
     }
 
     pub fn closing(&self) -> bool {
@@ -112,8 +124,8 @@ impl CorePicker {
                 self.begin_close(now);
                 return Outcome::Nothing;
             }
-            Press::Left => Core::Mgba,
-            Press::Right => Core::Gpsp,
+            Press::Left => self.choices[0],
+            Press::Right => self.choices[1],
         };
         if self.waiting() {
             return Outcome::Nothing;
@@ -148,7 +160,7 @@ impl CorePicker {
         let shake = self.refusal.map_or(0.0, |r| r.offset(now));
         match (self.hop, self.hop_progress(now)) {
             (Some(hop), Some(q)) => {
-                let rightward = hop.from == Core::Mgba;
+                let rightward = hop.from == self.choices[0];
                 let lean = if rightward { 1.0 } else { -1.0 };
                 let arc = (std::f32::consts::PI * q).sin();
                 Chip {
@@ -160,7 +172,7 @@ impl CorePicker {
                 }
             }
             _ => Chip {
-                across: self.seat.index() as f32,
+                across: (self.seat == self.choices[1]) as u8 as f32,
                 lift: 0.0,
                 tip: 0.0,
                 seated: Some(self.seat),
