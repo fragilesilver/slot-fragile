@@ -90,6 +90,11 @@ pub fn shell_for(cart: &Cart) -> Shell {
     match cart.platform {
         Platform::Gba => gba_shell_for(&gba_code(cart)),
         Platform::Gb | Platform::Gbc => gb_shell_for(&cart.rom),
+        // Fragile: a NES or SNES cart or a disc comes in its own neutral plastic.
+        other => match crate::media::Media::of(other) {
+            Some(m) => shell(m.colour(), Finish::Solid),
+            None => gba_shell_for(&gba_code(cart)),
+        },
     }
 }
 

@@ -31,3 +31,7 @@ and About > Details lists it.
 | [mGBA](https://github.com/libretro/mgba) | Jeffrey Pfau and contributors | MPL-2.0 |
 | [gpSP](https://github.com/libretro/gpsp) | Exophase, notaz and the libretro team | GPL-2.0 |
 | [Gambatte](https://github.com/libretro/gambatte-libretro) | sinamas and the libretro team | GPL-2.0 |
+| [FCEUmm](https://github.com/libretro/libretro-fceumm) | the FCE Ultra teams and the libretro team | GPL-2.0 |
+| [Snes9x](https://github.com/libretro/snes9x) | the Snes9x team and the libretro team | Snes9x (non-commercial): free for personal use, not for sale; not GPL |
+| [Supafaust](https://github.com/libretro/supafaust) | the Mednafen team and the libretro team | GPL-2.0 |
+| [PCSX ReARMed](https://github.com/libretro/pcsx_rearmed) | notaz, the PCSX teams and the libretro team | GPL-2.0 |

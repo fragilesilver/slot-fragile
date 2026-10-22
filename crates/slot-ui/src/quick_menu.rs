@@ -864,10 +864,13 @@ pub enum QuickValue {
     Hour24,
     Hour12,
     Never,
+    NesShelf,
+    SnesShelf,
+    Ps1Shelf,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 32] = [
+    pub const ALL: [QuickValue; 35] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -900,6 +903,9 @@ impl QuickValue {
         QuickValue::Hour24,
         QuickValue::Hour12,
         QuickValue::Never,
+        QuickValue::NesShelf,
+        QuickValue::SnesShelf,
+        QuickValue::Ps1Shelf,
     ];
 
     pub const LID_OFF: [QuickValue; 6] = [
@@ -949,6 +955,9 @@ impl QuickValue {
             QuickValue::Hour24 => "24 Hour",
             QuickValue::Hour12 => "12 Hour",
             QuickValue::Never => "Never",
+            QuickValue::NesShelf => "NES",
+            QuickValue::SnesShelf => "SNES",
+            QuickValue::Ps1Shelf => "PS1",
         }
     }
 

@@ -56,7 +56,9 @@ pub fn palette_options(which: Core, palette: GbPalette) -> Vec<(&'static str, St
             ("gambatte_gb_colorization", "internal".to_string()),
             ("gambatte_gb_internal_palette", palette_name(palette)),
         ],
-        Core::Gpsp => Vec::new(),
+        Core::Gpsp | Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::PcsxRearmed => {
+            Vec::new()
+        }
     }
 }
 

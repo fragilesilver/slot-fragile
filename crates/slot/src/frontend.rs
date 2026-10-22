@@ -271,6 +271,11 @@ impl Frontend {
         let rounded = gb_cart_shadow(GbShell::Rounded);
         let rounded = compositor.create_texture(rounded.w, rounded.h, &rounded.rgba);
         self.session.app_mut().set_gb_cart_shadows(notched, rounded);
+        for m in slot_ui::Media::ALL {
+            let shadow = slot_ui::media_shadow(m);
+            let id = compositor.create_texture(shadow.w, shadow.h, &shadow.rgba);
+            self.session.app_mut().set_media_shadow(m, id);
+        }
         let board = slot_ui::cart_backing(None);
         let board = compositor.create_texture(board.w, board.h, &board.rgba);
         self.session.app_mut().set_cart_backing(board);

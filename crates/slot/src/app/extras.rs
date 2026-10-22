@@ -29,13 +29,16 @@ pub enum StartShelf {
 }
 
 impl StartShelf {
-    pub const ALL: [StartShelf; 6] = [
+    pub const ALL: [StartShelf; 9] = [
         StartShelf::Last,
         StartShelf::Recents,
         StartShelf::Favorites,
         StartShelf::Of(Platform::Gba),
         StartShelf::Of(Platform::Gb),
         StartShelf::Of(Platform::Gbc),
+        StartShelf::Of(Platform::Nes),
+        StartShelf::Of(Platform::Snes),
+        StartShelf::Of(Platform::PlayStation),
     ];
 
     fn rack(self) -> Option<Rack> {
@@ -65,6 +68,9 @@ impl StartShelf {
             StartShelf::Of(Platform::Gba) => QuickValue::GbaShelf,
             StartShelf::Of(Platform::Gb) => QuickValue::GbShelf,
             StartShelf::Of(Platform::Gbc) => QuickValue::GbcShelf,
+            StartShelf::Of(Platform::Nes) => QuickValue::NesShelf,
+            StartShelf::Of(Platform::Snes) => QuickValue::SnesShelf,
+            StartShelf::Of(Platform::PlayStation) => QuickValue::Ps1Shelf,
         }
     }
 
@@ -80,6 +86,13 @@ impl StartShelf {
 }
 
 impl App {
+    /// The shadow each NES or SNES cart or disc casts, on every shelf.
+    pub fn set_media_shadow(&mut self, m: slot_ui::Media, face: slot_gfx::TexId) {
+        for (_, shelf) in &mut self.shelves {
+            shelf.set_media_shadow(m, face);
+        }
+    }
+
     pub(super) fn load_extras(&mut self, root: &std::path::Path) {
         self.extras = read_extras(root);
     }

@@ -2979,6 +2979,8 @@ impl App {
                 Platform::Gba => QuickRow::GbaColourCorrection,
                 Platform::Gb => QuickRow::GbColourCorrection,
                 Platform::Gbc => QuickRow::GbcColourCorrection,
+                // Fragile: these have no colour correction to turn.
+                Platform::Nes | Platform::Snes | Platform::PlayStation => return true,
             };
             self.change_setting(row, true);
             let said = match self.colour_correction() {

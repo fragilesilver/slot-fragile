@@ -1356,6 +1356,13 @@ fn start_shelf_steps_both_ways_and_saves_to_extras_not_slot_state() {
     press(&mut a, Btn::Left);
     assert_eq!(
         a.quick_value(QuickRow::StartShelf),
+        Some(QuickValue::Ps1Shelf)
+    );
+    press(&mut a, Btn::Left);
+    press(&mut a, Btn::Left);
+    press(&mut a, Btn::Left);
+    assert_eq!(
+        a.quick_value(QuickRow::StartShelf),
         Some(QuickValue::GbcShelf)
     );
     assert_eq!(

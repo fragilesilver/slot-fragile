@@ -56,7 +56,8 @@ fn every_option_fragile_gives_gambatte_is_one_it_declares() {
                 palette,
             );
             for on in [false, true] {
-                let (key, value) = slot::core::motion_blur_option(Core::Gambatte, on);
+                let (key, value) =
+                    slot::core::motion_blur_option(Core::Gambatte, on).expect("Gambatte blends");
                 core.set_option(key, value);
             }
             for (key, value) in core.options() {

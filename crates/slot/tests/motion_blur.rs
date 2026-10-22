@@ -11,19 +11,19 @@ use slot_ui::{QuickRow, QuickValue};
 fn each_core_spells_its_frame_blending_its_own_way() {
     assert_eq!(
         motion_blur_option(Core::Mgba, true),
-        ("mgba_interframe_blending", "lcd_ghosting")
+        Some(("mgba_interframe_blending", "lcd_ghosting"))
     );
     assert_eq!(
         motion_blur_option(Core::Mgba, false),
-        ("mgba_interframe_blending", "OFF")
+        Some(("mgba_interframe_blending", "OFF"))
     );
     assert_eq!(
         motion_blur_option(Core::Gpsp, true),
-        ("gpsp_frame_mixing", "enabled")
+        Some(("gpsp_frame_mixing", "enabled"))
     );
     assert_eq!(
         motion_blur_option(Core::Gpsp, false),
-        ("gpsp_frame_mixing", "disabled")
+        Some(("gpsp_frame_mixing", "disabled"))
     );
 }
 

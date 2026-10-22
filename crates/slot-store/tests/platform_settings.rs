@@ -49,7 +49,7 @@ fn the_game_boy_familys_settings_are_upstreams_own_keys() {
         "a Game Boy setting reached extras.state"
     );
     assert!(read_extras(d.path()) == ExtrasState::default());
-    for p in Platform::ALL {
+    for p in [Platform::Gba, Platform::Gb, Platform::Gbc] {
         assert!(!platform_settings::in_extras(p), "{p:?}");
     }
 }

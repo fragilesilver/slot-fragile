@@ -118,6 +118,44 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         bezels: true,
         ..CONSOLE
     },
+    // --- extras: the rows below are after cloudwithax/unslot's ---
+    Spec {
+        name: "Nintendo Entertainment System",
+        short: "NES",
+        dir: "NES",
+        extensions: &["nes", "unf", "unif"],
+        cores: &[Core::Fceumm],
+        ..CONSOLE
+    },
+    Spec {
+        name: "Super Nintendo",
+        short: "SNES",
+        dir: "SNES",
+        extensions: &["sfc", "smc"],
+        cores: &[Core::Snes9x, Core::Supafaust],
+        shoulders: true,
+        turbo: false,
+        ..CONSOLE
+    },
+    Spec {
+        name: "PlayStation",
+        short: "PS1",
+        dir: "PS",
+        extensions: &["cue", "chd", "pbp", "m3u"],
+        cores: &[Core::PcsxRearmed],
+        shoulders: true,
+        triggers: true,
+        turbo: false,
+        rewind: false,
+        bios: &[
+            "scph5501.bin",
+            "scph1001.bin",
+            "scph7001.bin",
+            "scph101.bin",
+            "psxonpsp660.bin",
+        ],
+        ..CONSOLE
+    },
 ];
 
 #[cfg(test)]

@@ -36,6 +36,12 @@ pub fn ensure(root: &Path) {
     for sub in DIRS {
         let _ = std::fs::create_dir_all(root.join(sub));
     }
+    // Fragile: the folders of the systems after the Game Boy family.
+    for p in slot_store::Platform::ALL.into_iter().skip(3) {
+        for top in ["Games", "Saves", "States", "Labels", "Cheats"] {
+            let _ = std::fs::create_dir_all(root.join(top).join(p.spec().dir));
+        }
+    }
     if let Err(e) = slot_store::move_config(root) {
         eprintln!("slot: config: {e}");
     }

@@ -7,6 +7,7 @@ use crate::cart::{
     cart_box, gb_shell_of, is_clear, label_colour, label_rect, label_text, CART_H, CART_W,
 };
 use crate::hud::Millis;
+use crate::media::Media;
 use crate::silhouette::GbShell;
 use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
 
@@ -55,6 +56,8 @@ pub struct Shelf {
     backing: Option<TexId>,
     gb_backing: Option<TexId>,
     gbc_backing: Option<TexId>,
+    /// Fragile: the shadow each NES or SNES cart or disc casts, by `Media::index`.
+    media_shadows: [Option<TexId>; Media::COUNT],
     shells: Vec<OnceLock<Option<GbShell>>>,
     clears: Vec<OnceLock<bool>>,
     starred: Vec<bool>,
@@ -82,6 +85,7 @@ impl Shelf {
             backing: None,
             gb_backing: None,
             gbc_backing: None,
+            media_shadows: [None; Media::COUNT],
             ride: 0.0,
             vel: 0.0,
             held: None,
@@ -112,6 +116,7 @@ impl Shelf {
             backing: other.backing,
             gb_backing: other.gb_backing,
             gbc_backing: other.gbc_backing,
+            media_shadows: other.media_shadows,
             star: other.star,
             ..Shelf::new(carts)
         }
@@ -159,6 +164,10 @@ impl Shelf {
             GbShell::Notched => self.gb_shadow = Some(face),
             GbShell::Rounded => self.gbc_shadow = Some(face),
         }
+    }
+
+    pub fn set_media_shadow(&mut self, m: Media, face: TexId) {
+        self.media_shadows[m.index()] = Some(face);
     }
 
     pub fn set_backing(&mut self, face: TexId) {
@@ -471,10 +480,11 @@ impl Shelf {
             let x = x + shake;
             let y = foot_y(ch as f32) - h;
             if alpha < 1.0 {
-                let backing = match self.shell(i) {
-                    None => self.shadow,
-                    Some(GbShell::Notched) => self.gb_shadow,
-                    Some(GbShell::Rounded) => self.gbc_shadow,
+                let backing = match (Media::of(cart.platform), self.shell(i)) {
+                    (Some(m), _) => self.media_shadows[m.index()],
+                    (None, None) => self.shadow,
+                    (None, Some(GbShell::Notched)) => self.gb_shadow,
+                    (None, Some(GbShell::Rounded)) => self.gbc_shadow,
                 };
                 if let Some(tex) = backing {
                     out.push(Draw::Tex {

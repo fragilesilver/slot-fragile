@@ -267,6 +267,9 @@ fn the_values_read_as_the_menu_prints_them() {
             "24 Hour",
             "12 Hour",
             "Never",
+            "NES",
+            "SNES",
+            "PS1",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);

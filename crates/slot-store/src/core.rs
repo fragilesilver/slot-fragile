@@ -12,16 +12,32 @@ pub enum Core {
     Gpsp,
     // --- extras ---
     Gambatte,
+    Fceumm,
+    Snes9x,
+    Supafaust,
+    PcsxRearmed,
 }
 
 impl Core {
-    pub const ALL: [Core; 3] = [Core::Mgba, Core::Gpsp, Core::Gambatte];
+    pub const ALL: [Core; 7] = [
+        Core::Mgba,
+        Core::Gpsp,
+        Core::Gambatte,
+        Core::Fceumm,
+        Core::Snes9x,
+        Core::Supafaust,
+        Core::PcsxRearmed,
+    ];
 
     pub fn as_str(&self) -> &'static str {
         match self {
             Core::Mgba => "mgba",
             Core::Gpsp => "gpsp",
             Core::Gambatte => "gambatte",
+            Core::Fceumm => "fceumm",
+            Core::Snes9x => "snes9x",
+            Core::Supafaust => "mednafen_supafaust",
+            Core::PcsxRearmed => "pcsx_rearmed",
         }
     }
 
@@ -34,6 +50,10 @@ impl Core {
             Core::Mgba => "mGBA",
             Core::Gpsp => "gpSP",
             Core::Gambatte => "Gambatte",
+            Core::Fceumm => "FCEUmm",
+            Core::Snes9x => "Snes9x",
+            Core::Supafaust => "Supafaust",
+            Core::PcsxRearmed => "PCSX ReARMed",
         }
     }
 
@@ -56,7 +76,7 @@ impl Core {
     /// Whether two of it can play linked: mGBA's patched link mode and gpSP's link adapter.
     /// Gambatte has neither, so a game linked on it is opened on mGBA.
     pub fn links(self) -> bool {
-        self != Core::Gambatte
+        matches!(self, Core::Mgba | Core::Gpsp)
     }
 }
 

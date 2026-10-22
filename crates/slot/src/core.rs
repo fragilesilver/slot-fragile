@@ -183,6 +183,7 @@ pub fn colour_option(
             if on { "enabled" } else { "disabled" },
         )),
         Core::Gambatte => Some(crate::gambatte::colour_option(on)),
+        Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::PcsxRearmed => None,
     }
 }
 
@@ -197,15 +198,17 @@ pub fn apply_link_options(core: &mut LibretroCore, which: Core, player: u8) {
 
 /// Each core's own frame blending, which smears a moving picture the way an old LCD did and
 /// costs the GPU nothing. Ported from roygravy/slot@b8bac34, crates/slot/src/core.rs.
-pub fn motion_blur_option(which: Core, on: bool) -> (&'static str, &'static str) {
-    match which {
+/// None for a core with no frame blending of its own.
+pub fn motion_blur_option(which: Core, on: bool) -> Option<(&'static str, &'static str)> {
+    Some(match which {
         Core::Mgba => (
             "mgba_interframe_blending",
             if on { "lcd_ghosting" } else { "OFF" },
         ),
         Core::Gpsp => ("gpsp_frame_mixing", if on { "enabled" } else { "disabled" }),
         Core::Gambatte => crate::gambatte::motion_blur_option(on),
-    }
+        Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::PcsxRearmed => return None,
+    })
 }
 
 pub fn apply_core_options(

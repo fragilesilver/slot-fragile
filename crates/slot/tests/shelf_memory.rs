@@ -117,7 +117,7 @@ fn a_start_shelf_with_nothing_on_it_leaves_the_last_shelf() {
 #[test]
 fn a_start_shelf_slot_does_not_know_reads_as_last() {
     let d = card();
-    with_extras(&d, &[("start_shelf", "nes")]);
+    with_extras(&d, &[("start_shelf", "n64")]);
     let a = boot(d.path());
     assert_eq!(a.start_shelf(), slot::app::StartShelf::Last);
 }

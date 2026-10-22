@@ -4,6 +4,7 @@ use slot_store::{Cart, Outline, Platform};
 use crate::art;
 use crate::bitmaps::{self, Mould};
 use crate::board::{BOARD_H, BOARD_W};
+use crate::media::Media;
 use crate::shell::{shell_for, Finish, Shell};
 use crate::silhouette::{cart_mask, gb_cart_mask, GbShell};
 use crate::text;
@@ -81,7 +82,7 @@ enum Shape {
 
 pub fn gb_shell_of(cart: &Cart) -> Option<GbShell> {
     match cart.platform {
-        Platform::Gba => None,
+        Platform::Gba | Platform::Nes | Platform::Snes | Platform::PlayStation => None,
         Platform::Gb | Platform::Gbc => Some(match cart.shell.map(|c| c.outline) {
             Some(Outline::Notched) => GbShell::Notched,
             Some(Outline::Rounded) => GbShell::Rounded,
@@ -152,6 +153,7 @@ pub fn seated_box(platform: Platform) -> (u32, u32) {
     match platform {
         Platform::Gba => (SEATED_W, SEATED_H),
         Platform::Gb | Platform::Gbc => (SEATED_W, GB_SEATED_H),
+        other => media_of(other).seated(SEATED_W),
     }
 }
 
@@ -159,6 +161,7 @@ pub fn cart_box(platform: Platform) -> (u32, u32) {
     let s = spec(match platform {
         Platform::Gba => Shape::Gba,
         Platform::Gb | Platform::Gbc => Shape::Gb(GbShell::Notched),
+        other => return media_of(other).size(),
     });
     (s.w, s.h)
 }
@@ -186,7 +189,8 @@ pub fn cart_face(cart: &Cart) -> CartFace {
 }
 
 pub fn is_clear(cart: &Cart) -> bool {
-    shell_for(cart).finish != Finish::Solid
+    // Fragile: a NES or SNES cart or a disc has no see-through moulding.
+    Media::of(cart.platform).is_none() && shell_for(cart).finish != Finish::Solid
 }
 
 /// Whether the shelf draws this cart's coloured interior under its plastic: any clear cart.
@@ -249,11 +253,18 @@ pub fn cart_backing(shell: Option<GbShell>) -> CartFace {
 }
 
 pub fn label_size(cart: &Cart) -> (u32, u32) {
+    if let Some(m) = Media::of(cart.platform) {
+        let (_, _, lw, lh) = m.label();
+        return (lw, lh);
+    }
     let (_, _, lw, lh) = spec(shape_of(cart)).label;
     (lw, lh)
 }
 
 pub fn cart_face_with(cart: &Cart, art: Option<Vec<u8>>) -> CartFace {
+    if let Some(m) = Media::of(cart.platform) {
+        return media_face(cart, m, art);
+    }
     let s = spec(shape_of(cart));
     let mut face = shell_face(&s, &shell_for(cart));
     let label = match art {
@@ -669,4 +680,89 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [u8; 3] {
         ((g + m) * 255.0).round() as u8,
         ((b + m) * 255.0).round() as u8,
     ]
+}
+
+// --- extras: the carts and discs of the NES, SNES and PlayStation, after cloudwithax/unslot ---
+
+fn media_of(platform: Platform) -> Media {
+    Media::of(platform).expect("the Game Boy family has its own moulds")
+}
+
+/// The shadow a NES or SNES cart or a disc casts on the shelf behind it.
+pub fn media_shadow(m: Media) -> CartFace {
+    let (w, h) = m.size();
+    shadow(w, h, m.mask())
+}
+
+/// The neutral shell in the game's colour, its label printed on (the disc's only on its ring),
+/// cut to the shell's outline.
+fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
+    let (w, h) = m.size();
+    let (lx, ly, lw, lh) = m.label();
+    let colour = shell_for(cart).colour;
+    let mut rgba = m.neutral().to_vec();
+    for y in 0..h {
+        for x in 0..w {
+            let on_label = (lx..lx + lw).contains(&x) && (ly..ly + lh).contains(&y);
+            if on_label && m != Media::Disc {
+                continue;
+            }
+            let i = ((y * w + x) * 4) as usize;
+            for c in 0..3 {
+                rgba[i + c] = overlay(rgba[i + c], colour[c]);
+            }
+        }
+    }
+    let label = art.unwrap_or_else(|| media_label(m, &label_text(cart)));
+    let print = m.label_mask();
+    for y in 0..lh {
+        for x in 0..lw {
+            let src = ((y * lw + x) * 4) as usize;
+            let on = print.map_or(255, |p| p[(y * lw + x) as usize]) as u32;
+            let a = (label[src + 3] as u32 * on + 127) / 255;
+            if a == 0 {
+                continue;
+            }
+            let d = (((y + ly) * w + x + lx) * 4) as usize;
+            for c in 0..3 {
+                rgba[d + c] = ((label[src + c] as u32 * a + rgba[d + c] as u32 * (255 - a) + 127)
+                    / 255) as u8;
+            }
+        }
+    }
+    for (px, cover) in rgba.chunks_exact_mut(4).zip(m.mask()) {
+        px[3] = ((px[3] as u32 * *cover as u32 + 127) / 255) as u8;
+    }
+    CartFace { rgba, w, h }
+}
+
+/// A label for a game with no art: its colour and its name. A disc has its hole where the name
+/// would sit, so its name goes in the band of print above the hub.
+fn media_label(m: Media, title: &str) -> Vec<u8> {
+    let (_, _, lw, lh) = m.label();
+    let bg = label_colour(title);
+    let mut rgba = Vec::with_capacity((lw * lh * 4) as usize);
+    for _ in 0..lw * lh {
+        rgba.extend_from_slice(&[bg[0], bg[1], bg[2], 255]);
+    }
+    let Some(font) = text::label_font() else {
+        return rgba;
+    };
+    let (top, band) = match m {
+        Media::Disc => ((lh as f32 * 0.07) as u32, (lh as f32 * 0.27) as u32),
+        _ => (0, lh),
+    };
+    let room = (band - 2 * PAD) as f32;
+    let layout = text::fit_box(
+        font,
+        title,
+        (lw - 2 * PAD) as f32,
+        room,
+        MAX_LINES,
+        room / MAX_LINES as f32,
+        MIN_PX,
+    );
+    let rows = (top * lw * 4) as usize..((top + band) * lw * 4) as usize;
+    text::draw_centred(&mut rgba[rows], lw, band, &layout, ink(bg));
+    rgba
 }

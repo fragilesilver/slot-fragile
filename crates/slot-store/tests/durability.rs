@@ -423,7 +423,9 @@ fn an_unreadable_platform_reads_as_a_card_that_never_said() {
     let known = "cart=Tetris\nbrightness=3\nblue_light=1\nvolume=40\nmuted=0\nclock_set=1\nutc_offset_min=0\n";
     for (line, want) in [
         ("cart_platform=\n", None),
-        ("cart_platform=nes\n", None),
+        ("cart_platform=n64\n", None),
+        // Fragile: the NES is one of its systems.
+        ("cart_platform=nes\n", Some(Platform::Nes)),
         ("cart_platform=gameboy\n", None),
         ("cart_platform=0\n", None),
         ("cart_platform=nds\n", None),

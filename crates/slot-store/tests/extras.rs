@@ -62,7 +62,7 @@ fn a_cart_round_trips_and_a_broken_one_reads_as_none() {
         ExtrasState::parse(&s.text()).cart("shelf.gbc"),
         Some(tetris)
     );
-    for broken in ["", "gbc/", "nes/Mario", "Tetris"] {
+    for broken in ["", "gbc/", "n64/Mario", "Tetris"] {
         s.set("shelf.gb", Some(broken));
         assert_eq!(s.cart("shelf.gb"), None, "{broken:?}");
     }

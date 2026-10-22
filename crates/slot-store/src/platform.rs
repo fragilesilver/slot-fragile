@@ -8,11 +8,22 @@ pub enum Platform {
     Gba,
     Gb,
     Gbc,
+    // --- extras ---
+    Nes,
+    Snes,
+    PlayStation,
 }
 
 impl Platform {
-    pub const COUNT: usize = 3;
-    pub const ALL: [Platform; Platform::COUNT] = [Platform::Gba, Platform::Gb, Platform::Gbc];
+    pub const COUNT: usize = 6;
+    pub const ALL: [Platform; Platform::COUNT] = [
+        Platform::Gba,
+        Platform::Gb,
+        Platform::Gbc,
+        Platform::Nes,
+        Platform::Snes,
+        Platform::PlayStation,
+    ];
 
     // --- extras: the names below read the system's row in `spec.rs` ---
 

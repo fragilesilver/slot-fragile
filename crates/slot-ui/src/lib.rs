@@ -18,6 +18,7 @@ mod icon;
 mod keyboard;
 mod link_art;
 mod list_page;
+mod media;
 mod plate;
 mod polaroids;
 mod power_menu;
@@ -51,9 +52,9 @@ pub use board::{
 pub use cart::{
     cart_backing, cart_box, cart_face, cart_face_with, cart_interior, cart_shadow, clean_label,
     gb_cart_shadow, gb_label_panel, gb_shell_of, is_clear, label_colour, label_panel, label_size,
-    label_tags, label_text, neutral_shell, seated_box, shows_interior, CartFace, CART_H, CART_W,
-    GBC_LABEL_H, GBC_LABEL_W, GBC_LABEL_X, GBC_LABEL_Y, GB_CART_H, GB_CART_W, GB_LABEL_H,
-    GB_LABEL_W, GB_LABEL_X, GB_LABEL_Y, LABEL_H, LABEL_W, LABEL_WELL, LABEL_X, LABEL_Y,
+    label_tags, label_text, media_shadow, neutral_shell, seated_box, shows_interior, CartFace,
+    CART_H, CART_W, GBC_LABEL_H, GBC_LABEL_W, GBC_LABEL_X, GBC_LABEL_Y, GB_CART_H, GB_CART_W,
+    GB_LABEL_H, GB_LABEL_W, GB_LABEL_X, GB_LABEL_Y, LABEL_H, LABEL_W, LABEL_WELL, LABEL_X, LABEL_Y,
 };
 pub use clock::{
     clock_label, date_time_text, date_time_text_as, hhmm, hhmm_as, set_clock_hint_face,
@@ -79,6 +80,7 @@ pub use list_page::{
     list_label_face, list_label_width, list_row_top, list_value_face, list_value_width, ListPage,
     ListPageView, ListRow, ListRowFaces, LIST_VALUE_W, LIST_VISIBLE,
 };
+pub use media::Media;
 pub use plate::{
     arrows_hint_coloured, arrows_hint_face, arrows_hint_width, cap_width, centred_hints,
     hint_coloured, hint_face, hint_quad, hint_row, hint_width, title_face, title_line_face,
