@@ -28,9 +28,10 @@ LABEL = 119  # the flat grey of a label box, as on the Game Boy shells
 
 
 class Shell:
-    def __init__(self, w, h, seed, face=0.0):
+    def __init__(self, w, h, seed, face=0.0, deepest=None):
         self.w, self.h = w, h
         self.face = face  # the height of its front face, which comes out at FLAT
+        self.deepest = deepest  # how far below the face the darkening of depth stops
         self.z = [0.0] * (w * h)  # height of the plastic, in pixels
         self.mask = [0.0] * (w * h)  # how much of each pixel the shell covers
         self.flat = [None] * (w * h)  # a fixed grey or RGB that lighting leaves alone
@@ -155,7 +156,10 @@ class Shell:
                 lit = (nx * lx + ny * ly + nz * lz) / n
                 v = FLAT + 120 * (lit - lz)
                 v -= 5.0 * max(0.0, far[i] - z[i])  # shade in the bottom of a recess
-                v += 2.6 * min(0.0, z[i] - self.face)  # and the deeper, the darker
+                below = min(0.0, z[i] - self.face)
+                if self.deepest is not None:
+                    below = max(below, -self.deepest)
+                v += 2.6 * below  # and the deeper, the darker
                 v += 5.0 * (0.5 - y / h)  # lit a little more at the top
                 v += 4.5 * grain[i] + 3.0 * soft[i]  # the speckle of moulded plastic
                 c = (v, v, v)
@@ -206,10 +210,10 @@ def triangle_edge(pts, width):
 def snes():
     """An NTSC SNES cart, face on, measured off a photograph of one (798x507 there, scaled to
     360 wide): a raised centre between two ribbed wings, the sticker at the top of the centre,
-    a wide recess open to the bottom edge across its lower front with a shallower strip down
-    its middle, and a screw low in each wing."""
+    a wide recess open to the bottom edge across its lower front with a channel down its
+    middle, and a screw low in each wing."""
     W, H = 360, 229
-    s = Shell(W, H, seed=2, face=4.0)
+    s = Shell(W, H, seed=2, face=4.0, deepest=3.2)
     wing_top = 7.7
     body_x0, body_x1 = 57, 304
     # The wings: six slabs a side with deep gaps between them.
@@ -228,13 +232,15 @@ def snes():
     # The raised centre, barely rounded at its corners.
     s.outline(body_x0, 0, body_x1, H, r=3)
     s.height(body_x0, 0, body_x1, H, 4.0, r=3)
-    # The recess across the lower front, open to the bottom edge, and the shallower strip down
-    # its middle, which stops short of the bottom.
+    # The recess across the lower front, open to the bottom edge, and a channel down its middle
+    # that sinks deeper toward the bottom, then rises back into the floor.
     s.height(67, 138.5, 293, H + 3, 1.0, radii=(3, 3, 0, 0))
     ramp0, ramp1 = 138.5, 200.0
     for k in range(int(ramp1 - ramp0)):
         y = ramp0 + k
-        s.height(146, y, 213, y + 1, 4.0 - 3.0 * k / (ramp1 - ramp0))
+        t = (k + 1) / (ramp1 - ramp0)
+        sink = 0.8 + 2.4 * t if t < 0.85 else (0.8 + 2.4 * 0.85) * (1 - t) / 0.15  # then rises
+        s.height(146, y, 213, y + 1, 1.0 - sink)
     # A screw low in each wing.
     for cx in (31.1, 328.4):
         cy = 209.8
