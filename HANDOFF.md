@@ -310,6 +310,11 @@ time sync, RetroAchievements, cheats, search and lists all work. Fixed after it:
   page; `rename_list`/`delete_list` in `slot-store/src/collections.rs`. The shelf keeps its
   place in name order and its remembered cart; deleting the shelf on show moves to another.
 - The device container's files are given back to the user on Linux (`device:sh`).
+- GB palettes did not change on Gambatte: a palette picked while playing, and the one put back
+  when a game starts, were sent as mGBA's `mgba_gb_colors` whatever the core. Now
+  `gambatte::palette_options` gives each core its own (Gambatte: `gambatte_gb_colorization` =
+  internal + `gambatte_gb_internal_palette`); checked on a host build of the core that the
+  picture recolours mid-game.
 - Phases 13–17 added to `FRAGILE_PLAN.md` at the user's request (art + ScreenScraper,
   Bluetooth, SSH + SFTP, HDMI, web dashboard), after Phase 12.
 

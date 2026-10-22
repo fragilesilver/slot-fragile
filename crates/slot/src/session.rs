@@ -301,7 +301,10 @@ impl Session {
         let mut recoloured = false;
         if let Some(p) = self.app.take_gb_palette() {
             if let Some(emu) = &self.emu {
-                emu.set_option("mgba_gb_colors", p.core_name());
+                // Fragile: each core's own palette options (Gambatte's are not mGBA's).
+                for (key, value) in crate::gambatte::palette_options(self.app.core(), p) {
+                    emu.set_option(key, &value);
+                }
                 recoloured = true;
             }
         }
@@ -514,7 +517,9 @@ impl Session {
                 if let (true, Some(p), Some(emu)) =
                     (self.app.palette_live(), self.app.gb_palette(), &self.emu)
                 {
-                    emu.set_option("mgba_gb_colors", p.core_name());
+                    for (key, value) in crate::gambatte::palette_options(self.app.core(), p) {
+                        emu.set_option(key, &value);
+                    }
                 }
                 self.app.on_core_ready()
             }

@@ -47,6 +47,19 @@ pub fn palette_name(palette: GbPalette) -> String {
     }
 }
 
+/// The options that put `palette` on the running core: mGBA's one, as upstream sends it, or
+/// Gambatte's two. A core with no Game Boy palettes gets none.
+pub fn palette_options(which: Core, palette: GbPalette) -> Vec<(&'static str, String)> {
+    match which {
+        Core::Mgba => vec![("mgba_gb_colors", palette.core_name().to_string())],
+        Core::Gambatte => vec![
+            ("gambatte_gb_colorization", "internal".to_string()),
+            ("gambatte_gb_internal_palette", palette_name(palette)),
+        ],
+        Core::Gpsp => Vec::new(),
+    }
+}
+
 /// Everything Gambatte is told once it is open. A chosen palette colours a monochrome game;
 /// without one Gambatte colours it as a Game Boy Color would.
 pub fn apply_options(
@@ -66,8 +79,9 @@ pub fn apply_options(
     core.set_option("gambatte_gbc_frontlight_position", "central");
     match palette {
         Some(p) => {
-            core.set_option("gambatte_gb_colorization", "internal");
-            core.set_option("gambatte_gb_internal_palette", &palette_name(p));
+            for (key, value) in palette_options(which, p) {
+                core.set_option(key, &value);
+            }
         }
         None => core.set_option("gambatte_gb_colorization", "auto"),
     }
