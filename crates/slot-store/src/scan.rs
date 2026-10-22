@@ -75,6 +75,21 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
         };
         let labels_dir = root.join("Labels").join(platform.dir_name());
         let labels = listing(&labels_dir);
+        let make = |rom: PathBuf| {
+            let stem = rom.file_stem().and_then(|s| s.to_str())?.to_string();
+            let label = labels
+                .get(&format!("{stem}.png").to_lowercase())
+                .map(|name| labels_dir.join(name));
+            Some(Cart {
+                platform,
+                shell: shells.get(&crate::cart_shell::key(&stem)).copied(),
+                stem,
+                title: String::new(),
+                code: String::new(),
+                label,
+                rom,
+            })
+        };
         for entry in entries {
             let Ok(entry) = entry else {
                 continue;
@@ -83,22 +98,11 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
             if is_hidden(&rom) || !platform.accepts(&rom) || !is_file(&entry) {
                 continue;
             }
-            let Some(stem) = rom.file_stem().and_then(|s| s.to_str()) else {
-                continue;
-            };
-            let label = labels
-                .get(&format!("{stem}.png").to_lowercase())
-                .map(|name| labels_dir.join(name));
-            carts.push(Cart {
-                platform,
-                stem: stem.to_string(),
-                title: String::new(),
-                code: String::new(),
-                shell: shells.get(&crate::cart_shell::key(stem)).copied(),
-                label,
-                rom,
-            });
+            carts.extend(make(rom));
         }
+        // Fragile: games on discs in folders of their own, and the discs an .m3u lists kept
+        // behind it.
+        crate::discs::settle(platform, &dir, &mut carts, &make);
     }
     carts.sort_by(|a, b| {
         (a.platform as u8, sort_key(&a.stem)).cmp(&(b.platform as u8, sort_key(&b.stem)))

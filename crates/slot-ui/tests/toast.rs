@@ -61,6 +61,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         Toast::BatteryLow15,
         Toast::BatteryLow10,
         Toast::ShaderFailed,
+        Toast::BuiltInBios,
     ];
     assert_eq!(
         all[all.len() - extras.len()..],

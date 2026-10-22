@@ -323,6 +323,14 @@ impl Session {
                 emu.set_cheats(codes);
             }
         }
+        // Fragile: the disc in the drive, and the one asked for.
+        self.app
+            .set_discs(self.emu.as_ref().and_then(EmuHandle::discs));
+        if let Some(disc) = self.app.take_disc() {
+            if let Some(emu) = &self.emu {
+                emu.set_disc(disc);
+            }
+        }
         if let Some(on) = self.app.take_motion_blur() {
             let blur = crate::core::motion_blur_option(self.app.core(), on);
             if let (Some((key, value)), Some(emu)) = (blur, &self.emu) {
@@ -593,6 +601,8 @@ impl Session {
         };
         self.app.set_palette_live(loaded.palette_live);
         self.app.set_named_core(loaded.opened.named);
+        // Fragile: the built-in BIOS note, for a disc system with no BIOS on the card.
+        self.app.core_opened(loaded.platform, loaded.opened.named);
         let ring = self.sink.ring();
         let (core, rom, sav, resume) = (loaded.opened.core, loaded.rom, loaded.sav, loaded.resume);
         let emu = match loaded.player.filter(|_| loaded.platform.spec().link) {

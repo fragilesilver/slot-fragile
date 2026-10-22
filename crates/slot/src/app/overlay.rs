@@ -39,6 +39,8 @@ pub struct Overlays {
     pub(super) shelves: super::shelves::Collections,
     /// The playing game's cheats and what the core has of them.
     pub(super) cheats: super::cheats::Cheats,
+    /// The playing game's discs, for one on more than one.
+    pub(super) discs: super::discs::Discs,
     /// The Wi-Fi radio, the clock's network time and a password being typed.
     pub(super) network: super::network::NetworkState,
     /// "A Details" on the About sticker, dark and light.

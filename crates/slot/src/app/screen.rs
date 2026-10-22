@@ -180,6 +180,9 @@ impl App {
         if let Some(text) = self.network_text(row) {
             return Some(text);
         }
+        if let Some(text) = self.disc_text(row) {
+            return Some(text);
+        }
         let platform = card_shader_row_platform(row)?;
         Some(
             self.card_shader_for(platform)

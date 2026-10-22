@@ -32,6 +32,8 @@ pub enum Toast {
     BatteryLow15,
     BatteryLow10,
     ShaderFailed,
+    /// A disc system's game started on its core's own BIOS, there being none on the card.
+    BuiltInBios,
 }
 
 impl Toast {
@@ -57,10 +59,11 @@ impl Toast {
     ];
 
     /// Fragile's banners, after upstream's every one so none of theirs moves place.
-    const EXTRAS: [Toast; 3] = [
+    const EXTRAS: [Toast; 4] = [
         Toast::BatteryLow15,
         Toast::BatteryLow10,
         Toast::ShaderFailed,
+        Toast::BuiltInBios,
     ];
 
     pub fn all() -> Vec<Toast> {
@@ -80,7 +83,10 @@ impl Toast {
                     + GbPalette::all().count()
                     + bound_rows().position(|r| r == row).unwrap_or(0)
             }
-            extra @ (Toast::BatteryLow15 | Toast::BatteryLow10 | Toast::ShaderFailed) => {
+            extra @ (Toast::BatteryLow15
+            | Toast::BatteryLow10
+            | Toast::ShaderFailed
+            | Toast::BuiltInBios) => {
                 Self::FIXED.len()
                     + GbPalette::all().count()
                     + bound_rows().count()
@@ -95,7 +101,8 @@ impl Toast {
             Toast::Duplicate(_)
             | Toast::BatteryLow15
             | Toast::BatteryLow10
-            | Toast::ShaderFailed => Some(Icon::Alert),
+            | Toast::ShaderFailed
+            | Toast::BuiltInBios => Some(Icon::Alert),
             _ => None,
         }
     }
@@ -106,7 +113,7 @@ impl Toast {
 
     pub fn hold_ms(self) -> crate::hud::Millis {
         match self {
-            Toast::CardRepaired | Toast::CardRepairFailed => REPAIR_HOLD_MS,
+            Toast::CardRepaired | Toast::CardRepairFailed | Toast::BuiltInBios => REPAIR_HOLD_MS,
             Toast::Duplicate(_)
             | Toast::BatteryLow15
             | Toast::BatteryLow10
@@ -156,6 +163,7 @@ impl Toast {
             Toast::BatteryLow15 => "Battery Low: 15%",
             Toast::BatteryLow10 => "Battery Low: 10%",
             Toast::ShaderFailed => "Card shader failed to load",
+            Toast::BuiltInBios => "Built-in BIOS: add scph5501.bin",
             Toast::Palette(p) => p.label(),
             Toast::Duplicate(_) => "",
         }

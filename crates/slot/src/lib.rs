@@ -20,6 +20,7 @@ pub mod crash;
 pub mod crash {
     pub fn install() {}
 }
+pub mod discs;
 pub mod drc;
 pub mod emu;
 pub mod face_builder;

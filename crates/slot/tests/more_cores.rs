@@ -74,6 +74,16 @@ fn ps_exe() -> Vec<u8> {
 }
 
 fn runs(core: Core, platform: Platform, file: &str, bytes: Vec<u8>) {
+    runs_and(core, platform, file, bytes, |_| {});
+}
+
+fn runs_and(
+    core: Core,
+    platform: Platform,
+    file: &str,
+    bytes: Vec<u8>,
+    also: impl Fn(&mut LibretroCore),
+) {
     let Some(path) = core_path(core) else {
         eprintln!(
             "skipping: no {} built for this computer (task core:more:host)",
@@ -138,6 +148,7 @@ fn runs(core: Core, platform: Platform, file: &str, bytes: Vec<u8>) {
     assert!(!state.is_empty(), "{}'s state is empty", core.as_str());
     opened.run_frame(ButtonMask::default());
     opened.unserialize(&state).expect("load the state back");
+    also(&mut opened);
 }
 
 #[test]
@@ -157,10 +168,18 @@ fn supafaust_runs_a_snes_cart() {
 
 #[test]
 fn pcsx_rearmed_runs_a_playstation_program_on_its_own_bios() {
-    runs(
+    runs_and(
         Core::PcsxRearmed,
         Platform::PlayStation,
         "Fragile.exe",
         ps_exe(),
+        |core| {
+            let discs = core.discs();
+            eprintln!("pcsx_rearmed: discs {discs:?}");
+            assert!(
+                discs.is_some(),
+                "PCSX ReARMed gave slot no way to swap discs"
+            );
+        },
     );
 }

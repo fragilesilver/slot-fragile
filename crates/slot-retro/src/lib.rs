@@ -1,4 +1,5 @@
 mod core;
+mod disc;
 mod ffi;
 mod here;
 mod libretro;

@@ -32,6 +32,7 @@ use crate::video_mode::{self, VideoMode};
 mod battery;
 mod cheats;
 mod cores;
+mod discs;
 mod extras;
 mod guide;
 mod network;
@@ -953,6 +954,9 @@ impl App {
         if self.cheats_hidden() {
             hidden.push(QuickRow::PlayCheats);
         }
+        if self.disc_hidden() {
+            hidden.push(QuickRow::PlayDisc);
+        }
         if self.achievements_hidden() {
             hidden.push(QuickRow::PlayAchievements);
         }
@@ -1058,6 +1062,7 @@ impl App {
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
+            | QuickRow::PlayDisc
             | QuickRow::Network
             | QuickRow::WifiPower
             | QuickRow::WifiNetworks
@@ -2645,6 +2650,7 @@ impl App {
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
+            | QuickRow::PlayDisc
             | QuickRow::Network
             | QuickRow::WifiPower
             | QuickRow::WifiNetworks
@@ -2845,6 +2851,7 @@ impl App {
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
+            | QuickRow::PlayDisc
             | QuickRow::Network
             | QuickRow::WifiPower
             | QuickRow::WifiNetworks

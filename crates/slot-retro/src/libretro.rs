@@ -51,6 +51,8 @@ struct Host {
     options: std::collections::HashMap<String, std::ffi::CString>,
     options_dirty: bool,
     declared: std::collections::HashMap<String, Vec<String>>,
+    /// Fragile: the core's disc swapping, for a game on more than one disc.
+    discs: Option<crate::disc::Discs>,
 }
 
 thread_local! {
@@ -90,6 +92,17 @@ unsafe extern "C" fn environment(cmd: c_uint, data: *mut c_void) -> bool {
     match cmd {
         crate::memory::SET_MEMORY_MAPS | crate::memory::SET_MEMORY_MAPS_PLAIN => {
             with_host(|h| h.memory_map = crate::memory::descriptors(data)).is_some()
+        }
+        // Fragile: disc swapping. Version 1 has the core hand over its _ext interface, whose
+        // head is the plain one.
+        crate::disc::SET_DISK_CONTROL_INTERFACE | crate::disc::SET_DISK_CONTROL_EXT_INTERFACE => {
+            with_host(|h| h.discs = crate::disc::read(data)).is_some()
+        }
+        crate::disc::GET_DISK_CONTROL_INTERFACE_VERSION => {
+            if !data.is_null() {
+                *(data as *mut c_uint) = 1;
+            }
+            !data.is_null()
         }
         SET_GEOMETRY | SET_SYSTEM_AV_INFO => {
             if data.is_null() {
@@ -532,6 +545,7 @@ impl LibretroCore {
             size: (GBA_W, GBA_H),
             aspect: 0.0,
             memory_map: Vec::new(),
+            discs: None,
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],
@@ -728,6 +742,18 @@ impl RetroCore for LibretroCore {
         &self.host.memory_map
     }
 
+    fn discs(&self) -> Option<(u32, u32)> {
+        self.host.discs.as_ref().map(crate::disc::Discs::now)
+    }
+
+    fn set_disc(&mut self, index: u32) -> bool {
+        let Some(discs) = self.host.discs else {
+            return false;
+        };
+        let _a = Active::bind(&mut self.host);
+        discs.swap(index)
+    }
+
     fn set_native(&mut self, native: bool) {
         self.host.canvas = match native {
             true => Canvas::Native,
@@ -839,6 +865,7 @@ mod tests {
             size: (GBA_W, GBA_H),
             aspect: 0.0,
             memory_map: Vec::new(),
+            discs: None,
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],

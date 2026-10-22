@@ -84,6 +84,8 @@ enum Cmd {
     Refresh,
     // --- extras ---
     SetCheats(Vec<String>),
+    /// Put this disc (from 0) in the drive.
+    SetDisc(u32),
 }
 
 struct Shared {
@@ -113,6 +115,8 @@ struct Shared {
     locked: AtomicBool,
     present_ns: AtomicU64,
     requested: AtomicBool,
+    /// Fragile: the disc in the drive and how many there are, as `discs::pack` keeps them.
+    discs: AtomicU16,
     clock: Mutex<Clock>,
     clocked: Condvar,
 }
@@ -182,6 +186,7 @@ impl EmuHandle {
             locked: AtomicBool::new(false),
             present_ns: AtomicU64::new(PRESENT.as_nanos() as u64),
             requested: AtomicBool::new(false),
+            discs: AtomicU16::new(0),
             clock: Mutex::new(Clock::default()),
             clocked: Condvar::new(),
         });
@@ -235,6 +240,15 @@ impl EmuHandle {
 
     pub fn bios_mismatch(&self) -> bool {
         self.shared.bios_mismatch.load(Ordering::Relaxed)
+    }
+
+    /// Fragile: the disc in the drive (from 0) and how many the game has, for one on several.
+    pub fn discs(&self) -> Option<(u8, u8)> {
+        crate::discs::unpack(self.shared.discs.load(Ordering::Relaxed))
+    }
+
+    pub fn set_disc(&self, index: u8) {
+        request(&self.cmds, &self.shared, Cmd::SetDisc(u32::from(index)));
     }
 
     pub fn begin_link(&self, client_id: u16, transport: Box<dyn LinkChannel>) {
@@ -497,6 +511,13 @@ struct Worker {
 }
 
 impl Worker {
+    /// Fragile: what the core says of its discs, for the menu's Disc row.
+    fn publish_discs(&self, core: &dyn RetroCore) {
+        self.shared
+            .discs
+            .store(crate::discs::pack(core.discs()), Ordering::Relaxed);
+    }
+
     fn for_core(&self, state: Vec<u8>) -> Vec<u8> {
         match self.player {
             Some(_) if !link_state::is_pair(&state) => link_state::pair(&state),
@@ -554,6 +575,7 @@ impl Worker {
                 self.shared.resume_refused.store(true, Ordering::Release);
             }
         }
+        self.publish_discs(core.as_ref());
         let av = core.av_info();
         let device_hz = match ring.sample_rate() {
             0 => av.sample_rate,
@@ -935,6 +957,8 @@ impl Worker {
                     eprintln!("slot: {e}");
                 }
                 crate::cheevos::reset();
+                // Fragile: a state can have another disc in the drive.
+                self.publish_discs(core);
                 let cheats = self.cheats.lock().unwrap_or_else(|e| e.into_inner());
                 if !cheats.is_empty() {
                     core.set_cheats(&cheats);
@@ -943,6 +967,12 @@ impl Worker {
             Cmd::SetCheats(codes) => {
                 core.set_cheats(&codes);
                 *self.cheats.lock().unwrap_or_else(|e| e.into_inner()) = codes;
+            }
+            Cmd::SetDisc(index) => {
+                if !core.set_disc(index) {
+                    eprintln!("slot: discs: the core would not take disc {}", index + 1);
+                }
+                self.publish_discs(core);
             }
             Cmd::Refresh => match core.serialize() {
                 Ok(state) => {

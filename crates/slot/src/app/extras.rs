@@ -276,6 +276,10 @@ impl App {
                 let text = to.map_or("never".to_string(), |m| m.to_string());
                 self.extras.set(SLEEP_OFF, Some(&text));
             }
+            QuickRow::PlayDisc => {
+                self.step_disc(right);
+                return true;
+            }
             _ if self.change_screen(row, right) => {}
             _ if self.change_network(row) => return true,
             _ => return false,

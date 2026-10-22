@@ -121,10 +121,11 @@ pub enum QuickRow {
     Cheevos,
     CheevosAccount,
     PlayAchievements,
+    PlayDisc,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 109] = [
+    pub const ALL: [QuickRow; 110] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -235,6 +236,7 @@ impl QuickRow {
         QuickRow::Cheevos,
         QuickRow::CheevosAccount,
         QuickRow::PlayAchievements,
+        QuickRow::PlayDisc,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -351,10 +353,11 @@ impl QuickRow {
         QuickRow::EjectSave,
     ];
 
-    pub const PLAY: [QuickRow; 6] = [
+    pub const PLAY: [QuickRow; 7] = [
         QuickRow::Resume,
         QuickRow::States,
         // --- extras ---
+        QuickRow::PlayDisc,
         QuickRow::PlayCheats,
         QuickRow::PlayAchievements,
         QuickRow::Settings,
@@ -431,7 +434,8 @@ impl QuickRow {
             | QuickRow::Settings
             | QuickRow::ExitGame
             | QuickRow::PlayCheats
-            | QuickRow::PlayAchievements => &QuickRow::PLAY,
+            | QuickRow::PlayAchievements
+            | QuickRow::PlayDisc => &QuickRow::PLAY,
             QuickRow::PlayScreen
             | QuickRow::PlayGameplay
             | QuickRow::PlayControls
@@ -576,6 +580,7 @@ impl QuickRow {
             QuickRow::Cheevos => "RetroAchievements",
             QuickRow::CheevosAccount => "Account",
             QuickRow::PlayAchievements => "Achievements",
+            QuickRow::PlayDisc => "Disc",
             QuickRow::ThisShader => "Shader",
             QuickRow::ThisColour => "Color Correction",
             QuickRow::ThisFfSpeed => "Fast Forward",
@@ -692,6 +697,7 @@ impl QuickRow {
             QuickRow::Cheevos => "Earn achievements, softcore, while you play.",
             QuickRow::CheevosAccount => "Sign in to RetroAchievements.",
             QuickRow::PlayAchievements => "This game's achievements and the ones you have.",
+            QuickRow::PlayDisc => "Put another of this game's discs in.",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => {
                 "Every button and what it does, as set now."
             }

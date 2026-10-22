@@ -108,6 +108,15 @@ pub trait RetroCore: Send {
     fn memory_map(&self) -> &[crate::memory::MemoryDescriptor] {
         &[]
     }
+    // --- extras: discs, for a game on more than one ---
+    /// The disc in the drive (from 0) and how many the game has, when the core swaps discs.
+    fn discs(&self) -> Option<(u32, u32)> {
+        None
+    }
+    /// Puts disc `index` in the drive, as a hand opening the tray would.
+    fn set_disc(&mut self, _index: u32) -> bool {
+        false
+    }
     fn take_audio(&mut self) -> Vec<i16>;
     fn serialize(&mut self) -> Result<Vec<u8>, CoreError>;
     fn unserialize(&mut self, data: &[u8]) -> Result<(), CoreError>;

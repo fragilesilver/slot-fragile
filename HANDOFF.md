@@ -345,8 +345,25 @@ Next is Phase 12 (NES, SNES, PS1) in `FRAGILE_PLAN.md`.
   `pcsx_rearmed_frameskip_type`. slot answers a core only about options it has set, and FCEUmm's
   code starts its overscan crop at 0 though it declares 8, so Fragile sets the top and bottom
   crop. FCEUmm declares its options when a game loads, not before.
-- Next: 12d (PS1: m3u/cue/chd scanning, disc swapping, the BIOS note), 12e (menus for the new
-  systems). Not run on the device yet: any NES, SNES or PS1 game.
+- 12d, PlayStation:
+  - Scanning (`slot-store/src/discs.rs`, from a closure the scan loop in `scan.rs` now shares):
+    for a system with `Spec::discs` (PS1), games one folder down count too, and every disc an
+    `.m3u` lists (paths from its own folder, case ignored, `\` taken as `/`) is kept off the
+    shelf behind it. Discs no `.m3u` lists stay separate games.
+  - Disc swapping: libretro's disk control interface (`slot-retro/src/disc.rs`, env 13/57/58,
+    version 1) behind `RetroCore::{discs, set_disc}`; a swap opens the tray, changes the disc
+    and shuts it (PCSX keeps the lid open two seconds by itself). The emulator thread publishes
+    the disc and count after loading, a state load and a swap (`emu::Cmd::SetDisc`,
+    `Shared::discs`); the session hands them to the app each frame and the asked-for disc back.
+  - In game, a Disc row on the menu's first page ("2 of 3", left and right round the ends,
+    `app/discs.rs`), shown only for a game on more than one disc.
+  - No PS1 BIOS in `BIOS/` (any of the Spec's names, any case): PCSX ReARMed runs on its own,
+    and the first time a game starts that way a toast says so (`Toast::BuiltInBios`, "Built-in
+    BIOS: add scph5501.bin"), remembered per system as `bios_noted.<dir>` in extras.state.
+  - Tests: `slot-store/tests/discs.rs`, `slot/tests/discs.rs` (the row, the note, the emulator
+    thread on a mock with three discs), and the real PCSX ReARMed hands slot its disc interface.
+    Not tested on a real multi-disc image (none on the PC).
+- Next: 12e (menus for the new systems). Not run on the device yet: any NES, SNES or PS1 game.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

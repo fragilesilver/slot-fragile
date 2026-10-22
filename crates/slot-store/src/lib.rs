@@ -5,6 +5,7 @@ pub mod collections;
 mod config;
 mod core;
 pub mod core_credits;
+pub mod discs;
 mod extras;
 pub mod find;
 mod game_profile;

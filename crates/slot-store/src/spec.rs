@@ -48,8 +48,11 @@ pub struct Spec {
     pub rewind: bool,
     /// Whether two of it can play over the wireless link.
     pub link: bool,
-    /// The files its core will not start without, in the BIOS folder.
+    /// The files its core boots best from, in the BIOS folder.
     pub bios: &'static [&'static str],
+    /// Whether its games come on discs: each may sit in a folder of its own, and an .m3u stands
+    /// for the discs it lists.
+    pub discs: bool,
 }
 
 /// What a system drawn at its own size shares unless its row says otherwise.
@@ -72,6 +75,7 @@ const CONSOLE: Spec = Spec {
     rewind: true,
     link: false,
     bios: &[],
+    discs: false,
 };
 
 pub(crate) const SPECS: [Spec; Platform::COUNT] = [
@@ -154,6 +158,7 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
             "scph101.bin",
             "psxonpsp660.bin",
         ],
+        discs: true,
         ..CONSOLE
     },
 ];

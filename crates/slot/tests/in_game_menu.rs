@@ -97,6 +97,7 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::Bezel,
             QuickRow::LeftStick,
             QuickRow::PlayCheats,
+            QuickRow::PlayDisc,
             QuickRow::PlayAchievements
         ]
     );
@@ -107,6 +108,7 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::Bezel,
             QuickRow::LeftStick,
             QuickRow::PlayCheats,
+            QuickRow::PlayDisc,
             QuickRow::PlayAchievements
         ]
     );
