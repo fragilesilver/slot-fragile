@@ -219,3 +219,29 @@ pub fn remove_from_list(
         .collect();
     crate::atomic_write(&path, kept.as_bytes())
 }
+
+/// Renames a list's file. A FAT card ignores case, so a change of case alone goes through a
+/// name of its own first. Refuses a name another list has.
+pub fn rename_list(root: &Path, old: &str, new: &str) -> std::io::Result<()> {
+    let (from, to) = (list_path(root, old), list_path(root, new));
+    if old == new {
+        return Ok(());
+    }
+    if old.eq_ignore_ascii_case(new) {
+        let between = root.join(LISTS_DIR).join(".renaming.txt");
+        std::fs::rename(&from, &between)?;
+        return std::fs::rename(&between, &to);
+    }
+    if to.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!("a list is called {new} already"),
+        ));
+    }
+    std::fs::rename(&from, &to)
+}
+
+/// Removes a list. Its games stay on the card.
+pub fn delete_list(root: &Path, name: &str) -> std::io::Result<()> {
+    std::fs::remove_file(list_path(root, name))
+}

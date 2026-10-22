@@ -52,12 +52,15 @@ fn fades_in_holds_and_fades_out() {
     assert_eq!(alpha(SHOW), None);
 }
 
+// Fragile: centred across the top, on either width of screen.
 #[test]
-fn sits_in_the_top_left_corner_as_far_from_the_top_as_the_side() {
-    let (x, y, w, h) = rect();
-    assert_eq!((w, h), (FACE_W as f32, FACE_H as f32));
-    assert!(x > 0.0 && x + w / 2.0 < 720.0 / 2.0, "{x}");
-    assert_eq!(y, x);
+fn sits_centred_across_the_top() {
+    for canvas_w in [640.0, 720.0] {
+        let (x, y, w, h) = rect(canvas_w);
+        assert_eq!((w, h), (FACE_W as f32, FACE_H as f32));
+        assert_eq!(x + w / 2.0, canvas_w / 2.0, "not centred on {canvas_w}");
+        assert!(y > 0.0 && y < 40.0, "{y}");
+    }
 }
 
 #[test]

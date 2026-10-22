@@ -1513,6 +1513,9 @@ fn scrolls(page: &[QuickRow]) -> bool {
         &QuickRow::GENERAL,
     ]
     .contains(&page)
+        // Fragile: its own rows made Gameplay, Game Boy's screen page and Network longer
+        // than the window too.
+        || page.len() > QUICK_VISIBLE
 }
 
 pub fn quick_window(selected: QuickRow, hidden: &[QuickRow]) -> (usize, usize) {

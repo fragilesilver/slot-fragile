@@ -14,7 +14,7 @@ const CLOCK_12H: &str = "clock_12h";
 const SLEEP_OFF: &str = "sleep_off_min";
 const FF_PITCH: &str = "ff_pitch";
 
-fn mark_key(rack: Rack) -> String {
+pub(super) fn mark_key(rack: Rack) -> String {
     format!("shelf.{}", rack.key())
 }
 

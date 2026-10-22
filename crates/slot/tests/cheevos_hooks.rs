@@ -12,7 +12,7 @@ const HOOKS: &[(&str, &str, &str)] = &[
     (
         "frontend.rs",
         include_str!("../src/frontend.rs"),
-        "crate::cheevos::overlay(compositor, &mut self.draws);",
+        "crate::cheevos::overlay(compositor, &mut self.draws, canvas_w);",
     ),
     (
         "emu.rs",

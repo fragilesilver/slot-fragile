@@ -898,7 +898,13 @@ fn labels_leave_room_for_the_pointer_and_values_end_thirty_two_pixels_in() {
     open_at(&mut a, QuickRow::FastForward);
     let out = frame(&a);
     let right = OUT_W as f32 - QUICK_EDGE;
-    for row in QuickRow::FastForward.shown(&a.hidden_rows()) {
+    // Fragile: the page scrolls now, so only the rows in view are drawn.
+    let (_, in_view) = slot_ui::quick_window(QuickRow::FastForward, &a.hidden_rows());
+    for row in QuickRow::FastForward
+        .shown(&a.hidden_rows())
+        .into_iter()
+        .take(in_view)
+    {
         let lit = row == QuickRow::FastForward;
         let [x, ..] = placed(&out, label(row, lit)).expect("a label was not drawn");
         assert_eq!(x + MENU_PAD as f32, QUICK_LABEL_X, "{row:?}'s label");
@@ -1321,7 +1327,8 @@ fn a_page_that_scrolls_shows_a_caret_on_each_side_with_more() {
 fn a_page_that_fits_shows_no_scroll_carets() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
-    for row in [QuickRow::GAME[0], QuickRow::SCREEN_GBA[0]] {
+    // Fragile: Gameplay no longer fits (Fast Forward Pitch), so the Screen page stands in.
+    for row in [QuickRow::SCREEN[0], QuickRow::SCREEN_GBA[0]] {
         open_at(&mut a, row);
         let out = frame(&a);
         assert!(

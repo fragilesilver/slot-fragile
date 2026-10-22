@@ -465,12 +465,23 @@ impl App {
             legends.push(forget);
         }
         legends.push(join);
+        self.draw_spread_legends(&legends, y, out);
+        true
+    }
+
+    /// Footer legends spread evenly from the left edge to the right, as a binding row's are.
+    pub(super) fn draw_spread_legends(
+        &self,
+        legends: &[(TexId, u32)],
+        y: f32,
+        out: &mut Vec<Draw>,
+    ) {
         let seen = |w: u32| w.saturating_sub(HINT_EDGE) as f32;
         let room = self.canvas().w - 2.0 * LINK_LEGEND_EDGE;
-        let gap =
-            (room - legends.iter().map(|l| seen(l.1)).sum::<f32>()) / (legends.len() - 1) as f32;
+        let gaps = legends.len().saturating_sub(1).max(1) as f32;
+        let gap = (room - legends.iter().map(|l| seen(l.1)).sum::<f32>()) / gaps;
         let mut x = LINK_LEGEND_EDGE;
-        for (tex, w) in legends {
+        for &(tex, w) in legends {
             out.push(Draw::Tex {
                 x: x.round(),
                 y,
@@ -481,7 +492,6 @@ impl App {
             });
             x += seen(w) + gap;
         }
-        true
     }
 
     pub fn network_keyboard_key(&self) -> Option<slot_ui::Key> {

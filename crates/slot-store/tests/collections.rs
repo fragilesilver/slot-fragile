@@ -173,3 +173,34 @@ fn a_typed_list_name_loses_what_a_card_cannot_name_a_file() {
     assert_eq!(list_name("../a/b").as_deref(), Some("ab"));
     assert_eq!(list_name(" ** "), None);
 }
+
+use slot_store::collections::{delete_list, rename_list};
+
+#[test]
+fn a_list_renames_and_keeps_its_lines_and_will_not_take_another_lists_name() {
+    let root = tempfile::tempdir().unwrap();
+    let tetris = (Platform::Gb, "Tetris".to_string());
+    add_to_list(root.path(), "Couch", &tetris).unwrap();
+    add_to_list(root.path(), "Arcade", &tetris).unwrap();
+    rename_list(root.path(), "Couch", "Sofa").unwrap();
+    assert!(!list_path(root.path(), "Couch").exists());
+    assert_eq!(
+        std::fs::read_to_string(list_path(root.path(), "Sofa")).unwrap(),
+        "GB/Tetris\n"
+    );
+    assert!(rename_list(root.path(), "Sofa", "Arcade").is_err());
+    rename_list(root.path(), "Sofa", "SOFA").unwrap();
+    let names: Vec<String> = read_lists(root.path(), &Index::new(&card()))
+        .into_iter()
+        .map(|l| l.name)
+        .collect();
+    assert_eq!(names, ["Arcade", "SOFA"]);
+}
+
+#[test]
+fn deleting_a_list_takes_only_its_file() {
+    let root = tempfile::tempdir().unwrap();
+    add_to_list(root.path(), "Couch", &(Platform::Gb, "Tetris".to_string())).unwrap();
+    delete_list(root.path(), "Couch").unwrap();
+    assert!(read_lists(root.path(), &Index::new(&card())).is_empty());
+}

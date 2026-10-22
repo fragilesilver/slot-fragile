@@ -4,6 +4,14 @@ use crate::bitmaps::ButtonLegend;
 use crate::plate::UndoFace;
 use crate::quick_menu::{button_face, with_hint, QuickRow};
 
+/// The Add to List page's legends for a list row: X Rename, Y Delete.
+pub fn list_legend_faces(ink: [u8; 3]) -> [UndoFace; 2] {
+    [
+        with_hint(button_face(ButtonLegend::X), "Rename", Some(ink), false),
+        with_hint(button_face(ButtonLegend::Y), "Delete", Some(ink), false),
+    ]
+}
+
 /// The Networks page's own legends in the menu footer: A Join, X Forget.
 pub fn network_legend_faces(ink: [u8; 3]) -> [UndoFace; 2] {
     [

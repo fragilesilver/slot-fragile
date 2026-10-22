@@ -87,6 +87,34 @@ roygravy `cores/gambatte/build.sh`; `core:gambatte` tasks in `taskfile.yml`; Cor
 - PS1: `.cue/.chd/.m3u`, BIOS check in `BIOS/` with refusal screen (`slot-ui/src/refusal.rs`), in-game **Disc** row, loading indicator.
 - Cart/disc art from unslot `slot-ui/src/media.rs` into `cart.rs`/shell art; new shelves per platform.
 
+### 13 — Cart art + ScreenScraper (added 2026-10-22, after the first device test)
+Port cloudwithax/unslot's Game Art: names from libretro-database, art from libretro-thumbnails
+into `Labels/<console>/<stem>.png` (where slot already reads labels), styled as Cart Studio does.
+ScreenScraper with the user's login typed on the keyboard (`Config/screenscraper.conf`).
+Risk: ScreenScraper's API also needs a developer ID; unslot's built-in one cannot be reused, so
+the user registers one (`devid=` in the conf) or only libretro-thumbnails is used. Needs Wi-Fi
+(Phase 9). Reference: omega-zero `label_sync.rs`, pvaibhav's LaunchBox fetcher.
+
+### 14 — Bluetooth
+Port unslot's Bluetooth page and `card/System/slotbt.sh` (pair, connect, forget; controllers and
+headphones) over BaseOS's BlueZ + BlueALSA (`systemctl` shim). Steps aside for link play like
+the Wi-Fi does.
+
+### 15 — SSH + SFTP
+Port the services switch (unslot `slotservices.sh`, omega-zero `ssh.rs`): dropbear (MIT) built
+for aarch64 in the device container, SFTP with it rather than plain FTP, the password shown on
+the Network page. Off by default.
+
+### 16 — HDMI out
+New (no fork). Probe the Pro first: BaseOS switches HDMI through the vendor display driver
+(debugfs; validated only on the RG40XX V). Offer 720p/1080p and 50/60 Hz only if the driver
+allows them; the compositor already lays out from the panel size.
+
+### 17 — Web dashboard
+New. A small LAN-only, password-protected page served by the Pro over Wi-Fi to edit cart shells
+and labels (writes `Labels/cart_shell.txt` like Cart Studio; label PNG upload), lists and
+favourites. Needs Wi-Fi.
+
 ## Verification (each phase)
 1. `task fmt:check`, `task lint`, `task test` (add GL/core tests to `IN_PROCESS` + `SLOT_IN_PROCESS` in `taskfile.yml`).
 2. `task run` on host: inspect new pages/menus at 640x480 and 720x480.

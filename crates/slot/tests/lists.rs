@@ -233,3 +233,126 @@ fn while_add_to_list_is_up_the_shoulders_do_not_change_shelves() {
         "Y favorited the cart under the page"
     );
 }
+
+// --- renaming and deleting a list ---
+
+fn clear_name(a: &mut App) {
+    for _ in 0..a.list_naming().map_or(0, |n| n.chars().count()) {
+        press(a, Btn::B);
+    }
+}
+
+#[test]
+fn x_renames_a_list_keeping_its_games_and_name_order() {
+    let d = card();
+    write_list(&d, "Couch", "Fusion\nGB/Tetris\n");
+    write_list(&d, "Arcade", "Emerald\n");
+    let mut a = common::boot(d.path());
+    a.apply(Action::AddToList);
+    go_to_row(&mut a, "Couch");
+    press(&mut a, Btn::X);
+    assert_eq!(
+        a.list_naming(),
+        Some("Couch"),
+        "the old name was not filled in"
+    );
+    clear_name(&mut a);
+    for c in "BED".chars() {
+        hit(&mut a, Key::Char(c));
+    }
+    press(&mut a, Btn::Start);
+    assert_eq!(a.list_naming(), None);
+    assert!(!d.path().join(LISTS_DIR).join("Couch.txt").exists());
+    assert_eq!(read_list(&d, "BED"), "Fusion\nGB/Tetris\n");
+    let names: Vec<String> = rows(&a).into_iter().map(|r| r.0).collect();
+    assert_eq!(names, ["Arcade", "BED", "New List"]);
+    assert_eq!(
+        a.overlay_page()
+            .unwrap()
+            .selected()
+            .map(|r| r.label.as_str()),
+        Some("BED")
+    );
+    press(&mut a, Btn::B);
+    on_shelf(&mut a, "BED");
+    assert_eq!(a.shelf_stems(), ["Fusion", "Tetris"]);
+}
+
+#[test]
+fn a_rename_to_another_lists_name_or_to_nothing_is_refused() {
+    let d = card();
+    write_list(&d, "Couch", "Fusion\n");
+    write_list(&d, "Arcade", "Emerald\n");
+    let mut a = common::boot(d.path());
+    a.apply(Action::AddToList);
+    go_to_row(&mut a, "Couch");
+    press(&mut a, Btn::X);
+    clear_name(&mut a);
+    for c in "ARCADE".chars() {
+        hit(&mut a, Key::Char(c));
+    }
+    press(&mut a, Btn::Start);
+    assert_eq!(a.list_naming(), Some("ARCADE"), "a taken name was taken");
+    assert!(a.refusal_active(a.now()));
+    clear_name(&mut a);
+    press(&mut a, Btn::Start);
+    assert_eq!(a.list_naming(), Some(""), "a blank name went through");
+    press(&mut a, Btn::B);
+    assert_eq!(a.list_naming(), None);
+    assert_eq!(read_list(&d, "Couch"), "Fusion\n");
+    assert_eq!(
+        a.overlay_page()
+            .unwrap()
+            .selected()
+            .map(|r| r.label.as_str()),
+        Some("Couch"),
+        "B did not go back to the list being renamed"
+    );
+}
+
+#[test]
+fn y_twice_deletes_a_list_and_anything_between_keeps_it() {
+    let d = card();
+    write_list(&d, "Couch", "Fusion\n");
+    write_list(&d, "Arcade", "Emerald\n");
+    let mut a = common::boot(d.path());
+    a.apply(Action::AddToList);
+    go_to_row(&mut a, "Couch");
+    press(&mut a, Btn::Y);
+    assert_eq!(rows(&a)[1], row("Couch", Some("Y again to delete")));
+    press(&mut a, Btn::Up);
+    assert_eq!(
+        rows(&a)[1].1.as_deref(),
+        Some("No"),
+        "moving away kept the delete armed"
+    );
+    go_to_row(&mut a, "Couch");
+    press(&mut a, Btn::Y);
+    press(&mut a, Btn::Y);
+    assert!(!d.path().join(LISTS_DIR).join("Couch.txt").exists());
+    let names: Vec<String> = rows(&a).into_iter().map(|r| r.0).collect();
+    assert_eq!(names, ["Arcade", "New List"]);
+    assert!(
+        !a.shelf_names().contains(&"Couch".to_string()),
+        "the deleted list's shelf stayed"
+    );
+    assert!(
+        d.path().join("Games/GBA/Fusion.gba").exists(),
+        "a game went with the list"
+    );
+}
+
+#[test]
+fn deleting_the_list_on_show_moves_to_another_shelf() {
+    let d = card();
+    write_list(&d, "Couch", "Fusion\n");
+    let mut a = common::boot(d.path());
+    on_shelf(&mut a, "Couch");
+    a.apply(Action::AddToList);
+    go_to_row(&mut a, "Couch");
+    press(&mut a, Btn::Y);
+    press(&mut a, Btn::Y);
+    press(&mut a, Btn::B);
+    assert_ne!(a.shelf_platform_name(), Some("Couch"));
+    assert!(!a.shelf_stems().is_empty(), "it landed on an empty shelf");
+}

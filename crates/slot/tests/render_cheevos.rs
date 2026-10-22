@@ -83,7 +83,12 @@ fn the_signed_in_banner_draws_over_the_shelf() {
     f.compose(&mut c);
     let before = c.read_frame();
 
-    let (x, y, _, _) = rect();
+    let (x, y, _, _) = rect(OUT_W as f32);
+    assert_eq!(
+        x as u32 * 2 + FACE_W,
+        OUT_W,
+        "the toast is not centred across the top"
+    );
     let (x, y) = (x as usize, y as usize);
     let inside = |px: &[u8]| -> Vec<u8> {
         (0..FACE_H as usize)

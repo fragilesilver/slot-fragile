@@ -52,8 +52,10 @@ impl Queue {
     }
 }
 
-pub fn rect() -> (f32, f32, f32, f32) {
-    (MARGIN, MARGIN, FACE_W as f32, FACE_H as f32)
+/// Fragile: centred across the top, rather than in the corner.
+pub fn rect(canvas_w: f32) -> (f32, f32, f32, f32) {
+    let x = ((canvas_w - FACE_W as f32) / 2.0).max(0.0).round();
+    (x, MARGIN, FACE_W as f32, FACE_H as f32)
 }
 
 pub fn alpha(shown_for: Duration) -> Option<f32> {

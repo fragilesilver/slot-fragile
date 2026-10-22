@@ -477,3 +477,50 @@ fn the_cheats_page_renders_over_the_game() {
         .count();
     assert!(ink > 100, "the lit cheat is not drawn: {ink} bright pixels");
 }
+
+// Fragile: Gameplay grew past six rows (Fast Forward Pitch), so it scrolls rather than run
+// into the corners and the help line.
+#[test]
+fn the_gameplay_page_scrolls_clear_of_the_corners_and_the_help_line() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 4.0);
+    tap(&mut f, &mut input, Btn::Menu);
+    run_for(&mut f, &mut input, 0.5);
+    for row in [QuickRow::Settings, QuickRow::PlayGameplay] {
+        for _ in 0..row.position(&f.app().in_game_hidden()) {
+            tap(&mut f, &mut input, Btn::Down);
+        }
+        tap(&mut f, &mut input, Btn::A);
+    }
+    tap(&mut f, &mut input, Btn::Up);
+    run_for(&mut f, &mut input, 0.3);
+    let lit = f.app().in_game_menu().expect("no in-game menu");
+    assert_eq!(lit.page(), &QuickRow::GAME[..]);
+    let hidden = f.app().in_game_hidden();
+    let (start, shown) = slot_ui::quick_window(lit, &hidden);
+    assert!(shown <= slot_ui::QUICK_VISIBLE);
+    let rows = lit.shown(&hidden);
+    let first = slot_ui::quick_row_top_at(rows[start], lit, &hidden);
+    let last = slot_ui::quick_row_top_at(rows[start + shown - 1], lit, &hidden);
+    assert!(
+        first >= 44.0,
+        "the first row is at {first}, under the corners"
+    );
+    assert!(
+        last + slot_ui::QUICK_PITCH <= 400.0,
+        "the last row ends at {}, on the help line",
+        last + slot_ui::QUICK_PITCH
+    );
+    composed(&mut f, &mut c, "gameplay-scrolled");
+}

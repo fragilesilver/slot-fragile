@@ -642,7 +642,8 @@ impl Frontend {
         );
         self.draws.clear();
         self.session.app().draw(&mut self.draws);
-        crate::cheevos::overlay(compositor, &mut self.draws);
+        let canvas_w = self.session.app().canvas().w;
+        crate::cheevos::overlay(compositor, &mut self.draws, canvas_w);
         compositor.draw_list(&self.draws);
     }
 

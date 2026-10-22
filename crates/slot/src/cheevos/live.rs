@@ -350,7 +350,7 @@ pub fn reset() {
     }
 }
 
-pub fn overlay(compositor: &mut Compositor, draws: &mut Vec<Draw>) {
+pub fn overlay(compositor: &mut Compositor, draws: &mut Vec<Draw>, canvas_w: f32) {
     let Some(live) = LIVE.get() else { return };
     SHOWN.with_borrow_mut(|shown| {
         let now = Instant::now();
@@ -372,7 +372,7 @@ pub fn overlay(compositor: &mut Compositor, draws: &mut Vec<Draw>) {
         let (Some(tex), Some(alpha)) = (shown.tex, alpha) else {
             return;
         };
-        let (x, y, w, h) = overlay::rect();
+        let (x, y, w, h) = overlay::rect(canvas_w);
         draws.push(Draw::Tex {
             x,
             y,

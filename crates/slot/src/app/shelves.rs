@@ -10,8 +10,8 @@ use std::sync::mpsc::{self, Receiver};
 use slot_gfx::Compositor;
 use slot_input::{Action, Btn};
 use slot_store::collections::{
-    add_to_list, hits, in_list, list_name, list_path, read_entries, read_lists, remove_from_list,
-    CartKey, Index, LISTS_DIR,
+    add_to_list, delete_list, hits, in_list, list_name, list_path, read_entries, read_lists,
+    remove_from_list, rename_list, CartKey, Index, LISTS_DIR,
 };
 use slot_store::{sort_key, CarouselAction, Cart, Platform};
 use slot_ui::{
@@ -29,10 +29,29 @@ const SEARCH_AT: usize = FAVORITES_AT + 1;
 const NEW_LIST: &str = "New List";
 const LIST_NAME_MAX: usize = 24;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Naming {
+    New(CartKey),
+    Rename { old: String, key: CartKey },
+}
+
+impl Naming {
+    fn key(&self) -> &CartKey {
+        match self {
+            Naming::New(key) | Naming::Rename { key, .. } => key,
+        }
+    }
+}
+
 /// The keyboard's keys, its sets of legends (search, a list's name, a network's password, a
-/// RetroAchievements username and password) and the Networks page's footer legends, drawn off
-/// the main thread.
-type Built = (Vec<UndoFace>, [Vec<UndoFace>; 5], Vec<UndoFace>);
+/// RetroAchievements username and password) and the Networks and Add to List pages' footer
+/// legends, drawn off the main thread.
+type Built = (
+    Vec<UndoFace>,
+    [Vec<UndoFace>; 5],
+    Vec<UndoFace>,
+    Vec<UndoFace>,
+);
 
 /// What the keyboard is typing now and how its page reads: the field, the line under it, the
 /// matches, and which legends.
@@ -49,8 +68,13 @@ pub struct Collections {
     search: Option<Search>,
     search_from: usize,
     last_query: String,
-    /// The name being typed for a new list, and the cart that goes on it.
-    naming: Option<(Keyboard, CartKey)>,
+    /// A list's name being typed: a new one, with the cart that goes on it, or a new name for
+    /// one. The cart is the one the Add to List page was opened for.
+    naming: Option<(Keyboard, Naming)>,
+    /// The list whose Delete was pressed once; a second Delete removes it.
+    deleting: Option<String>,
+    /// X Rename and Y Delete for the Add to List page, dark then light.
+    list_legends: Vec<(TexId, u32)>,
     /// List names live as long as slot does, so a rack can hold one as it holds a console.
     names: Vec<&'static str>,
     faces: KeyboardFaces,
@@ -186,6 +210,7 @@ fn cart_key(app: &App) -> Option<CartKey> {
 }
 
 fn list_rows(app: &App, key: &CartKey) -> Vec<ListRow> {
+    let deleting = app.overlay.shelves.deleting.as_deref();
     let mut rows: Vec<ListRow> = app
         .shelves
         .iter()
@@ -195,7 +220,12 @@ fn list_rows(app: &App, key: &CartKey) -> Vec<ListRow> {
                     .carts
                     .iter()
                     .any(|c| (c.platform, &c.stem) == (key.0, &key.1));
-                Some(ListRow::new(*name).with_value(if on { "Yes" } else { "No" }))
+                let value = match (deleting == Some(*name), on) {
+                    (true, _) => "Y again to delete",
+                    (false, true) => "Yes",
+                    (false, false) => "No",
+                };
+                Some(ListRow::new(*name).with_value(value))
             }
             _ => None,
         })
@@ -216,28 +246,152 @@ fn open_lists(app: &mut App) {
     app.overlay.faces.clear();
 }
 
-/// A on the Add to List page: puts the cart on the lit list or takes it off, or names a new
-/// list. Says whether it was A.
+/// The Add to List page's own buttons: A puts the cart on the lit list or takes it off, or
+/// names a new list; X renames the lit list; Y twice deletes it (anything else between
+/// cancels). Says whether it took the action.
 pub(super) fn lists_input(app: &mut App, action: Action) -> bool {
-    if action != Action::GbaDown(Btn::A) {
-        return false;
-    }
     let Some(Overlay::Lists(page, key)) = &app.overlay.open else {
         return false;
     };
     let key = key.clone();
-    let Some(label) = page.selected().map(|r| r.label.clone()) else {
-        return true;
-    };
-    if label == NEW_LIST {
-        app.overlay.open = None;
-        let keyboard = Keyboard::default().with_max(LIST_NAME_MAX);
-        app.overlay.shelves.naming = Some((keyboard, key));
-        return true;
+    let label = page.selected().map(|r| r.label.clone());
+    let on_list = label.as_deref().is_some_and(|l| l != NEW_LIST);
+    let pressed = matches!(action, Action::GbaDown(_) | Action::QuickMenu);
+    let cancel = pressed && action != Action::GbaDown(Btn::Y);
+    if cancel && app.overlay.shelves.deleting.take().is_some() {
+        reopen_lists(app, key.clone(), label.as_deref().unwrap_or(NEW_LIST));
     }
-    toggle(app, &label, &key);
-    reopen_lists(app, key, &label);
+    let Some(label) = label else {
+        return false;
+    };
+    match action {
+        Action::GbaDown(Btn::A) if label == NEW_LIST => {
+            app.overlay.open = None;
+            let keyboard = Keyboard::default().with_max(LIST_NAME_MAX);
+            app.overlay.shelves.naming = Some((keyboard, Naming::New(key)));
+        }
+        Action::GbaDown(Btn::A) => {
+            toggle(app, &label, &key);
+            reopen_lists(app, key, &label);
+        }
+        Action::GbaDown(Btn::X) if on_list => {
+            app.overlay.open = None;
+            let keyboard = Keyboard::default()
+                .with_max(LIST_NAME_MAX)
+                .with_text(&label);
+            let naming = Naming::Rename { old: label, key };
+            app.overlay.shelves.naming = Some((keyboard, naming));
+        }
+        Action::GbaDown(Btn::Y) if on_list => match app.overlay.shelves.deleting.take() {
+            Some(armed) if armed == label => delete(app, &label, key),
+            _ => {
+                app.overlay.shelves.deleting = Some(label.clone());
+                reopen_lists(app, key, &label);
+            }
+        },
+        _ => return false,
+    }
     true
+}
+
+/// Removes the list's file and its shelf, and the page comes back on the row after it.
+fn delete(app: &mut App, name: &str, key: CartKey) {
+    let (Some(root), Some(at)) = (app.root.clone(), list_at(app, name)) else {
+        return;
+    };
+    let written = delete_list(&root, name);
+    app.card_writes.wrote("lists", &written);
+    if let Err(e) = written {
+        eprintln!("slot: list {name}: {e}");
+        return app.refuse();
+    }
+    let row = app.overlay_page().map_or(0, |p| p.cursor());
+    let (rack, _) = take_rack(app, at);
+    app.extras.set(&super::extras::mark_key(rack), None);
+    app.save_extras();
+    let mut page = ListPage::new(list_rows(app, &key));
+    page.set_cursor(row.min(page.rows().len().saturating_sub(1)));
+    app.overlay.open = Some(Overlay::Lists(page, key));
+}
+
+/// Takes a rack out, keeping the shelf being shown and where a search came from pointing at
+/// the same shelves; when the one shown goes, the next with games is shown.
+fn take_rack(app: &mut App, at: usize) -> (Rack, Shelf) {
+    let taken = app.shelves.remove(at);
+    let from = &mut app.overlay.shelves.search_from;
+    if *from > at || *from >= app.shelves.len() {
+        *from = from.saturating_sub(1);
+    }
+    if app.shelf_at > at {
+        app.shelf_at -= 1;
+    } else if app.shelf_at == at {
+        let here = at.min(app.shelves.len() - 1);
+        app.shelf_at = here;
+        let to = match app.shelves[here].1.carts.is_empty() {
+            true => app.next_shelf(1).unwrap_or(here),
+            false => here,
+        };
+        go_to(app, to);
+    }
+    taken
+}
+
+/// Puts a list's rack among the others in name order, and says where.
+fn put_rack(app: &mut App, name: &str, shelf: Shelf) -> usize {
+    let rack = Rack::List(app.overlay.shelves.intern(name.to_string()));
+    let at = app.shelves[SEARCH_AT + 1..]
+        .iter()
+        .position(|(r, _)| match r {
+            Rack::List(n) => sort_key(n) > sort_key(name),
+            _ => true,
+        })
+        .map_or(app.shelves.len(), |i| SEARCH_AT + 1 + i);
+    app.shelves.insert(at, (rack, shelf));
+    if app.shelf_at >= at {
+        app.shelf_at += 1;
+    }
+    if app.overlay.shelves.search_from >= at {
+        app.overlay.shelves.search_from += 1;
+    }
+    at
+}
+
+/// OK on a list's new name: its file and shelf take the name, the shelf keeps its place in
+/// name order and its remembered cart, and the page comes back on it.
+fn rename(app: &mut App, typed: &str, old: &str, key: CartKey) {
+    let Some(name) = list_name(typed) else {
+        return app.refuse();
+    };
+    let at = list_at(app, old);
+    let taken = list_at(app, &name).is_some_and(|other| Some(other) != at);
+    let (Some(root), Some(at), false) = (app.root.clone(), at, taken) else {
+        return app.refuse();
+    };
+    let written = rename_list(&root, old, &name);
+    app.card_writes.wrote("lists", &written);
+    if let Err(e) = written {
+        eprintln!("slot: list {old}: {e}");
+        return app.refuse();
+    }
+    app.overlay.shelves.naming = None;
+    let shown = app.shelf_at == at;
+    let (rack, shelf) = app.shelves.remove(at);
+    if app.shelf_at > at {
+        app.shelf_at -= 1;
+    }
+    if app.overlay.shelves.search_from > at {
+        app.overlay.shelves.search_from -= 1;
+    }
+    let mark = app.extras.cart(&super::extras::mark_key(rack));
+    app.extras.set(&super::extras::mark_key(rack), None);
+    let to = put_rack(app, &name, shelf);
+    if shown {
+        go_to(app, to);
+    }
+    let new_mark = super::extras::mark_key(app.shelves[to].0);
+    app.extras.set_cart(&new_mark, mark.as_ref());
+    app.save_extras();
+    reopen_lists(app, key, &name);
 }
 
 fn reopen_lists(app: &mut App, key: CartKey, on: &str) {
@@ -299,31 +453,43 @@ fn naming_input(app: &mut App, action: Action) {
         Action::GbaDown(Btn::Right) => keyboard.right(),
         Action::GbaDown(Btn::A) => {
             if keyboard.press() {
-                make_list(app);
+                name_typed(app);
             }
         }
         Action::GbaDown(Btn::Y | Btn::R1) => keyboard.type_char(' '),
         Action::GbaDown(Btn::X) => keyboard.shift(),
         Action::GbaDown(Btn::L1) => keyboard.delete(),
         Action::GbaDown(Btn::B) if !keyboard.text().is_empty() => keyboard.delete(),
-        Action::GbaDown(Btn::B) => {
-            if let Some((_, key)) = app.overlay.shelves.naming.take() {
-                reopen_lists(app, key, NEW_LIST);
-            }
-        }
-        Action::GbaDown(Btn::Start) => make_list(app),
+        Action::GbaDown(Btn::B) => match app.overlay.shelves.naming.take() {
+            Some((_, Naming::New(key))) => reopen_lists(app, key, NEW_LIST),
+            Some((_, Naming::Rename { old, key })) => reopen_lists(app, key, &old),
+            None => {}
+        },
+        Action::GbaDown(Btn::Start) => name_typed(app),
         Action::QuickMenu => app.overlay.shelves.naming = None,
         _ => {}
+    }
+}
+
+/// OK on the keyboard: a new list is made, or the list is renamed.
+fn name_typed(app: &mut App) {
+    let Some((keyboard, naming)) = &app.overlay.shelves.naming else {
+        return;
+    };
+    let typed = keyboard.text().to_string();
+    match naming.clone() {
+        Naming::New(_) => make_list(app),
+        Naming::Rename { old, key } => rename(app, &typed, &old, key),
     }
 }
 
 /// OK on a new list's name: the list is made with the cart on it, gets its shelf among the
 /// others, and the Add to List page comes back on it.
 fn make_list(app: &mut App) {
-    let Some((keyboard, key)) = &app.overlay.shelves.naming else {
+    let Some((keyboard, naming)) = &app.overlay.shelves.naming else {
         return;
     };
-    let (typed, key) = (keyboard.text().to_string(), key.clone());
+    let (typed, key) = (keyboard.text().to_string(), naming.key().clone());
     let Some(name) = list_name(&typed) else {
         app.refuse();
         return;
@@ -331,22 +497,8 @@ fn make_list(app: &mut App) {
     let name = match list_at(app, &name) {
         Some(at) => app.shelves[at].0.name().to_string(),
         None => {
-            let rack = Rack::List(app.overlay.shelves.intern(name.clone()));
             let shelf = Shelf::dressed_like(Vec::new(), &app.shelves[0].1);
-            let at = app.shelves[SEARCH_AT + 1..]
-                .iter()
-                .position(|(r, _)| match r {
-                    Rack::List(n) => sort_key(n) > sort_key(&name),
-                    _ => true,
-                })
-                .map_or(app.shelves.len(), |i| SEARCH_AT + 1 + i);
-            app.shelves.insert(at, (rack, shelf));
-            if app.shelf_at >= at {
-                app.shelf_at += 1;
-            }
-            if app.overlay.shelves.search_from >= at {
-                app.overlay.shelves.search_from += 1;
-            }
+            put_rack(app, &name, shelf);
             name
         }
     };
@@ -388,18 +540,34 @@ pub(super) fn draw(app: &App, out: &mut Vec<Draw>) {
     }
 }
 
-/// The Add to List page, laid out as a menu page over the shelf: Back on the left and Set on
-/// the right.
+/// The Add to List page, laid out as a menu page over the shelf: Back, then Rename and
+/// Delete on a list, then Set.
 fn draw_lists(app: &App, out: &mut Vec<Draw>) {
     slot_ui::draw_menu_ground(app.canvas(), app.menu_ground(), out);
     app.draw_overlay(out);
-    draw_empty_slot(app.canvas(), app.slot_faces, out);
+    let on_list = app
+        .overlay_page()
+        .and_then(|p| p.selected())
+        .is_some_and(|r| r.label != NEW_LIST);
+    // Four legends lie across the middle, so the slot is drawn plugged as under a binding row.
+    match on_list {
+        true => slot_ui::draw_plugged_slot(app.canvas(), app.plugged_face, out),
+        false => draw_empty_slot(app.canvas(), app.slot_faces, out),
+    }
     let Some(faces) = &app.quick_menu_faces else {
         return;
     };
-    let legend = [faces.legend, faces.legend_light][app.light() as usize];
-    app.draw_side_legend(legend[0], false, LINK_LEGEND_Y, out);
-    app.draw_side_legend(legend[5], true, LINK_LEGEND_Y, out);
+    let light = app.light() as usize;
+    let legend = [faces.legend, faces.legend_light][light];
+    let made = &app.overlay.shelves.list_legends;
+    let mut legends = vec![legend[0]];
+    if let (true, Some(&rename), Some(&delete)) =
+        (on_list, made.get(light * 2), made.get(light * 2 + 1))
+    {
+        legends.extend([rename, delete]);
+    }
+    legends.push(legend[5]);
+    app.draw_spread_legends(&legends, LINK_LEGEND_Y, out);
 }
 
 pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
@@ -420,6 +588,12 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                                 slot_ui::network_legend_faces(slot_ui::footer_ink(light))
                             })
                             .collect();
+                        let lists: Vec<UndoFace> = [false, true]
+                            .into_iter()
+                            .flat_map(|light| {
+                                slot_ui::list_legend_faces(slot_ui::footer_ink(light))
+                            })
+                            .collect();
                         let _ = tx.send((
                             slot_ui::keyboard_key_faces(),
                             [
@@ -430,6 +604,7 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                                 slot_ui::keyboard_legend_faces("Sign In"),
                             ],
                             network,
+                            lists,
                         ));
                     });
                 if spawned.is_ok() {
@@ -437,7 +612,11 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                 }
             }
             Some(rx) => {
-                if let Ok((keys, legends, network)) = rx.try_recv() {
+                if let Ok((keys, legends, network, lists)) = rx.try_recv() {
+                    c.list_legends = lists
+                        .iter()
+                        .map(|f| (compositor.create_texture(f.w, f.h, &f.rgba), f.w))
+                        .collect();
                     c.network_legends = network
                         .iter()
                         .map(|f| (compositor.create_texture(f.w, f.h, &f.rgba), f.w))
@@ -463,9 +642,12 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
             matches: search.shown(),
             legend: 0,
         }),
-        (None, Some((keyboard, _))) => Some(Typing {
+        (None, Some((keyboard, naming))) => Some(Typing {
             shown: keyboard.shown(),
-            line: "Name the new list".to_string(),
+            line: match naming {
+                Naming::New(_) => "Name the new list".to_string(),
+                Naming::Rename { old, .. } => format!("New name for {old}"),
+            },
             matches: Vec::new(),
             legend: 1,
         }),

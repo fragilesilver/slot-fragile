@@ -299,6 +299,20 @@ Four commits, each with the suite green; no behaviour change for GB, GBC or GBA.
 - Not run on the device yet: Gambatte playing, its boot logo with a boot ROM, palettes, and a
   GB link session handing over to mGBA.
 
+## First device test (2026-10-22)
+
+The user ran `dist-device/` on the RG35XX Pro (BaseOS): shelves and About, Gambatte, Wi-Fi and
+time sync, RetroAchievements, cheats, search and lists all work. Fixed after it:
+- Pages longer than six rows scroll (`scrolls()` in `slot-ui/src/quick_menu.rs`): Gameplay (8),
+  Game Boy's screen page (7) and Network (7) ran into the status icons and the help line.
+- The RetroAchievements toast is centred across the top (`cheevos/overlay.rs` `rect(canvas_w)`).
+- Lists rename (X, the keyboard with the old name) and delete (Y twice) on the Add to List
+  page; `rename_list`/`delete_list` in `slot-store/src/collections.rs`. The shelf keeps its
+  place in name order and its remembered cart; deleting the shelf on show moves to another.
+- The device container's files are given back to the user on Linux (`device:sh`).
+- Phases 13–17 added to `FRAGILE_PLAN.md` at the user's request (art + ScreenScraper,
+  Bluetooth, SSH + SFTP, HDMI, web dashboard), after Phase 12.
+
 Next is Phase 12 (NES, SNES, PS1) in `FRAGILE_PLAN.md`.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
