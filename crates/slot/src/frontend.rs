@@ -590,6 +590,8 @@ impl Frontend {
         compositor.set_game_bezel(self.session.app().shown_game_bezel());
         compositor.set_sp_frame(self.session.app().sp_frame());
         compositor.set_integer_scale(self.session.app().integer_picture());
+        // Fragile: whole, square pixels for a system drawn at its own size.
+        compositor.set_native_whole(self.session.app().integer_native());
         sync_core_picker(
             self.session.app_mut(),
             compositor,

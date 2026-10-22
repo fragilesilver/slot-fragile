@@ -126,6 +126,11 @@ impl Compositor {
         self.game.set_aspect(aspect);
     }
 
+    /// Fragile: a native system's picture at a whole multiple of its own size.
+    pub fn set_native_whole(&mut self, on: bool) {
+        self.game.set_whole(on);
+    }
+
     pub fn game_texture_size(&self) -> (u32, u32) {
         self.game.texture_size()
     }

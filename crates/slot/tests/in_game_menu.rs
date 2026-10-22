@@ -98,7 +98,12 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::LeftStick,
             QuickRow::PlayCheats,
             QuickRow::PlayDisc,
-            QuickRow::PlayAchievements
+            QuickRow::PlayAchievements,
+            // Fragile: buttons the GBA's pad does not have.
+            QuickRow::GameX,
+            QuickRow::GameY,
+            QuickRow::GameL2,
+            QuickRow::GameR2
         ]
     );
     a.set_palette_live(true);
@@ -109,7 +114,12 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::LeftStick,
             QuickRow::PlayCheats,
             QuickRow::PlayDisc,
-            QuickRow::PlayAchievements
+            QuickRow::PlayAchievements,
+            // Fragile: buttons the GBA's pad does not have.
+            QuickRow::GameX,
+            QuickRow::GameY,
+            QuickRow::GameL2,
+            QuickRow::GameR2
         ]
     );
 }

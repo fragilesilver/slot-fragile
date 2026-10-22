@@ -48,6 +48,8 @@ pub struct GamePass {
     u_src: gl::types::GLint,
     /// The shape a native system's picture is shown at, letterboxed in the game's rect.
     aspect: Option<f32>,
+    /// A native system's picture at the largest whole multiple of its own size, square pixels.
+    whole: bool,
 }
 
 impl GamePass {
@@ -112,6 +114,7 @@ impl GamePass {
             size: (SRC_W, SRC_H),
             u_src,
             aspect: None,
+            whole: false,
         })
     }
 
@@ -134,9 +137,18 @@ impl GamePass {
             false => screen_rect_above(self.power, foot),
         };
         match self.aspect {
-            Some(aspect) => letterbox(rect, aspect, self.fbo_scale),
+            Some(aspect) => match self.whole {
+                true => whole_multiple(rect, self.size, self.fbo_scale)
+                    .unwrap_or_else(|| letterbox(rect, aspect, self.fbo_scale)),
+                false => letterbox(rect, aspect, self.fbo_scale),
+            },
             None => rect,
         }
+    }
+
+    /// Draws a native system's picture at a whole multiple of its size, or letterboxed.
+    pub fn set_whole(&mut self, on: bool) {
+        self.whole = on;
     }
 
     /// Shows a native system's picture at this shape, or the Game Boy family's way for `None`.
@@ -348,6 +360,23 @@ fn letterbox(rect: (f32, f32, f32, f32), aspect: f32, fbo: [f32; 2]) -> (f32, f3
     (x + (w - nw) / 2.0, y + (h - nh) / 2.0, nw, nh)
 }
 
+/// The largest whole multiple of `size` that fits `rect`, centred, counted in the target's own
+/// pixels; None when not even one fits.
+fn whole_multiple(
+    rect: (f32, f32, f32, f32),
+    size: (u32, u32),
+    fbo: [f32; 2],
+) -> Option<(f32, f32, f32, f32)> {
+    let (x, y, w, h) = rect;
+    let (sw, sh) = (size.0.max(1) as f32, size.1.max(1) as f32);
+    let k = ((w * fbo[0]) / sw).min((h * fbo[1]) / sh).floor();
+    if k < 1.0 {
+        return None;
+    }
+    let (nw, nh) = (sw * k / fbo[0], sh * k / fbo[1]);
+    Some((x + (w - nw) / 2.0, y + (h - nh) / 2.0, nw, nh))
+}
+
 fn whole_scale_source(src: [f32; 4], fbo: [f32; 2]) -> [f32; 4] {
     let (x, w) = whole_scale(src[0], src[2], SRC_W as f32, OUT_W as f32 * fbo[0]);
     let (y, h) = whole_scale(src[1], src[3], SRC_H as f32, OUT_H as f32 * fbo[1]);
@@ -373,5 +402,31 @@ impl Drop for GamePass {
             gl::DeleteTextures(1, &self.paper);
             gl::DeleteProgram(self.prog);
         }
+    }
+}
+
+#[cfg(test)]
+mod whole_tests {
+    use super::*;
+
+    #[test]
+    fn an_nes_picture_sits_at_twice_its_size_in_the_middle_of_640_by_480() {
+        let r = whole_multiple((0.0, 0.0, 640.0, 480.0), (256, 224), [1.0, 1.0]).unwrap();
+        assert_eq!(r, (64.0, 16.0, 512.0, 448.0));
+    }
+
+    #[test]
+    fn a_picture_too_big_to_fit_once_is_left_to_the_letterbox() {
+        assert!(whole_multiple((0.0, 0.0, 640.0, 440.0), (640, 480), [1.0, 1.0]).is_none());
+    }
+
+    #[test]
+    fn the_multiple_is_counted_in_the_targets_own_pixels() {
+        let r = whole_multiple((0.0, 0.0, 640.0, 480.0), (256, 224), [2.0, 2.0]).unwrap();
+        assert_eq!(
+            r,
+            (64.0, 16.0, 512.0, 448.0),
+            "4x of 256x224 in 1280x960 pixels"
+        );
     }
 }

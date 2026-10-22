@@ -367,6 +367,10 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
     for want in [
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
+        // Fragile: the systems it adds.
+        QuickRow::ScreenNes,
+        QuickRow::ScreenSnes,
+        QuickRow::ScreenPs,
         QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,

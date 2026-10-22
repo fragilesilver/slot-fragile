@@ -37,6 +37,7 @@ mod extras;
 mod guide;
 mod network;
 mod overlay;
+mod pads;
 mod profile;
 mod screen;
 pub mod shelves;
@@ -960,6 +961,7 @@ impl App {
         if self.achievements_hidden() {
             hidden.push(QuickRow::PlayAchievements);
         }
+        self.system_hidden(&mut hidden);
         hidden
     }
 
@@ -976,6 +978,10 @@ impl App {
             (QuickRow::Shader, Platform::Gba) => QuickRow::GbaShader,
             (QuickRow::Shader, Platform::Gb) => QuickRow::GbShader,
             (QuickRow::Shader, Platform::Gbc) => QuickRow::GbcShader,
+            // Fragile: the systems it adds.
+            (QuickRow::Shader, Platform::Nes) => QuickRow::NesShader,
+            (QuickRow::Shader, Platform::Snes) => QuickRow::SnesShader,
+            (QuickRow::Shader, Platform::PlayStation) => QuickRow::PsShader,
             (QuickRow::ColourCorrection, Platform::Gba) => QuickRow::GbaColourCorrection,
             (QuickRow::ColourCorrection, Platform::Gb) => QuickRow::GbColourCorrection,
             (QuickRow::ColourCorrection, Platform::Gbc) => QuickRow::GbcColourCorrection,
@@ -1063,6 +1069,22 @@ impl App {
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
             | QuickRow::PlayDisc
+            | QuickRow::ScreenNes
+            | QuickRow::ScreenSnes
+            | QuickRow::ScreenPs
+            | QuickRow::NesShader
+            | QuickRow::SnesShader
+            | QuickRow::PsShader
+            | QuickRow::IntegerNes
+            | QuickRow::IntegerSnes
+            | QuickRow::IntegerPs
+            | QuickRow::CardShaderNes
+            | QuickRow::CardShaderSnes
+            | QuickRow::CardShaderPs
+            | QuickRow::GameX
+            | QuickRow::GameY
+            | QuickRow::GameL2
+            | QuickRow::GameR2
             | QuickRow::Network
             | QuickRow::WifiPower
             | QuickRow::WifiNetworks
@@ -2602,6 +2624,9 @@ impl App {
             | QuickRow::ScreenGba
             | QuickRow::ScreenGbc
             | QuickRow::ScreenGb
+            | QuickRow::ScreenNes
+            | QuickRow::ScreenSnes
+            | QuickRow::ScreenPs
             | QuickRow::Shortcuts
             | QuickRow::General
             | QuickRow::Controls
@@ -2651,6 +2676,19 @@ impl App {
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
             | QuickRow::PlayDisc
+            | QuickRow::NesShader
+            | QuickRow::SnesShader
+            | QuickRow::PsShader
+            | QuickRow::IntegerNes
+            | QuickRow::IntegerSnes
+            | QuickRow::IntegerPs
+            | QuickRow::CardShaderNes
+            | QuickRow::CardShaderSnes
+            | QuickRow::CardShaderPs
+            | QuickRow::GameX
+            | QuickRow::GameY
+            | QuickRow::GameL2
+            | QuickRow::GameR2
             | QuickRow::Network
             | QuickRow::WifiPower
             | QuickRow::WifiNetworks
@@ -2852,6 +2890,22 @@ impl App {
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
             | QuickRow::PlayDisc
+            | QuickRow::ScreenNes
+            | QuickRow::ScreenSnes
+            | QuickRow::ScreenPs
+            | QuickRow::NesShader
+            | QuickRow::SnesShader
+            | QuickRow::PsShader
+            | QuickRow::IntegerNes
+            | QuickRow::IntegerSnes
+            | QuickRow::IntegerPs
+            | QuickRow::CardShaderNes
+            | QuickRow::CardShaderSnes
+            | QuickRow::CardShaderPs
+            | QuickRow::GameX
+            | QuickRow::GameY
+            | QuickRow::GameL2
+            | QuickRow::GameR2
             | QuickRow::Network
             | QuickRow::WifiPower
             | QuickRow::WifiNetworks
@@ -5573,7 +5627,7 @@ fn up(level: u8, step: u8, max: u8) -> u8 {
     level.saturating_add(step).min(max)
 }
 
-fn shader_value(shader: Shader) -> QuickValue {
+pub(crate) fn shader_value(shader: Shader) -> QuickValue {
     match shader {
         Shader::Off => QuickValue::Off,
         Shader::Lcd3x => QuickValue::Lcd3x,

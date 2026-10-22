@@ -18,6 +18,9 @@ fn card_shader_row_platform(row: QuickRow) -> Option<Platform> {
         QuickRow::CardShaderGba => Some(Platform::Gba),
         QuickRow::CardShaderGb => Some(Platform::Gb),
         QuickRow::CardShaderGbc => Some(Platform::Gbc),
+        QuickRow::CardShaderNes => Some(Platform::Nes),
+        QuickRow::CardShaderSnes => Some(Platform::Snes),
+        QuickRow::CardShaderPs => Some(Platform::PlayStation),
         _ => None,
     }
 }
@@ -31,6 +34,16 @@ fn motion_blur_row_platform(row: QuickRow) -> Option<Platform> {
         QuickRow::MotionBlurGba => Some(Platform::Gba),
         QuickRow::MotionBlurGb => Some(Platform::Gb),
         QuickRow::MotionBlurGbc => Some(Platform::Gbc),
+        _ => None,
+    }
+}
+
+/// The Shader rows of the systems Fragile adds, whose shader lives in extras.state.
+fn shader_row_platform(row: QuickRow) -> Option<Platform> {
+    match row {
+        QuickRow::NesShader => Some(Platform::Nes),
+        QuickRow::SnesShader => Some(Platform::Snes),
+        QuickRow::PsShader => Some(Platform::PlayStation),
         _ => None,
     }
 }
@@ -83,8 +96,18 @@ impl App {
         let platform = self.playing_platform();
         (self.framed_panel()
             && self.video_mode == VideoMode::Actual
-            && self.integer_scale(platform))
-        .then(|| platform.picture())
+            && self.integer_scale(platform)
+            && !platform.spec().native)
+            .then(|| platform.picture())
+    }
+
+    /// A system drawn at its own size wants whole, square pixels: Integer Scale on, not
+    /// stretched. Any panel; the compositor letterboxes a picture too big for one multiple.
+    pub fn integer_native(&self) -> bool {
+        let platform = self.playing_platform();
+        platform.spec().native
+            && self.video_mode == VideoMode::Actual
+            && self.integer_scale(platform)
     }
 
     fn integer_row_platform(row: QuickRow) -> Option<Platform> {
@@ -92,6 +115,9 @@ impl App {
             QuickRow::IntegerGba => Some(Platform::Gba),
             QuickRow::IntegerGb => Some(Platform::Gb),
             QuickRow::IntegerGbc => Some(Platform::Gbc),
+            QuickRow::IntegerNes => Some(Platform::Nes),
+            QuickRow::IntegerSnes => Some(Platform::Snes),
+            QuickRow::IntegerPs => Some(Platform::PlayStation),
             _ => None,
         }
     }
@@ -103,6 +129,9 @@ impl App {
         }
         if let Some(platform) = motion_blur_row_platform(row) {
             return Some(Some(QuickValue::flag(self.motion_blur(platform))));
+        }
+        if let Some(platform) = shader_row_platform(row) {
+            return Some(Some(super::shader_value(self.platform_shader(platform))));
         }
         let platform = Self::integer_row_platform(row)?;
         Some(Some(QuickValue::flag(self.integer_scale(platform))))
@@ -126,6 +155,13 @@ impl App {
     pub(super) fn change_screen(&mut self, row: QuickRow, right: bool) -> bool {
         if let Some(platform) = card_shader_row_platform(row) {
             self.step_card_shader(platform, right);
+            return true;
+        }
+        if let Some(platform) = shader_row_platform(row) {
+            let to = self
+                .platform_shader(platform)
+                .step(platform.spec().shaders, right);
+            self.set_platform_shader(platform, to);
             return true;
         }
         if let Some(platform) = motion_blur_row_platform(row) {

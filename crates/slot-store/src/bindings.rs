@@ -307,6 +307,15 @@ impl GameButton {
         GameButton::TurboB,
     ];
 
+    /// Fragile: whether some system's pad has both, so binding them to one button clashes.
+    /// Turbo A and the SNES's X never share a pad.
+    pub fn on_one_pad(a: GameButton, b: GameButton) -> bool {
+        Platform::ALL.into_iter().any(|p| {
+            let pad = GameButton::of(p);
+            pad.contains(&a) && pad.contains(&b)
+        })
+    }
+
     pub fn of(platform: Platform) -> &'static [GameButton] {
         let spec = platform.spec();
         match (spec.shoulders, spec.turbo, spec.triggers) {

@@ -114,7 +114,14 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SCREEN.map(QuickRow::label),
-        ["Game Boy Advance", "Game Boy Color", "Game Boy"]
+        [
+            "Game Boy Advance",
+            "Game Boy Color",
+            "Game Boy",
+            "NES",
+            "Super Nintendo",
+            "PlayStation"
+        ]
     );
     assert_eq!(
         QuickRow::SCREEN_GBA.map(QuickRow::label),
@@ -193,7 +200,10 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::Network,
             QuickRow::WifiNetworks,
             QuickRow::CheevosAccount,
-            QuickRow::PlayAchievements
+            QuickRow::PlayAchievements,
+            QuickRow::ScreenNes,
+            QuickRow::ScreenSnes,
+            QuickRow::ScreenPs
         ]
     );
     for page in [
@@ -388,8 +398,22 @@ fn the_in_game_pages_hold_their_rows_in_order() {
     assert_eq!(
         QuickRow::CONTROLS.map(QuickRow::label),
         [
-            "Up", "Down", "Left", "Right", "A Button", "B Button", "Select", "Start", "L Button",
-            "R Button", "Turbo A", "Turbo B"
+            "Up",
+            "Down",
+            "Left",
+            "Right",
+            "A Button",
+            "B Button",
+            "X Button",
+            "Y Button",
+            "Select",
+            "Start",
+            "L Button",
+            "R Button",
+            "L2 Button",
+            "R2 Button",
+            "Turbo A",
+            "Turbo B"
         ]
     );
     assert_eq!(

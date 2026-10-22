@@ -175,6 +175,8 @@ impl Session {
         let latched = self.gestures.ff_latched();
         self.gestures.set_context(self.app.input_context());
         let mut entries = self.app.binding_table().entries();
+        // Fragile: a pad's own extra buttons are the game's while it plays.
+        self.app.yield_to_pad(&mut entries);
         if self.app.repair_offered() {
             let chord = Chord {
                 modifier: Some(Mod::Select),

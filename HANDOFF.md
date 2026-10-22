@@ -318,7 +318,7 @@ time sync, RetroAchievements, cheats, search and lists all work. Fixed after it:
 - Phases 13–17 added to `FRAGILE_PLAN.md` at the user's request (art + ScreenScraper,
   Bluetooth, SSH + SFTP, HDMI, web dashboard), after Phase 12.
 
-Next is Phase 12 (NES, SNES, PS1) in `FRAGILE_PLAN.md`.
+Phase 12 (NES, SNES, PS1) follows; then Phases 13–17 in `FRAGILE_PLAN.md`.
 
 ## Phase 12: NES, SNES, PlayStation (in progress, 2026-10-22)
 
@@ -363,7 +363,29 @@ Next is Phase 12 (NES, SNES, PS1) in `FRAGILE_PLAN.md`.
   - Tests: `slot-store/tests/discs.rs`, `slot/tests/discs.rs` (the row, the note, the emulator
     thread on a mock with three discs), and the real PCSX ReARMed hands slot its disc interface.
     Not tested on a real multi-disc image (none on the PC).
-- Next: 12e (menus for the new systems). Not run on the device yet: any NES, SNES or PS1 game.
+- 12e, menus and buttons:
+  - Settings › Screen has NES, Super Nintendo and PlayStation pages: Shader (the Spec's list,
+    in extras.state as `shader.<dir>`), Integer Scale (`integer_<dir>`) and Card Shader. In game,
+    Screen's Shader row is the playing system's; Color Correction and Bezel hide for systems
+    with none (`app/pads.rs` `system_hidden`).
+  - Integer Scale on a system drawn at its own size: the game pass draws the frame at the
+    largest whole multiple that fits, square pixels, centred (`GamePass::set_whole`,
+    `whole_multiple` in `slot-gfx/src/pipeline.rs`; letterboxed as before when not even one
+    fits); a SNES frame on the Pro is 512x448. `App::integer_native`, hooked in `frontend.rs`.
+  - Controls has X, Y, L2 and R2 rows (`QuickRow::GameX` ...), already bound to the same
+    buttons; in game each pad shows only its own buttons (no turbo on SNES or PS1, no L2/R2
+    but on PS1).
+  - A single-button shortcut on one of the playing pad's own X/Y/L2/R2 gives it to the game
+    (`App::yield_to_pad`, from `session.rs`): on PS1, R2 and L2 are the game's, not fast forward
+    and rewind (rewind is off for PS1 anyway; fast forward needs a chord there). The Game Boy
+    family's pads have none of those, so theirs are upstream's.
+  - Clashes (`input/table.rs`): two console buttons clash only when some system's pad has both
+    (`GameButton::on_one_pad`: Turbo A and X both on the X button is fine), and a shortcut never
+    clashes with a pad's own X/Y/L2/R2, since it gives way to them in game.
+  - Tests: `slot/tests/systems.rs`, and a render of a SNES game at Integer Scale in
+    `render_media_shelves.rs` (on the mock core, 256x224).
+- Phase 12 is code-complete. Not run on the device yet: any NES, SNES or PS1 game, disc swaps,
+  the BIOS note, Integer Scale on a native system.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

@@ -122,10 +122,26 @@ pub enum QuickRow {
     CheevosAccount,
     PlayAchievements,
     PlayDisc,
+    ScreenNes,
+    ScreenSnes,
+    ScreenPs,
+    NesShader,
+    SnesShader,
+    PsShader,
+    IntegerNes,
+    IntegerSnes,
+    IntegerPs,
+    CardShaderNes,
+    CardShaderSnes,
+    CardShaderPs,
+    GameX,
+    GameY,
+    GameL2,
+    GameR2,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 110] = [
+    pub const ALL: [QuickRow; 126] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -237,6 +253,22 @@ impl QuickRow {
         QuickRow::CheevosAccount,
         QuickRow::PlayAchievements,
         QuickRow::PlayDisc,
+        QuickRow::ScreenNes,
+        QuickRow::ScreenSnes,
+        QuickRow::ScreenPs,
+        QuickRow::NesShader,
+        QuickRow::SnesShader,
+        QuickRow::PsShader,
+        QuickRow::IntegerNes,
+        QuickRow::IntegerSnes,
+        QuickRow::IntegerPs,
+        QuickRow::CardShaderNes,
+        QuickRow::CardShaderSnes,
+        QuickRow::CardShaderPs,
+        QuickRow::GameX,
+        QuickRow::GameY,
+        QuickRow::GameL2,
+        QuickRow::GameR2,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -280,17 +312,22 @@ impl QuickRow {
         QuickRow::ShelfAddToList,
     ];
 
-    pub const CONTROLS: [QuickRow; 12] = [
+    pub const CONTROLS: [QuickRow; 16] = [
         QuickRow::GameUp,
         QuickRow::GameDown,
         QuickRow::GameLeft,
         QuickRow::GameRight,
         QuickRow::GameA,
         QuickRow::GameB,
+        // --- extras: the SNES and PlayStation pads' own ---
+        QuickRow::GameX,
+        QuickRow::GameY,
         QuickRow::GameSelect,
         QuickRow::GameStart,
         QuickRow::GameL,
         QuickRow::GameR,
+        QuickRow::GameL2,
+        QuickRow::GameR2,
         QuickRow::GameTurboA,
         QuickRow::GameTurboB,
     ];
@@ -311,8 +348,34 @@ impl QuickRow {
         QuickRow::ScRewind,
     ];
 
-    pub const SCREEN: [QuickRow; 3] =
-        [QuickRow::ScreenGba, QuickRow::ScreenGbc, QuickRow::ScreenGb];
+    pub const SCREEN: [QuickRow; 6] = [
+        QuickRow::ScreenGba,
+        QuickRow::ScreenGbc,
+        QuickRow::ScreenGb,
+        // --- extras ---
+        QuickRow::ScreenNes,
+        QuickRow::ScreenSnes,
+        QuickRow::ScreenPs,
+    ];
+
+    // --- extras: the screen pages of the systems Fragile adds ---
+    pub const SCREEN_NES: [QuickRow; 3] = [
+        QuickRow::NesShader,
+        QuickRow::IntegerNes,
+        QuickRow::CardShaderNes,
+    ];
+
+    pub const SCREEN_SNES: [QuickRow; 3] = [
+        QuickRow::SnesShader,
+        QuickRow::IntegerSnes,
+        QuickRow::CardShaderSnes,
+    ];
+
+    pub const SCREEN_PS: [QuickRow; 3] = [
+        QuickRow::PsShader,
+        QuickRow::IntegerPs,
+        QuickRow::CardShaderPs,
+    ];
 
     pub const SCREEN_GBA: [QuickRow; 6] = [
         QuickRow::GbaShader,
@@ -385,7 +448,21 @@ impl QuickRow {
 
     pub fn page(self) -> &'static [QuickRow] {
         match self {
-            QuickRow::ScreenGba | QuickRow::ScreenGbc | QuickRow::ScreenGb => &QuickRow::SCREEN,
+            QuickRow::ScreenGba
+            | QuickRow::ScreenGbc
+            | QuickRow::ScreenGb
+            | QuickRow::ScreenNes
+            | QuickRow::ScreenSnes
+            | QuickRow::ScreenPs => &QuickRow::SCREEN,
+            QuickRow::NesShader | QuickRow::IntegerNes | QuickRow::CardShaderNes => {
+                &QuickRow::SCREEN_NES
+            }
+            QuickRow::SnesShader | QuickRow::IntegerSnes | QuickRow::CardShaderSnes => {
+                &QuickRow::SCREEN_SNES
+            }
+            QuickRow::PsShader | QuickRow::IntegerPs | QuickRow::CardShaderPs => {
+                &QuickRow::SCREEN_PS
+            }
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
             | QuickRow::GbaBezel
@@ -469,6 +546,9 @@ impl QuickRow {
             QuickRow::GbaShader => Some(QuickRow::ScreenGba),
             QuickRow::GbcShader => Some(QuickRow::ScreenGbc),
             QuickRow::GbShader => Some(QuickRow::ScreenGb),
+            QuickRow::NesShader => Some(QuickRow::ScreenNes),
+            QuickRow::SnesShader => Some(QuickRow::ScreenSnes),
+            QuickRow::PsShader => Some(QuickRow::ScreenPs),
             QuickRow::FastForward => Some(QuickRow::Game),
             QuickRow::PlayScreen => Some(QuickRow::Settings),
             QuickRow::Shader => Some(QuickRow::PlayScreen),
@@ -519,6 +599,9 @@ impl QuickRow {
             QuickRow::ScreenGba => Some(QuickRow::SCREEN_GBA[0]),
             QuickRow::ScreenGbc => Some(QuickRow::SCREEN_GBC[0]),
             QuickRow::ScreenGb => Some(QuickRow::SCREEN_GB[0]),
+            QuickRow::ScreenNes => Some(QuickRow::SCREEN_NES[0]),
+            QuickRow::ScreenSnes => Some(QuickRow::SCREEN_SNES[0]),
+            QuickRow::ScreenPs => Some(QuickRow::SCREEN_PS[0]),
             QuickRow::Network => Some(QuickRow::NETWORK[0]),
             _ => None,
         }
@@ -551,6 +634,14 @@ impl QuickRow {
             QuickRow::GbaShader => "Shader",
             QuickRow::GbShader => "Shader",
             QuickRow::GbcShader => "Shader",
+            QuickRow::NesShader | QuickRow::SnesShader | QuickRow::PsShader => "Shader",
+            QuickRow::IntegerNes | QuickRow::IntegerSnes | QuickRow::IntegerPs => "Integer Scale",
+            QuickRow::CardShaderNes | QuickRow::CardShaderSnes | QuickRow::CardShaderPs => {
+                "Card Shader"
+            }
+            QuickRow::ScreenNes => "NES",
+            QuickRow::ScreenSnes => "Super Nintendo",
+            QuickRow::ScreenPs => "PlayStation",
             QuickRow::GbaColourCorrection => "Color Correction",
             QuickRow::GbColourCorrection => "Color Correction",
             QuickRow::GbcColourCorrection => "Color Correction",
@@ -617,7 +708,11 @@ impl QuickRow {
             | QuickRow::GameL
             | QuickRow::GameR
             | QuickRow::GameTurboA
-            | QuickRow::GameTurboB => self.game_button().map_or("", GameButton::label),
+            | QuickRow::GameTurboB
+            | QuickRow::GameX
+            | QuickRow::GameY
+            | QuickRow::GameL2
+            | QuickRow::GameR2 => self.game_button().map_or("", GameButton::label),
             QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScBrightUp
@@ -663,9 +758,12 @@ impl QuickRow {
             QuickRow::Game | QuickRow::PlayGameplay => "Fast forward, rewind, turbo and saving.",
             QuickRow::Controls | QuickRow::PlayControls => "Remap buttons and shortcuts.",
             QuickRow::About => "Version and device details.",
-            QuickRow::ScreenGba | QuickRow::ScreenGbc | QuickRow::ScreenGb => {
-                "Picture settings for this system."
-            }
+            QuickRow::ScreenGba
+            | QuickRow::ScreenGbc
+            | QuickRow::ScreenGb
+            | QuickRow::ScreenNes
+            | QuickRow::ScreenSnes
+            | QuickRow::ScreenPs => "Picture settings for this system.",
             QuickRow::ControlsShelf => "Buttons used on the shelf.",
             QuickRow::Shortcuts => "Shortcuts that work while playing.",
             QuickRow::ControlsInGame => "What each button does in a game.",
@@ -708,6 +806,15 @@ impl QuickRow {
             QuickRow::ThisDefaults => "On: this game follows the settings menu.",
             QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => {
                 "Whole pixels on 4:3 screens, with a border."
+            }
+            QuickRow::IntegerNes | QuickRow::IntegerSnes | QuickRow::IntegerPs => {
+                "Whole, square pixels, with a border."
+            }
+            QuickRow::CardShaderNes | QuickRow::CardShaderSnes | QuickRow::CardShaderPs => {
+                "A .glsl file from Shaders, used instead of Shader."
+            }
+            QuickRow::NesShader | QuickRow::SnesShader | QuickRow::PsShader => {
+                "Screen effect drawn over the game."
             }
             QuickRow::CardShaderGba | QuickRow::CardShaderGb | QuickRow::CardShaderGbc => {
                 "A .glsl file from Shaders, used instead of Shader."
@@ -767,6 +874,9 @@ impl QuickRow {
                 | QuickRow::ScreenGba
                 | QuickRow::ScreenGbc
                 | QuickRow::ScreenGb
+                | QuickRow::ScreenNes
+                | QuickRow::ScreenSnes
+                | QuickRow::ScreenPs
         )
     }
 
@@ -784,6 +894,10 @@ impl QuickRow {
             QuickRow::GameR => GameButton::R,
             QuickRow::GameTurboA => GameButton::TurboA,
             QuickRow::GameTurboB => GameButton::TurboB,
+            QuickRow::GameX => GameButton::X,
+            QuickRow::GameY => GameButton::Y,
+            QuickRow::GameL2 => GameButton::L2,
+            QuickRow::GameR2 => GameButton::R2,
             _ => return None,
         })
     }
