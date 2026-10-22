@@ -38,9 +38,9 @@ const ART: [Art; Media::COUNT] = [
     Art {
         png: include_bytes!("../../../assets/snes_neutral.png"),
         w: 360,
-        h: 236,
-        label: (104, 5, 126, 84),
-        sticker: Some((69, 1, 230, 104)),
+        h: 229,
+        label: (102, 3, 122, 97),
+        sticker: Some((68, 2, 223, 99)),
         colour: [0x9a, 0x99, 0xa0],
     },
     Art {

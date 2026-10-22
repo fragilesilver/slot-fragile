@@ -204,64 +204,84 @@ def triangle_edge(pts, width):
 
 
 def snes():
-    """An NTSC SNES cart, face on, measured off a photograph of one: a raised centre between
-    two ribbed wings, the sticker at the top of the centre, the slot across its lower front
-    (shallower in its middle), a screw low in each wing."""
-    W, H = 360, 236
+    """An NTSC SNES cart, face on, measured off a photograph of one (798x507 there, scaled to
+    360 wide): a raised centre between two ribbed wings, the sticker at the top of the centre,
+    a wide recess open to the bottom edge across its lower front with a shallower strip down
+    its middle, and a screw low in each wing."""
+    W, H = 360, 229
     s = Shell(W, H, seed=2, face=4.0)
-    wing_top = 8
-    body_x0, body_x1 = 57, 303
+    wing_top = 7.7
+    body_x0, body_x1 = 57, 304
     # The wings: six slabs a side with deep gaps between them.
-    pitch = (H - wing_top) / 6
+    gaps = [42.0, 79.4, 116.8, 154.3, 191.7]
+    edges = [wing_top] + gaps + [H]
     for x0, x1, left in ((0, body_x0 + 6, True), (body_x1 - 6, W, False)):
         for k in range(6):
-            y0 = wing_top + k * pitch + (1.6 if k else 0)
-            y1 = wing_top + (k + 1) * pitch - (1.6 if k < 5 else 0)
+            y0 = edges[k] + (0.9 if k else 0)
+            y1 = edges[k + 1] - (0.9 if k < 5 else 0)
             radii = (3, 0, 0, 3) if left else (0, 3, 3, 0)
             s.outline(x0, y0, x1, y1, radii=radii)
             s.height(x0, y0, x1, y1, 0.0)
-        for k in range(1, 6):
-            y = wing_top + k * pitch
-            s.outline(x0, y - 2, x1, y + 2)
-            s.height(x0, y - 2.2, x1, y + 2.2, -7.0)
+        for y in gaps:
+            s.outline(x0, y - 1.5, x1, y + 1.5)
+            s.height(x0, y - 0.9, x1, y + 0.9, -3.5)
     # The raised centre, barely rounded at its corners.
-    s.outline(body_x0, 0, body_x1, H, r=4)
-    s.height(body_x0, 0, body_x1, H, 4.0, r=4)
-    # The slot, deep at its ends and shallower in its middle.
-    s.height(68, 144, 292, 159, -4.0, r=7.5)
-    s.height(152, 144, 216, 159, 0.5)
+    s.outline(body_x0, 0, body_x1, H, r=3)
+    s.height(body_x0, 0, body_x1, H, 4.0, r=3)
+    # The recess across the lower front, open to the bottom edge, and the shallower strip down
+    # its middle, which stops short of the bottom.
+    s.height(67, 138.5, 293, H + 3, 1.0, radii=(3, 3, 0, 0))
+    ramp0, ramp1 = 138.5, 200.0
+    for k in range(int(ramp1 - ramp0)):
+        y = ramp0 + k
+        s.height(146, y, 213, y + 1, 4.0 - 3.0 * k / (ramp1 - ramp0))
     # A screw low in each wing.
-    for cx in (33, 327):
-        cy = 218
-        s.height_where(lambda x, y, cx=cx: (x - cx) ** 2 + (y - cy) ** 2 <= 6.5 ** 2,
-                       (cx - 8, cy - 8, cx + 8, cy + 8), -4.0)
-        s.height_where(lambda x, y, cx=cx: (x - cx) ** 2 + (y - cy) ** 2 <= 4.2 ** 2,
-                       (cx - 6, cy - 6, cx + 6, cy + 6), -1.5)
-        s.height_where(lambda x, y, cx=cx: (x - cx) ** 2 + (y - cy) ** 2 <= 1.8 ** 2,
-                       (cx - 3, cy - 3, cx + 3, cy + 3), -3.5)
+    for cx in (31.1, 328.4):
+        cy = 209.8
+        s.height_where(lambda x, y, cx=cx: (x - cx) ** 2 + (y - cy) ** 2 <= 7.2 ** 2,
+                       (cx - 8, cy - 8, cx + 8, cy + 8), -3.5)
+        s.height_where(lambda x, y, cx=cx: (x - cx) ** 2 + (y - cy) ** 2 <= 5.0 ** 2,
+                       (cx - 6, cy - 6, cx + 6, cy + 6), -1.2)
+        hexagon = [(cx + 2.4 * math.cos(a * math.pi / 3), cy + 2.4 * math.sin(a * math.pi / 3))
+                   for a in range(6)]
+        s.height_where(lambda x, y, hx=hexagon: in_polygon(hx, x, y),
+                       (cx - 3, cy - 3, cx + 3, cy + 3), -4.0)
     # The sticker, printed after the lighting, black. Down its left: a lozenge, a pointer, a
-    # round seal and two lines of small print. The art window (the label box). Down its right:
-    # a red band along the top, a hatched emblem and a red name bar with a rule under it.
-    sx0, sy0, sx1, sy1 = 69, 1, 299, 105
-    s.paint(sx0, sy0, sx1, sy1, (22, 22, 24), radii=(3, 3, 3, 3))
-    s.paint(76, 10, 100, 16.5, (206, 40, 46), r=3.2)
-    s.paint(77.5, 11.2, 98.5, 15.3, (236, 236, 236), r=2)
-    s.paint_where(lambda x, y: 26 <= y <= 30 and abs(x - 80) <= (30 - y) * 0.9, (75, 25, 86, 31),
+    # round seal and two lines of small print. The art window (the label box) runs its full
+    # height. Down its right: a band along the top, a hatched emblem and a red name bar.
+    sx0, sy0, sx1, sy1 = 68, 2.5, 291, 101
+    s.paint(sx0, sy0, sx1, sy1, (22, 22, 24), radii=(2, 2, 2, 2))
+    s.paint(74, 9, 96, 11, (150, 150, 152))
+    s.paint(71, 14, 99.7, 20.3, (206, 40, 46), r=3.1)
+    s.paint(72.5, 15.2, 98.2, 19.1, (236, 236, 236), r=1.9)
+    s.paint_where(lambda x, y: 43 <= y <= 47 and abs(x - 79) <= (47 - y) * 0.9, (74, 42, 84, 48),
                   (112, 92, 122))
-    s.paint_where(lambda x, y: ((x - 87) / 10.5) ** 2 + ((y - 76) / 5.5) ** 2 <= 1,
-                  (76, 70, 98, 82), (176, 150, 88))
-    s.paint_where(lambda x, y: ((x - 87) / 8.8) ** 2 + ((y - 76) / 4.2) ** 2 <= 1,
-                  (77, 71, 97, 81), (44, 40, 30))
-    for y in (91, 96):
-        s.paint(76, y, 99, y + 2, (150, 150, 152))
-    s.paint(104, 5, 230, 89, (10, 10, 10))
-    s.paint(235, 3, 293, 8, (214, 30, 40))
-    emblem = (262, 28, 292, 59)
+    s.paint_where(lambda x, y: ((x - 85.7) / 11.3) ** 2 + ((y - 77.8) / 7.9) ** 2 <= 1,
+                  (74, 69, 98, 87), (186, 196, 120))
+    s.paint_where(lambda x, y: ((x - 85.7) / 9.6) ** 2 + ((y - 77.8) / 6.3) ** 2 <= 1,
+                  (75, 71, 97, 85), (236, 236, 214))
+    for y in (90, 95):
+        s.paint(74, y, 98, y + 2, (150, 150, 152))
+    s.paint(102, 3, 224, 100, (10, 10, 10))
+    s.paint(235, 4, 286, 9, (214, 30, 40))
+    emblem = (255, 36, 285.5, 76.7)
     s.paint_where(lambda x, y: emblem[0] <= x < emblem[2] and emblem[1] <= y < emblem[3]
                   and (int(x + y) // 3) % 2 == 0, emblem, (62, 62, 66))
-    s.paint(236, 88, 293, 98, (214, 30, 40))
-    s.paint(236, 100, 293, 101.5, (170, 26, 34))
-    return s, (104, 5, 126, 84), (sx0, sy0, sx1 - sx0, sy1 - sy0)
+    s.paint(227, 83, 284, 92, (214, 30, 40))
+    s.paint(227, 94.5, 284, 99.5, (214, 30, 40))
+    return s, (102, 3, 122, 97), (sx0, int(sy0), sx1 - sx0, int(sy1 - sy0) + 1)
+
+
+def in_polygon(pts, x, y):
+    """Whether a point is inside a convex polygon whose corners go round one way."""
+    sign = 0
+    for (ax, ay), (bx, by) in zip(pts, pts[1:] + pts[:1]):
+        cross = (bx - ax) * (y - ay) - (by - ay) * (x - ax)
+        if cross:
+            if sign and (cross > 0) != (sign > 0):
+                return False
+            sign = cross
+    return True
 
 
 def nes():
