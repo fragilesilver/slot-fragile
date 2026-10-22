@@ -157,7 +157,7 @@ class Shell:
                 v -= 5.0 * max(0.0, far[i] - z[i])  # shade in the bottom of a recess
                 v += 2.6 * min(0.0, z[i] - self.face)  # and the deeper, the darker
                 v += 5.0 * (0.5 - y / h)  # lit a little more at the top
-                v += 4.5 * grain[i] + 4.0 * soft[i] * 2.2  # the speckle of moulded plastic
+                v += 4.5 * grain[i] + 3.0 * soft[i]  # the speckle of moulded plastic
                 c = (v, v, v)
                 fixed = self.flat[i]
                 if fixed is not None:
@@ -265,51 +265,61 @@ def snes():
 
 
 def nes():
-    """An NES cart, face on, measured off a photograph of one: a plain rail down the left,
-    the ribbed grip with a pocket at its top, the label in a recess open to the top edge, a
-    narrow rail down the right, the arrow, a little notch in each top corner, and its lower part
-    narrower, stepped in from both sides, the part that goes into the console."""
-    W, H = 304, 337
+    """An NES cart, face on, measured off a photograph of one (795x896 there, scaled to 304
+    wide): the ribbed grip with a pocket at its top, the label in a recess open to the top
+    edge, the arrow, a notch in the top edge near each corner, and its lower part stepped in
+    by the same amount from both sides, the part that goes into the console."""
+    W, H = 304, 343
     s = Shell(W, H, seed=3)
-    step = 275  # where the lower part steps in
-    left_rail, right_rail = 48, 290
+    step, inset = 280, 16.5  # where the lower part steps in, and by how much a side
     s.outline(0, 0, W, H, r=3)
-    s.cut(0, step, left_rail, H)
-    s.cut(right_rail, step, W, H)
-    for x0, x1 in ((4, 15), (W - 30, W - 18)):
-        s.cut(x0, 0, x1, 4)
-    # A lip down the outer edge of the left rail, and the grooves either side of the grip and
-    # down the right rail.
-    s.height(7, 0, 9, step, -1.2)
-    gx0, gx1 = 50, 114
-    s.height(gx0 - 2.6, 0, gx0, H, -2.5)
-    s.height(gx1, 0, gx1 + 2.6, H, -2.5)
-    s.height(right_rail - 1.6, 0, right_rail + 1.0, step, -2.5)
-    # The pocket at the top of the grip, open at the top edge, three ribs down inside it.
-    pocket = 45
-    s.height(gx0 + 1, 0, gx1 - 1, pocket, -10.0, radii=(0, 0, 1, 1))
+    s.cut(0, step, inset, H)
+    s.cut(W - inset, step, W, H)
+    s.outline(inset, step - 4, W - inset, H, radii=(0, 0, 3, 3))
+    for x0, x1, deep in ((9, 28, 3), (277, 295, 3.5)):
+        s.cut(x0, 0, x1, deep)
+    # The grip, between a groove either side.
+    gx0, gx1 = 47.5, 114
+    s.height(gx0 - 1.5, 0, gx0 + 0.5, H, -2.5)
+    s.height(gx1 - 0.5, 0, gx1 + 1.8, H, -2.5)
+    # The pocket at the top of the grip, its edge a little below the top, three ribs inside.
+    pocket = 44
+    s.cut(gx0 + 0.5, 0, gx1 - 0.5, 3)
+    s.height(gx0 + 1.5, 0, gx1 - 1.5, pocket, -10.0)
     for k in range(3):
-        y = 8 + k * 12
-        s.height(gx0 + 4, y, gx1 - 3, y + 5.0, -7.0)
+        y = 7.5 + k * 13
+        s.height(gx0 + 2, y, gx1 - 2, y + 6.0, -7.0)
     # The ribs of the grip: raised bars with narrow grooves between.
-    gy0, gy1 = pocket + 4, 300
+    gy0, gy1 = pocket + 1, 306
     ribs = 20
     pitch = (gy1 - gy0) / ribs
-    s.height(gx0 + 0.5, gy0 - 1, gx1 - 0.5, gy1 + 1, 0.8)
+    s.height(gx0 + 0.5, gy0, gx1 - 0.5, gy1, 0.8)
     for k in range(ribs + 1):
         y = gy0 + k * pitch
-        s.height(gx0 + 0.5, y - 1.1, gx1 - 0.5, y + 1.1, -1.8)
-    # The plain panel at the foot of the grip, its outline pressed in.
-    s.height(gx0 + 4, gy1 + 6, gx1 - 4, H - 4, -1.6, r=3)
-    s.height(gx0 + 5.5, gy1 + 7.5, gx1 - 5.5, H - 5.5, 0.0, r=2)
+        s.height(gx0 + 0.5, y - 1.2, gx1 - 0.5, y + 1.2, -2.0)
+    # The plain panel at the foot of the grip.
+    s.height(gx0 + 0.5, gy1 + 2, gx1 - 0.5, H, 0.0)
+    s.height(gx0 + 2, gy1 + 3, gx1 - 2, H - 2, -2.2, r=4)
+    s.height(gx0 + 4, gy1 + 5, gx1 - 4, H - 4, 0.0, r=3)
     # The label's recess, open to the top edge, and the flat label in it.
-    lx0, ly0, lx1, ly1 = 122, 2, 263, 229
-    s.height(lx0 - 3, 0, lx1 + 3, ly1 + 3, -2.0, radii=(0, 0, 3, 3))
+    lx0, ly0, lx1, ly1 = 122, 2, 265, 234
+    s.cut(lx0, 0, lx1, 1)
+    s.height(lx0 - 1.5, 0, lx1 + 1.5, ly1 + 1.5, -2.0, radii=(0, 0, 3, 3))
     s.paint(lx0, ly0, lx1, ly1, LABEL, r=1)
-    # The arrow, pressed in about mid-width.
-    mid = W * 0.503
-    tri = [(mid - 12, 250.0), (mid + 12, 250.0), (mid, 270.0)]
-    s.height_where(triangle_edge(tri, 3.2), (mid - 15, 246, mid + 15, 273), -3.0)
+    # The arrow, pressed in, at mid-width.
+    mid = W * 0.502
+    tri = [(mid - 12.5, 253.0), (mid + 12.5, 253.0), (mid, 277.0)]
+
+    def in_tri(x, y):
+        (ax, ay), (bx, by), (cx, cy) = tri
+        d1 = (x - bx) * (ay - by) - (ax - bx) * (y - by)
+        d2 = (x - cx) * (by - cy) - (bx - cx) * (y - cy)
+        d3 = (x - ax) * (cy - ay) - (cx - ax) * (y - ay)
+        neg = d1 < 0 or d2 < 0 or d3 < 0
+        pos = d1 > 0 or d2 > 0 or d3 > 0
+        return not (neg and pos)
+
+    s.height_where(in_tri, (mid - 14, 252, mid + 14, 278), -2.2)
     return s, (lx0, ly0, lx1 - lx0, ly1 - ly0), None
 
 

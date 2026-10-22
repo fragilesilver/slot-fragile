@@ -30,8 +30,8 @@ const ART: [Art; Media::COUNT] = [
     Art {
         png: include_bytes!("../../../assets/nes_neutral.png"),
         w: 304,
-        h: 337,
-        label: (122, 2, 141, 227),
+        h: 343,
+        label: (122, 2, 143, 232),
         sticker: None,
         colour: [0x8a, 0x8a, 0x8e],
     },
