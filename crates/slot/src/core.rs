@@ -220,9 +220,9 @@ pub fn apply_core_options(
     colour: bool,
     palette: Option<GbPalette>,
 ) {
-    // Fragile: Gambatte has no frame skip option.
-    if which != Core::Gambatte {
-        core.set_option(&format!("{}_frameskip", which.as_str()), "auto");
+    // Fragile: not every core has a frame skip option, nor calls it this.
+    if let Some((key, value)) = crate::more_cores::frameskip_option(which) {
+        core.set_option(&key, value);
     }
     if which == Core::Mgba {
         core.set_option("mgba_sgb_borders", "OFF");
@@ -254,6 +254,7 @@ pub fn apply_core_options(
         }
     }
     crate::gambatte::apply_options(core, which, colour, palette);
+    crate::more_cores::apply_options(core, which);
 }
 
 #[cfg(test)]

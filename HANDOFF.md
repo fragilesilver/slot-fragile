@@ -320,6 +320,34 @@ time sync, RetroAchievements, cheats, search and lists all work. Fixed after it:
 
 Next is Phase 12 (NES, SNES, PS1) in `FRAGILE_PLAN.md`.
 
+## Phase 12: NES, SNES, PlayStation (in progress, 2026-10-22)
+
+- 12a/12b (28a9383 .. c20a41c): `Platform::{Nes, Snes, PlayStation}` as Spec rows
+  (`slot-store/src/spec.rs`: dirs NES, SNES, PS; PS1 BIOS list for PCSX ReARMed) and
+  `Core::{Fceumm, Snes9x, Supafaust, PcsxRearmed}` with credits and licences. Their folders
+  are made at boot (`root.rs`), Start Shelf can pick them. Shelf art in `slot-ui/src/media.rs`
+  (unslot's module): the disc is unslot's render; the NES and SNES shells are Fragile's, drawn by
+  `tools/fragile/media/draw_carts.py` as lit height fields, measured off the user's face-on
+  photographs (the user went back and forth on these; their final word is c20a41c). The SNES
+  sticker keeps its own black and red under the game's tint (`Media::sticker`).
+- 12c: the cores, from pinned source archives that ship beside them. `cores/libretro/build.sh`
+  holds each one's make recipe (C++ ones link their C++ runtime statically; git is kept from
+  reading Fragile's commit as theirs); `task core:more` builds all four in the arm64 container
+  (`core:fceumm`, `core:snes9x`, `core:supafaust`, `core:pcsx_rearmed`), `dist:device` and the
+  deploy tasks ship them with `<name>-<sha>.tar.gz` + `.meta` in `System/licenses`. PCSX
+  ReARMed's device build uses its ARM64 dynarec (`new_dynarec`).
+- `task core:more:host` builds them for the PC into `target/host-cores`, where
+  `crates/slot/tests/more_cores.rs` finds them: each runs a program made in the test (an NES
+  cart, a SNES cart, a PS-X EXE on PCSX's own BIOS), with every option Fragile sets declared,
+  frames of a size slot shows, sound, and a state that saves and loads. Skipped without them.
+- Options (`crates/slot/src/more_cores.rs`, hooked from `core.rs`): the frame skip option was
+  `<core>_frameskip` for every core; only mGBA and gpSP have it, PCSX ReARMed's is
+  `pcsx_rearmed_frameskip_type`. slot answers a core only about options it has set, and FCEUmm's
+  code starts its overscan crop at 0 though it declares 8, so Fragile sets the top and bottom
+  crop. FCEUmm declares its options when a game loads, not before.
+- Next: 12d (PS1: m3u/cue/chd scanning, disc swapping, the BIOS note), 12e (menus for the new
+  systems). Not run on the device yet: any NES, SNES or PS1 game.
+
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 
 The Phase 1 work compiled first time and `task test` passes, with clippy `-D warnings` clean.

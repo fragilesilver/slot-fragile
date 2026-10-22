@@ -6,6 +6,17 @@ vars:
   MGBA_COMMIT: e31759b24e7a4e3899285ff720d7b573ac328ae7
   GPSP_COMMIT: 7b2dd37394e2822110cacef321e9bb291a305b77
   GAMBATTE_COMMIT: d9d6cd06382d1ced30de34d56d3609452323dab1
+  # Fragile: the cores of the systems past the Game Boy family, each pinned to a commit.
+  FCEUMM_COMMIT: f36c94b7a325376ad92f5d7181186326f24e516a
+  SNES9X_COMMIT: fae2fea08f74180759ef540ee94259213f503480
+  SUPAFAUST_COMMIT: 642d1d1b6684aa7e306a02a89885f3f5456a5157
+  PCSX_REARMED_COMMIT: c8816799b50388e61cfe237fe2cdbb7d8175f20a
+  # NAME:LIBRARY:COMMIT for each, as cores/libretro/build.sh names them.
+  MORE_CORES: >-
+    fceumm:fceumm:{{.FCEUMM_COMMIT}}
+    snes9x:snes9x:{{.SNES9X_COMMIT}}
+    supafaust:mednafen_supafaust:{{.SUPAFAUST_COMMIT}}
+    pcsx_rearmed:pcsx_rearmed:{{.PCSX_REARMED_COMMIT}}
   EXFATPROGS_VERSION: 1.4.3
   EXFATPROGS_SHA256: 4b5052cba6ff9f6dcb1c63eeeac328620472c5b0b3caf3d38e4ada50e75469d3
   SLOT_IN_PROCESS: >-
@@ -375,6 +386,85 @@ tasks:
       - echo "{{.GAMBATTE_COMMIT}}" > vendor/gambatte-src.sha
       - 'echo "built vendor/gambatte_libretro.so from vendor/gambatte-src.tar.gz @ {{.GAMBATTE_COMMIT}}"'
 
+  core:libretro:
+    desc: Build one of the NES, SNES and PlayStation cores from its pinned source archive
+    internal: true
+    requires:
+      vars: [NAME, LIB, COMMIT]
+    status:
+      - test -f vendor/{{.LIB}}_libretro.so
+      - test -f vendor/{{.NAME}}-src.tar.gz
+      - test "$(cat vendor/{{.NAME}}-src.sha 2>/dev/null)" = "{{.COMMIT}}"
+      - test "$(cat vendor/{{.LIB}}_libretro.so.meta 2>/dev/null)" = "$(sh cores/libretro/build.sh stamp {{.NAME}} {{.COMMIT}})"
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p vendor
+        rm -f vendor/{{.LIB}}_libretro.so vendor/{{.LIB}}_libretro.so.meta \
+              vendor/{{.NAME}}-src.tar.gz vendor/{{.NAME}}-src.sha
+        source="$(sh cores/libretro/build.sh stamp {{.NAME}} {{.COMMIT}} | sed -n 's/^source=//p')"
+        curl -fsSL -o vendor/{{.NAME}}-src.tar.gz "$source"
+        tar -tzf vendor/{{.NAME}}-src.tar.gz | grep "^[^/]*-{{.COMMIT}}/$" > /dev/null
+      - task: device:sh
+        vars:
+          CMD: >-
+            sh cores/libretro/build.sh build {{.NAME}} {{.COMMIT}} vendor/{{.NAME}}-src.tar.gz
+            target-device/{{.NAME}} vendor/{{.LIB}}_libretro.so
+      - file vendor/{{.LIB}}_libretro.so | grep -q aarch64
+      - echo "{{.COMMIT}}" > vendor/{{.NAME}}-src.sha
+      - 'echo "built vendor/{{.LIB}}_libretro.so from vendor/{{.NAME}}-src.tar.gz @ {{.COMMIT}}"'
+
+  core:fceumm:
+    desc: Build the pinned aarch64 FCEUmm core, for NES games, from its GPL-2.0 source archive
+    cmds:
+      - task: core:libretro
+        vars: {NAME: fceumm, LIB: fceumm, COMMIT: '{{.FCEUMM_COMMIT}}'}
+
+  core:snes9x:
+    desc: Build the pinned aarch64 Snes9x core, for SNES games, from its source archive
+    cmds:
+      - task: core:libretro
+        vars: {NAME: snes9x, LIB: snes9x, COMMIT: '{{.SNES9X_COMMIT}}'}
+
+  core:supafaust:
+    desc: Build the pinned aarch64 Supafaust core, for SNES games, from its GPL-2.0 source archive
+    cmds:
+      - task: core:libretro
+        vars: {NAME: supafaust, LIB: mednafen_supafaust, COMMIT: '{{.SUPAFAUST_COMMIT}}'}
+
+  core:pcsx_rearmed:
+    desc: Build the pinned aarch64 PCSX ReARMed core, for PlayStation games, from its GPL-2.0 source archive
+    cmds:
+      - task: core:libretro
+        vars: {NAME: pcsx_rearmed, LIB: pcsx_rearmed, COMMIT: '{{.PCSX_REARMED_COMMIT}}'}
+
+  core:more:
+    desc: Build the NES, SNES and PlayStation cores
+    cmds:
+      - task: core:fceumm
+      - task: core:snes9x
+      - task: core:supafaust
+      - task: core:pcsx_rearmed
+
+  core:more:host:
+    desc: >-
+      Build the NES, SNES and PlayStation cores for this computer into target/host-cores, where
+      their tests find them, from the same pinned source archives
+    deps: [core:more]
+    status:
+      - |
+        for spec in {{.MORE_CORES}}; do
+          rest="${spec#*:}"; test -f "target/host-cores/${rest%%:*}_libretro.so" || exit 1
+        done
+    cmds:
+      - |
+        set -euo pipefail
+        for spec in {{.MORE_CORES}}; do
+          name="${spec%%:*}" rest="${spec#*:}" lib="${rest%%:*}" sha="${rest#*:}"
+          CORE_HOST_CFLAGS="-O2" sh cores/libretro/build.sh build "$name" "$sha" \
+            "vendor/${name}-src.tar.gz" "target/host-cores/$name" "target/host-cores/${lib}_libretro.so"
+        done
+
   core:gambatte:update:
     desc: Refetch Gambatte's pinned source archive and rebuild the core
     cmds:
@@ -383,7 +473,7 @@ tasks:
 
   dist:device:
     desc: Build the SD2 tree for an H700 device, OUT defaults to ./dist-device
-    deps: [core:device, core:gpsp, core:gambatte, fsck:exfat, build:device]
+    deps: [core:device, core:gpsp, core:gambatte, core:more, fsck:exfat, build:device]
     vars:
       OUT: '{{.OUT | default "dist-device"}}'
     cmds:
@@ -425,18 +515,27 @@ tasks:
         sha="$(cat vendor/gambatte-src.sha)"
         cp vendor/gambatte-src.tar.gz "{{.OUT}}/System/licenses/gambatte-${sha}.tar.gz"
         cp vendor/gambatte_libretro.so.meta "{{.OUT}}/System/licenses/gambatte-${sha}.meta"
+      - |
+        set -euo pipefail
+        for spec in {{.MORE_CORES}}; do
+          name="${spec%%:*}" rest="${spec#*:}" lib="${rest%%:*}" sha="${rest#*:}"
+          file "vendor/${lib}_libretro.so" | grep -q aarch64
+          cp "vendor/${lib}_libretro.so" "{{.OUT}}/System/"
+          cp "vendor/${name}-src.tar.gz" "{{.OUT}}/System/licenses/${name}-${sha}.tar.gz"
+          cp "vendor/${lib}_libretro.so.meta" "{{.OUT}}/System/licenses/${name}-${sha}.meta"
+        done
       - 'echo "device tree ready at {{.OUT}}, copy its contents to SD2"'
 
   deploy:device:
     desc: Build and push onto a device over adb, then restart it. SD defaults to /mnt/sdcard
-    deps: [core:device, core:gpsp, core:gambatte, fsck:exfat, build:device]
+    deps: [core:device, core:gpsp, core:gambatte, core:more, fsck:exfat, build:device]
     cmds:
       - task: deploy:push
         vars: {SD: '{{.SD}}'}
 
   deploy:all:
     desc: Build and push onto every attached adb device, then restart each. SD defaults to /mnt/sdcard
-    deps: [core:device, core:gpsp, core:gambatte, fsck:exfat, build:device]
+    deps: [core:device, core:gpsp, core:gambatte, core:more, fsck:exfat, build:device]
     vars:
       SERIALS:
         sh: adb devices | awk 'NR > 1 && $2 == "device" {print $1}'
@@ -484,6 +583,15 @@ tasks:
         set -euo pipefail
         sha="$(cat vendor/gambatte-src.sha)"
         {{.ADB}} push vendor/gambatte-src.tar.gz "{{.SD}}/System/licenses/gambatte-${sha}.tar.gz"
+      - |
+        set -euo pipefail
+        for spec in {{.MORE_CORES}}; do
+          name="${spec%%:*}" rest="${spec#*:}" lib="${rest%%:*}" sha="${rest#*:}"
+          file "vendor/${lib}_libretro.so" | grep -q aarch64
+          {{.ADB}} push "vendor/${lib}_libretro.so" "{{.SD}}/System/${lib}_libretro.so"
+          {{.ADB}} push "vendor/${name}-src.tar.gz" "{{.SD}}/System/licenses/${name}-${sha}.tar.gz"
+          {{.ADB}} push "vendor/${lib}_libretro.so.meta" "{{.SD}}/System/licenses/${name}-${sha}.meta"
+        done
       - "{{.ADB}} shell 'chmod +x {{.SD}}/System/slot && sync'"
       - "{{.ADB}} reboot"
       - "{{.ADB}} wait-for-device"
