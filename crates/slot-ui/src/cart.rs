@@ -701,9 +701,10 @@ fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
     let (lx, ly, lw, lh) = m.label();
     let colour = shell_for(cart).colour;
     let mut rgba = m.neutral().to_vec();
+    let (sx, sy, sw, sh) = m.sticker().unwrap_or((lx, ly, lw, lh));
     for y in 0..h {
         for x in 0..w {
-            let on_label = (lx..lx + lw).contains(&x) && (ly..ly + lh).contains(&y);
+            let on_label = (sx..sx + sw).contains(&x) && (sy..sy + sh).contains(&y);
             if on_label && m != Media::Disc {
                 continue;
             }

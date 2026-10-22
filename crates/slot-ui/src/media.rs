@@ -1,7 +1,7 @@
 //! The carts and discs of the systems past the Game Boy family. Ported from
-//! cloudwithax/unslot@3da2bc3, crates/slot-ui/src/media.rs, cut to the systems Fragile runs:
-//! each neutral shell is rendered from a model by unslot's `tools/media/render_media.py`, which
-//! also measured the label boxes below.
+//! cloudwithax/unslot@3da2bc3, crates/slot-ui/src/media.rs, cut to the systems Fragile runs.
+//! The disc is unslot's render; Fragile draws the NES and SNES shells after the real carts with
+//! `tools/fragile/media/draw_carts.py`, which prints their label and sticker boxes below.
 
 use std::sync::OnceLock;
 
@@ -21,6 +21,8 @@ struct Art {
     w: u32,
     h: u32,
     label: (u32, u32, u32, u32),
+    /// Printed on the shell in its own colours, so the game's colour does not tint it.
+    sticker: Option<(u32, u32, u32, u32)>,
     colour: [u8; 3],
 }
 
@@ -29,14 +31,16 @@ const ART: [Art; Media::COUNT] = [
         png: include_bytes!("../../../assets/nes_neutral.png"),
         w: 304,
         h: 337,
-        label: (25, 20, 253, 208),
+        label: (124, 10, 160, 216),
+        sticker: None,
         colour: [0x8a, 0x8a, 0x8e],
     },
     Art {
         png: include_bytes!("../../../assets/snes_neutral.png"),
         w: 360,
-        h: 259,
-        label: (84, 56, 191, 146),
+        h: 236,
+        label: (91, 8, 154, 88),
+        sticker: Some((70, 4, 220, 104)),
         colour: [0x9a, 0x99, 0xa0],
     },
     Art {
@@ -44,6 +48,7 @@ const ART: [Art; Media::COUNT] = [
         w: 337,
         h: 337,
         label: (0, 0, 337, 337),
+        sticker: None,
         colour: [0xd8, 0xd8, 0xdc],
     },
 ];
@@ -85,6 +90,11 @@ impl Media {
     /// The label box, x, y, w, h in the shell's pixels.
     pub fn label(self) -> (u32, u32, u32, u32) {
         self.art().label
+    }
+
+    /// The part of the shell that keeps its own colours, x, y, w, h.
+    pub fn sticker(self) -> Option<(u32, u32, u32, u32)> {
+        self.art().sticker
     }
 
     /// The plastic a game gets when nothing names another colour for it.
