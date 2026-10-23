@@ -115,6 +115,22 @@ New. A small LAN-only, password-protected page served by the Pro over Wi-Fi to e
 and labels (writes `Labels/cart_shell.txt` like Cart Studio; label PNG upload), lists and
 favourites. Needs Wi-Fi.
 
+### 18 — Shader Settings (added 2026-10-23, after the second device test)
+Change a card shader's `#pragma parameter` values from the in-game menu.
+- Read each parameter line (name, label, default, min, max, step) in `slot-gfx/src/retroshader.rs`
+  before `stage_source` blanks it (the device's driver refuses the quoted label, ffe9672).
+- Compile with `PARAMETER_UNIFORM` defined, set every parameter's uniform to its default at load
+  and to the chosen value after; a change sets one uniform, so the picture follows live.
+- In-game Screen page: a **Shader Settings** row under Card Shader, shown only when the chosen
+  shader has parameters, opening a list page like Cheats (`slot-ui` `ListPage`): Left/Right step a
+  value within its min/max, a Reset row puts the defaults back.
+- Values kept per shader file in `Config/`, shared by every system that uses that shader.
+- Give the shipped shaders parameters worth turning: LCD Grid V2 (grid darkness), See-Through LCD,
+  GBA Color (strength); Blend Grid has Frame blend and Grid strength already. Update
+  `card/Shaders/README.txt`.
+- Tests: parameter parsing (quoted labels, spacing, bad lines skipped), uniforms set on the host
+  GL, the row hidden for a shader without parameters, values saved and read back.
+
 ## Verification (each phase)
 1. `task fmt:check`, `task lint`, `task test` (add GL/core tests to `IN_PROCESS` + `SLOT_IN_PROCESS` in `taskfile.yml`).
 2. `task run` on host: inspect new pages/menus at 640x480 and 720x480.
