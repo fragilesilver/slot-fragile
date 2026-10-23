@@ -131,6 +131,29 @@ Change a card shader's `#pragma parameter` values from the in-game menu.
 - Tests: parameter parsing (quoted labels, spacing, bad lines skipped), uniforms set on the host
   GL, the row hidden for a shader without parameters, values saved and read back.
 
+### 19 — Scaling: Fit, Sharp Fit, Integer (added 2026-10-23)
+On the Pro (640x480) the game is drawn into the game rect (`bezel::game_rect`, 640x427) with
+nearest sampling, so GBA's 240x160 lands at 2.67x: pixels 2 or 3 wide, shimmer when scrolling, an
+uneven grid under Blend Grid and LCD Grid. Integer Scale gives GBA only 2x (480x320). The other
+systems have a whole multiple that fits well (GB/GBC 3x, NES and SNES 2x, PS1 2x exactly), so
+GBA is the one to fix, and no whole multiple fills the screen: hence Sharp Fit.
+- Each system's on/off **Integer Scale** row becomes a **Scaling** row: Fit (today's, nearest),
+  **Sharp Fit** (new; the GBA default), Integer (today's Integer Scale). Stretch stays the per-game
+  Video Mode (`slot/src/video_mode.rs`) and still wins.
+- Sharp Fit, in the built-in game pass (`slot-gfx/src/pipeline.rs`, through `fbo::in_game_rect`):
+  the game texture sampled linear with the sharp-bilinear snap (each texel a solid block, only
+  the one-pixel seam between blocks blended). Fills the screen like Fit, looks even like Integer.
+  No extra framebuffer; works with the built-in Shaders and bezels.
+- Card shaders keep their own sampling (`#pragma slot_filter linear`) and draw at the Fit rect
+  under Sharp Fit; `card/Shaders/README.txt` says so.
+- An old `integer_<platform>` flag in extras reads as Scaling = Integer.
+- Shader vs Card Shader, for the Screen pages' help lines: the built-in **Shader** (Off, LCD3x,
+  Grid, Dot, Simpletex) is part of slot's own picture pass and always loads; a **Card Shader** is
+  a RetroArch `.glsl` from `Shaders/` drawn instead of it, Off going back to the built-in.
+- Tests: the picture rect per mode per system at 640x480, 720x480 and 720x720; Sharp Fit on the
+  host GL draws every game pixel the same width (±1 blended seam); the old flag's migration.
+- Device: GBA under Fit, Sharp Fit and Integer side by side; no shimmer scrolling under Sharp Fit.
+
 ## Verification (each phase)
 1. `task fmt:check`, `task lint`, `task test` (add GL/core tests to `IN_PROCESS` + `SLOT_IN_PROCESS` in `taskfile.yml`).
 2. `task run` on host: inspect new pages/menus at 640x480 and 720x480.
