@@ -98,10 +98,14 @@ pub struct RetroShader {
 
 /// The file with its `#version` lines taken out and the stage and version put back in front,
 /// in the order GLSL requires: `#version` first, then anything else.
+///
+/// Fragile: `#pragma parameter` lines go too. They hold quoted names, and GLSL has no strings: a
+/// GLES driver that reads a pragma it does not know refuses the `"`, so a shader with parameters
+/// failed to load on the device. Parameters run at their defaults whatever they say.
 pub fn stage_source(src: &str, stage: &str, es: bool) -> String {
     let body: Vec<&str> = src
         .lines()
-        .map(|l| match l.trim_start().starts_with("#version") {
+        .map(|l| match is_dropped(l) {
             // Blanked rather than removed, so a compile error still names the right line.
             true => "",
             false => l,
@@ -110,6 +114,17 @@ pub fn stage_source(src: &str, stage: &str, es: bool) -> String {
     let version = if es { "" } else { "#version 330 core\n" };
     // `#line 1` puts the line numbers in the driver's log back on the file's own.
     format!("{version}#define {stage}\n#line 1\n{}\n", body.join("\n"))
+}
+
+fn is_dropped(line: &str) -> bool {
+    let Some(directive) = line.trim_start().strip_prefix('#') else {
+        return false;
+    };
+    let directive = directive.trim_start();
+    directive.starts_with("version")
+        || directive
+            .strip_prefix("pragma")
+            .is_some_and(|rest| rest.trim_start().starts_with("parameter"))
 }
 
 pub fn wants_linear(src: &str) -> bool {
@@ -349,6 +364,38 @@ mod tests {
         let s = stage_source(SHADER, "VERTEX", false);
         assert!(s.starts_with("#version 330 core\n#define VERTEX\n"));
         assert_eq!(s.matches("#version").count(), 1);
+    }
+
+    #[test]
+    fn parameter_lines_are_blanked_and_the_line_numbers_kept() {
+        let src = "#pragma parameter BLEND \"Frame blend\" 0.5 0.0 1.0 0.05\n  # pragma  parameter X \"x\" 1.0 0.0 1.0 0.1\nvoid main() {}\n";
+        let s = stage_source(src, "FRAGMENT", true);
+        assert!(!s.contains('"'), "{s}");
+        assert!(!s.contains("parameter"), "{s}");
+        let body: Vec<&str> = s.split("#line 1\n").nth(1).unwrap().lines().collect();
+        assert_eq!(body[2], "void main() {}", "the lines moved: {body:?}");
+        let kept = stage_source(SHADER, "FRAGMENT", true);
+        assert!(kept.contains("#pragma slot_filter linear"));
+    }
+
+    #[test]
+    fn every_shipped_shader_reaches_the_driver_without_a_parameter_line() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../card/Shaders");
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_some_and(|e| e == "glsl") {
+                let src = std::fs::read_to_string(&path).unwrap();
+                for stage in ["VERTEX", "FRAGMENT"] {
+                    let s = stage_source(&src, stage, true);
+                    assert!(
+                        !s.lines()
+                            .any(|l| l.contains("parameter") && l.contains('"')),
+                        "{} still has a parameter line",
+                        path.display()
+                    );
+                }
+            }
+        }
     }
 
     #[test]

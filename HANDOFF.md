@@ -424,6 +424,11 @@ Then, on build 5135f74:
   palettes on. Checked Gambatte recolours at run time on Link's Awakening. The `gb_palettes.rs`
   tests run on a header-only cart when Catrap is not on the machine.
 - `task dist:device` and `task clean` keep `dist-device/{Games,Cheats,Wallpapers}`.
+- Blend Grid failed on every core: the device's driver refuses the quotes of its `#pragma
+  parameter` lines (`0:13: L0001: Unknown character '"'(34)`, from the user's slot.log; desktop
+  Mesa and glslangValidator ignore them). `retroshader::stage_source` now blanks those lines, as
+  it does `#version`, so RetroArch shaders with parameters load too. The other three loaded.
+- The card log: `mmcblk0p7` was set read-only at boot over FAT errors; fsck asked of the user.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 
