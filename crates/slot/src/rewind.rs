@@ -2,6 +2,17 @@ use std::collections::VecDeque;
 
 pub const REWIND_BYTES: usize = 20 * 1024 * 1024;
 
+/// Fragile: how much state the emulator thread saves for rewind a frame, at most. A larger
+/// state is saved less often: a PlayStation one (4 MB) every 17 frames, rather than every
+/// other frame as a GBA one, which would take a good part of each frame on the device.
+const STATE_BYTES_A_FRAME: usize = 256 * 1024;
+
+/// Every how many frames to save a state of this size for rewind, never more often than
+/// `fastest`.
+pub fn snapshot_every(state_len: usize, fastest: u32) -> u32 {
+    (state_len.div_ceil(STATE_BYTES_A_FRAME) as u32).max(fastest)
+}
+
 pub struct Rewind {
     budget: usize,
     cur: Option<Vec<u8>>,
@@ -134,5 +145,18 @@ impl RewindThread {
 
     pub fn fill(&self) -> u8 {
         self.fill.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod every_tests {
+    use super::snapshot_every;
+
+    #[test]
+    fn a_state_is_saved_less_often_the_larger_it_is() {
+        assert_eq!(snapshot_every(400 * 1024, 2), 2, "a GBA state");
+        assert_eq!(snapshot_every(21 * 1024, 2), 2, "an NES state");
+        assert_eq!(snapshot_every(804 * 1024, 2), 4, "a Snes9x state");
+        assert_eq!(snapshot_every(4352 * 1024, 2), 17, "a PCSX ReARMed state");
     }
 }

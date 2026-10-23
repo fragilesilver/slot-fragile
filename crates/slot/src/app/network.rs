@@ -443,6 +443,13 @@ impl App {
         true
     }
 
+    /// Whether the open page's footer spreads a legend across the middle, where the slot is,
+    /// so the slot is drawn plugged under it: the Networks page on a saved network.
+    pub(super) fn footer_spread(&self) -> bool {
+        matches!(self.overlay.open, Some(Overlay::Networks(_)))
+            && self.lit_network().is_some_and(|n| n.saved)
+    }
+
     /// The Networks page's footer: Back, then Forget for a saved network, then Join. Says
     /// whether it drew.
     pub(super) fn draw_networks_legend(

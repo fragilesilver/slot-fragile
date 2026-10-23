@@ -141,6 +141,21 @@ fn a_playstation_game_keeps_l2_and_r2_and_a_gba_game_fast_forwards_on_r2() {
         "R2 fast forwards a PlayStation game"
     );
     assert!(!fires(&a, A::RewindStart), "L2 rewinds a PlayStation game");
+    let chorded = |a: &App, action: A| {
+        let mut entries = a.binding_table().entries();
+        a.yield_to_pad(&mut entries);
+        entries
+            .iter()
+            .any(|e| e.action == action && e.chord.modifier == Some(slot_input::Mod::Select))
+    };
+    assert!(
+        chorded(&a, A::FfStart),
+        "PlayStation fast forward is not on SELECT+R2"
+    );
+    assert!(
+        chorded(&a, A::RewindStart),
+        "PlayStation rewind is not on SELECT+L2"
+    );
     let (_d, a) = playing(Platform::Snes);
     assert!(fires(&a, A::FfStart), "the SNES pad has no R2 for the game");
     let (_d, a) = playing(Platform::Gba);
@@ -207,4 +222,74 @@ fn two_buttons_clash_only_on_a_pad_that_has_both() {
     assert!(G::on_one_pad(G::X, G::A), "the SNES pad has both");
     assert!(G::on_one_pad(G::L2, G::R), "the PlayStation pad has both");
     assert!(G::on_one_pad(G::TurboA, G::L), "the GBA pad has both");
+}
+
+#[test]
+fn select_and_r2_fast_forward_a_playstation_game_while_held() {
+    use slot_input::{Action as A, Context, Gestures, RawEvent};
+    let (_d, a) = playing(Platform::PlayStation);
+    let mut entries = a.binding_table().entries();
+    a.yield_to_pad(&mut entries);
+    let mut g = Gestures::new();
+    g.set_entries(entries);
+    g.set_context(Context::Game);
+    let mut seen = Vec::new();
+    for (at, ev) in [
+        (0, RawEvent::Down(Btn::Select)),
+        (40, RawEvent::Down(Btn::R2)),
+        (400, RawEvent::Up(Btn::R2)),
+        (440, RawEvent::Up(Btn::Select)),
+        (900, RawEvent::Down(Btn::R2)),
+        (950, RawEvent::Up(Btn::R2)),
+    ] {
+        seen.extend(g.feed(ev, at));
+        seen.extend(g.tick(at));
+    }
+    let ff: Vec<_> = seen
+        .iter()
+        .filter(|x| matches!(x, A::FfStart | A::FfStop))
+        .collect();
+    assert_eq!(ff, [&A::FfStart, &A::FfStop], "{seen:?}");
+}
+
+#[test]
+fn the_playstation_guide_tells_of_select_r2_and_lists_its_own_buttons() {
+    let (_d, mut a) = playing(Platform::PlayStation);
+    a.apply(Action::QuickMenu);
+    for row in [QuickRow::Settings, QuickRow::PlayGuide] {
+        for _ in 0..12 {
+            if a.in_game_menu() == Some(row) {
+                break;
+            }
+            press(&mut a, Btn::Down);
+        }
+        press(&mut a, Btn::A);
+    }
+    let page = a.overlay_page().expect("the guide did not open").clone();
+    let value = |label: &str| {
+        page.rows()
+            .iter()
+            .find(|r| r.label == label)
+            .and_then(|r| r.value.clone())
+    };
+    assert_eq!(value("Fast Forward").as_deref(), Some("SEL+R2"));
+    assert_eq!(value("Rewind").as_deref(), Some("SEL+L2"));
+    assert!(value("R2 Button").is_some(), "the pad's R2 is not listed");
+    assert!(value("Turbo A").is_none(), "a PlayStation pad has no turbo");
+}
+
+#[test]
+fn every_menu_value_answers_on_every_new_system() {
+    for platform in [Platform::Nes, Platform::Snes, Platform::PlayStation] {
+        let (_d, a) = playing(platform);
+        // The menu works out every row's value as it draws; a row that stood for itself
+        // (Color Correction on the NES) asked itself forever.
+        let values: Vec<_> = QuickRow::ALL.iter().map(|r| a.quick_value(*r)).collect();
+        assert_eq!(values.len(), QuickRow::ALL.len(), "{platform:?}");
+        assert_eq!(
+            a.quick_value(QuickRow::ColourCorrection),
+            None,
+            "{platform:?}"
+        );
+    }
 }

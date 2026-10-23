@@ -42,10 +42,11 @@ impl Prefetch {
         self.read = Some(rom.to_path_buf());
         let turn = self.turn.clone();
         let mine = turn.fetch_add(1, Ordering::Relaxed) + 1;
-        let path = rom.to_path_buf();
+        // Fragile: a disc game reads its first disc's start, not an .m3u or a whole disc.
+        let (path, most) = crate::discs::prefetched(rom);
         self.worker = std::thread::Builder::new()
             .name("slot-prefetch".into())
-            .spawn(move || read_through(&path, &turn, mine))
+            .spawn(move || read_through(&path, &turn, mine, most))
             .ok();
     }
 
@@ -58,14 +59,14 @@ impl Prefetch {
     }
 }
 
-fn read_through(path: &Path, turn: &AtomicU64, mine: u64) -> u64 {
+fn read_through(path: &Path, turn: &AtomicU64, mine: u64, most: u64) -> u64 {
     let start = Instant::now();
     let Ok(mut file) = std::fs::File::open(path) else {
         return 0;
     };
     let mut buf = vec![0u8; CHUNK];
     let mut total = 0u64;
-    while turn.load(Ordering::Relaxed) == mine {
+    while turn.load(Ordering::Relaxed) == mine && total < most {
         match file.read(&mut buf) {
             Ok(0) | Err(_) => break,
             Ok(n) => total += n as u64,

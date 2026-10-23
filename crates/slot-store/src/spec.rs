@@ -40,12 +40,11 @@ pub struct Spec {
     pub bezels: bool,
     /// Whether its games read L and R; when they do not, slot keeps the shoulders.
     pub shoulders: bool,
-    /// Whether its games read L2 and R2; when they do, rewind and fast forward give them up.
+    /// Whether its games read L2 and R2; when they do, rewind and fast forward move to SELECT
+    /// with them.
     pub triggers: bool,
     /// Whether X and Y can fire A and B as turbo buttons. Not on a pad that has its own X and Y.
     pub turbo: bool,
-    /// Whether its save states are small enough to keep a rewind buffer of.
-    pub rewind: bool,
     /// Whether two of it can play over the wireless link.
     pub link: bool,
     /// The files its core boots best from, in the BIOS folder.
@@ -72,7 +71,6 @@ const CONSOLE: Spec = Spec {
     shoulders: false,
     triggers: false,
     turbo: true,
-    rewind: true,
     link: false,
     bios: &[],
     discs: false,
@@ -150,7 +148,6 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         shoulders: true,
         triggers: true,
         turbo: false,
-        rewind: false,
         bios: &[
             "scph5501.bin",
             "scph1001.bin",

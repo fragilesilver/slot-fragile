@@ -20,6 +20,10 @@ fn fixed(what: &str, buttons: &str) -> ListRow {
 
 impl App {
     fn bound_row(&self, row: QuickRow) -> ListRow {
+        // Fragile: a shortcut the playing pad moved to SELECT says so.
+        if let Some(text) = self.guide_moved(row) {
+            return ListRow::new(row.label()).with_value(text);
+        }
         let text = match self.binding_of(row) {
             Some(b) => Binding::text(Some(b)),
             None => "Not set".into(),
@@ -67,6 +71,7 @@ impl App {
                 .filter(|r| {
                     self.state.turbo || !matches!(r, QuickRow::GameTurboA | QuickRow::GameTurboB)
                 })
+                .filter(|r| self.guide_has_button(*r))
                 .map(|r| self.bound_row(r)),
         );
         rows.extend([

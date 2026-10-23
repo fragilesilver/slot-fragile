@@ -384,8 +384,32 @@ Phase 12 (NES, SNES, PS1) follows; then Phases 13–17 in `FRAGILE_PLAN.md`.
     clashes with a pad's own X/Y/L2/R2, since it gives way to them in game.
   - Tests: `slot/tests/systems.rs`, and a render of a SNES game at Integer Scale in
     `render_media_shelves.rs` (on the mock core, 256x224).
-- Phase 12 is code-complete. Not run on the device yet: any NES, SNES or PS1 game, disc swaps,
-  the BIOS note, Integer Scale on a native system.
+- Phase 12 is code-complete.
+
+### Second device test (2026-10-23, build 4ad5451)
+
+The user ran Phase 12 on the Pro with their own games (kept in the git-ignored
+`dist-device/Games`, with discs of an .m3u in `.hidden/`). Shelves fine. Found, reproduced on
+the PC with the host cores and those games, and fixed:
+- NES and SNES crashed and PS1 froze on MENU: `quick_value` asked `ColourCorrection` of a
+  system with no row of its own, which `playing_row` gave back unchanged, so it asked itself
+  forever (stack overflow); then the in-game menu indexed its three Game Boy bezel faces by
+  the NES's platform number. Both guarded; `systems.rs` and `render_media_shelves.rs` open the
+  menu over each new system. The Disc row ("1 of 2") showed once the menu opened.
+- Wi-Fi: Forget sat across the open slot. The quick menu now plugs the slot under a page whose
+  footer spreads a legend across the middle (`App::footer_spread`), as under a binding row.
+  Every footer page's render was checked; no other overlaps.
+- PS1 fast forward and rewind: with R2/L2 the game's, they move to SEL+R2 / SEL+L2 (in place of
+  the Game Boy palette shortcuts, which do nothing there); the Button Guide says so and lists
+  only the playing pad's buttons. `Spec::rewind` was never read (PS1 was snapshotted every other
+  frame, 4.3 MB each); it is gone, and a state is saved for rewind every
+  `rewind::snapshot_every` frames by size (256 KB a frame: GBA 2, Snes9x 4, PCSX 17).
+- Prefetch read an .m3u's text and whole disc images; it now reads an .m3u's first disc, and
+  of any disc image only its first 32 MB.
+- Open: "GBA card shader failed to load". The four shipped shaders pass `glslangValidator` as
+  GLSL ES 1.00 exactly as the device compiles them, and are pure ASCII; the driver's message is
+  in slot.log (`slot: shader: ...`) on the device, asked of the user.
+- The card's log shows FAT errors on the games partition (`invalid cluster chain`).
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

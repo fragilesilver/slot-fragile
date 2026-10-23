@@ -998,7 +998,13 @@ impl App {
         }
         match row {
             QuickRow::Shader | QuickRow::ColourCorrection => {
-                self.quick_value(self.playing_row(row))
+                // Fragile: a system with no row of its own for it (the NES has no colour
+                // correction) has no value, rather than asking itself forever.
+                let own = self.playing_row(row);
+                if own == row {
+                    return None;
+                }
+                self.quick_value(own)
             }
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
             QuickRow::FastForwardSound => Some(QuickValue::flag(self.state.ff_sound)),
@@ -1168,7 +1174,9 @@ impl App {
         dim: (TexId, u32, u32),
         lit: (TexId, u32, u32),
     ) {
-        self.quick_bezel_faces[bezel_slot(platform)] = Some([dim, lit]);
+        if let Some(slot) = self.quick_bezel_faces.get_mut(bezel_slot(platform)) {
+            *slot = Some([dim, lit]);
+        }
     }
 
     pub fn bezel_files(&self, platform: Platform) -> Vec<String> {
@@ -4007,7 +4015,12 @@ impl App {
                 gba_bezel: None,
                 gb_bezel: None,
                 gbc_bezel: None,
-                bezel: self.quick_bezel_faces[bezel_slot(self.playing_platform())],
+                // Fragile: only the Game Boy family has bezel faces.
+                bezel: self
+                    .quick_bezel_faces
+                    .get(bezel_slot(self.playing_platform()))
+                    .copied()
+                    .flatten(),
                 over_game: true,
                 footer_legends: false,
                 footer_top,
@@ -4084,7 +4097,8 @@ impl App {
             }
             // The carousel menu is not a game, so the mouth stays empty, in the
             // same place the shelf already had it.
-            Phase::QuickMenu { row } if row.binds() => {
+            // Fragile: a page with a legend across the middle plugs the slot too.
+            Phase::QuickMenu { row } if row.binds() || self.footer_spread() => {
                 slot_ui::draw_plugged_slot(self.canvas(), self.plugged_face, out);
                 Some(*row)
             }

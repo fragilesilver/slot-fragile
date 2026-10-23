@@ -192,3 +192,47 @@ fn integer_scale_draws_a_snes_game_at_twice_its_size_in_the_middle() {
         "the picture is not there at all"
     );
 }
+
+/// The in-game menu opens over a game on each new system: the menu's bezel faces are the Game
+/// Boy family's alone, and asking for the NES's was out of bounds.
+#[test]
+fn the_in_game_menu_opens_over_a_game_on_each_new_system() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    for (dir, file) in [
+        ("NES", "Metroid.nes"),
+        ("SNES", "Super Metroid.sfc"),
+        ("PS", "Final Fantasy VII.cue"),
+    ] {
+        let d = tmp_root_with_carts(&[]);
+        let games = d.path().join("Games").join(dir);
+        std::fs::create_dir_all(&games).unwrap();
+        std::fs::write(games.join(file), vec![0u8; 0x8000]).unwrap();
+        clocked(d.path());
+        let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+        f.upload_faces(&mut c);
+        let mut input = Script(VecDeque::new());
+        f.advance(&mut input);
+        settle(&mut f, &mut c, &mut input);
+        tap(&mut f, &mut input, Btn::A);
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        while std::time::Instant::now() < until {
+            f.advance(&mut input);
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        tap(&mut f, &mut input, Btn::Menu);
+        for _ in 0..60 {
+            f.advance(&mut input);
+            f.compose(&mut c);
+        }
+        assert!(
+            f.app().in_game_menu().is_some(),
+            "no menu over the {dir} game"
+        );
+        composed(&mut f, &mut c, &format!("menu-{dir}"));
+    }
+}

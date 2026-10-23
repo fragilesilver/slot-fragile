@@ -33,6 +33,26 @@ pub fn has_bios(root: &Path, platform: Platform) -> Option<bool> {
     )
 }
 
+/// What the shelf reads ahead of a game, and how much of it: all of a cart, but for a game on
+/// discs only the first disc's start, which is what booting it reads; an .m3u's first disc.
+pub fn prefetched(rom: &Path) -> (std::path::PathBuf, u64) {
+    const DISC_START: u64 = 32 << 20;
+    let is = |ext: &str| {
+        rom.extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case(ext))
+    };
+    if is("m3u") {
+        if let Some(first) = slot_store::discs::members(rom).into_iter().next() {
+            return (first, DISC_START);
+        }
+    }
+    if ["cue", "chd", "pbp", "bin", "iso"].into_iter().any(is) {
+        return (rom.to_path_buf(), DISC_START);
+    }
+    (rom.to_path_buf(), u64::MAX)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -43,6 +63,22 @@ mod tests {
         assert_eq!(unpack(pack(Some((0, 1)))), Some((0, 1)));
         assert_eq!(unpack(pack(None)), None);
         assert_eq!(unpack(pack(Some((0, 0)))), None);
+    }
+
+    #[test]
+    fn an_m3u_reads_ahead_its_first_disc_and_a_disc_only_its_start() {
+        let d = tempfile::tempdir().unwrap();
+        let m3u = d.path().join("Game.m3u");
+        std::fs::write(
+            &m3u,
+            ".hidden/Game (Disc 1).chd\n.hidden/Game (Disc 2).chd\n",
+        )
+        .unwrap();
+        let (path, most) = prefetched(&m3u);
+        assert_eq!(path, d.path().join(".hidden/Game (Disc 1).chd"));
+        assert_eq!(most, 32 << 20);
+        let gba = d.path().join("Emerald.gba");
+        assert_eq!(prefetched(&gba), (gba.clone(), u64::MAX));
     }
 
     #[test]

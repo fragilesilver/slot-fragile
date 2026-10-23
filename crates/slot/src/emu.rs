@@ -599,6 +599,7 @@ impl Worker {
         let mut gated = (false, false);
         let rewind = RewindThread::spawn(REWIND_BYTES);
         let mut since_snapshot = 0;
+        let mut snapshot_every = SNAPSHOT_EVERY;
         let mut cost = FrameCost::seed();
         let mut post_cost = PRESENT - FAST_TARGET;
         let mut fast_span: Option<(Instant, Duration)> = None;
@@ -840,9 +841,11 @@ impl Worker {
                 {
                     since_snapshot = 0;
                 }
-                if since_snapshot >= SNAPSHOT_EVERY {
+                if since_snapshot >= snapshot_every {
                     since_snapshot = 0;
                     if let Ok(state) = core.serialize() {
+                        // Fragile: a large state is saved less often.
+                        snapshot_every = crate::rewind::snapshot_every(state.len(), SNAPSHOT_EVERY);
                         rewind.push(state);
                         self.shared
                             .rewind_fill
