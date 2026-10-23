@@ -28,6 +28,8 @@ const ACHIEVEMENTS_FRESH_MS: u64 = 2000;
 #[derive(Default)]
 pub struct NetworkState {
     wifi: Option<Wifi>,
+    pub(super) bluetooth: Option<crate::bluetooth::Bluetooth>,
+    pub(super) bt_view: crate::bluetooth::BtView,
     time: Option<Box<dyn TimeSync>>,
     /// What is being typed and what for, with what went wrong last.
     typing: Option<(Keyboard, Typed, Option<String>)>,
@@ -90,6 +92,13 @@ impl App {
             wifi.turn_on();
         }
         self.overlay.network.wifi = Some(wifi);
+        if crate::bluetooth::present() {
+            let bt = crate::bluetooth::Bluetooth::for_card(root);
+            if self.bluetooth_on() {
+                bt.turn_on();
+            }
+            self.overlay.network.bluetooth = Some(bt);
+        }
         self.overlay.network.time = Some(crate::timesync::for_build());
         crate::cheevos::set_enabled(self.cheevos_on());
     }
@@ -119,27 +128,35 @@ impl App {
             .map_or(Sync::Off, |t| t.state())
     }
 
-    /// The rows that only mean something with the Wi-Fi on.
+    /// The rows that only mean something with the Wi-Fi or Bluetooth on.
     pub(super) fn network_hidden(&self) -> Vec<QuickRow> {
-        match self.wifi_on() {
-            true => Vec::new(),
-            false => vec![
+        let mut hidden = Vec::new();
+        if !self.wifi_on() {
+            hidden.extend([
                 QuickRow::WifiNetworks,
                 QuickRow::WifiStatus,
                 QuickRow::WifiIp,
-            ],
+            ]);
         }
+        if self.overlay.network.bluetooth.is_none() {
+            hidden.extend([QuickRow::Bluetooth, QuickRow::BtDevices]);
+        } else if !self.bluetooth_on() {
+            hidden.push(QuickRow::BtDevices);
+        }
+        hidden
     }
 
     pub(super) fn network_value(&self, row: QuickRow) -> Option<Option<QuickValue>> {
         match row {
             QuickRow::WifiPower => Some(Some(QuickValue::flag(self.wifi_on()))),
+            QuickRow::Bluetooth => Some(Some(QuickValue::flag(self.bluetooth_on()))),
             QuickRow::Cheevos => Some(Some(QuickValue::flag(self.cheevos_on()))),
             QuickRow::WifiStatus
             | QuickRow::WifiIp
             | QuickRow::TimeSync
             | QuickRow::CheevosAccount
-            | QuickRow::GameArt => Some(None),
+            | QuickRow::GameArt
+            | QuickRow::BtDevices => Some(None),
             _ => None,
         }
     }
@@ -202,6 +219,17 @@ impl App {
                 self.extras.set_flag(CHEEVOS, on);
                 self.save_extras();
                 crate::cheevos::set_enabled(on);
+            }
+            QuickRow::Bluetooth => {
+                let on = !self.bluetooth_on();
+                self.extras.set_flag(crate::app::bluetooth::BLUETOOTH, on);
+                self.save_extras();
+                if let Some(bt) = &self.overlay.network.bluetooth {
+                    match on {
+                        true => bt.turn_on(),
+                        false => bt.turn_off(),
+                    }
+                }
             }
             _ => return false,
         }
@@ -448,8 +476,9 @@ impl App {
     /// Whether the open page's footer spreads a legend across the middle, where the slot is,
     /// so the slot is drawn plugged under it: the Networks page on a saved network.
     pub(super) fn footer_spread(&self) -> bool {
-        matches!(self.overlay.open, Some(Overlay::Networks(_)))
-            && self.lit_network().is_some_and(|n| n.saved)
+        (matches!(self.overlay.open, Some(Overlay::Networks(_)))
+            && self.lit_network().is_some_and(|n| n.saved))
+            || matches!(self.overlay.open, Some(Overlay::Bluetooth(_)))
     }
 
     /// The Networks page's footer: Back, then Forget for a saved network, then Join. Says

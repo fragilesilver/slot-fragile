@@ -453,6 +453,32 @@ Then, on build 5135f74:
 - Automatic (extras `game_art_auto`, default on): with the internet up and scraper idle, finds
   games with no label not yet asked for since boot.
 
+## Phase 14: Bluetooth (2026-10-23)
+
+- Bluetooth radio driver (`card/System/slotbt.sh`, `card/test-slotbt.sh`): drives BaseOS's
+  `bluetoothctl` under timeouts and manages BlueALSA (`bluealsa -p a2dp-source`). Detects
+  paired and nearby devices, icon types, and connection state. Tested via mock bluetoothctl in `test:card`.
+- Actor module (`slot/src/bluetooth.rs`): actor thread with `DeviceBt` (on device) and `SimBt` (host),
+  handling discovery, pairing without PIN (`--agent NoInputNoOutput`), connecting, disconnecting, and
+  forgetting devices.
+- Hardware detection (`bluetooth::present()`): checks `crate::baseos::var("BASEOS_BLUETOOTH")`. Devices
+  with no radio (e.g. RG28XX) hide Bluetooth rows completely.
+- Link play coexistence: checks `LINK_MARK` (`/run/slotlink.session`). Steps Bluetooth aside during active
+  link play to eliminate radio contention on the shared RTL8821CS Wi-Fi/BT combo chip, automatically
+  resuming when the link session ends.
+- Dynamic ALSA route switching (`slot/src/audio/alsa.rs`): added `set_route(device: Option<String>)` with
+  `ROUTE_CHANGES` atomic counter. Audio dynamically routes to `bluealsa:DEV={mac},PROFILE=a2dp` when
+  headphones connect, and drops cleanly back to default audio when disconnected.
+- QuickMenu & UI integration:
+  - Network menu has `QuickRow::Bluetooth` (On/Off toggle, stored in `Config/extras.state`) and
+    `QuickRow::BtDevices` ("Devices", opens `Overlay::Bluetooth`).
+  - `BtDevices` is hidden when Bluetooth is off or when no radio hardware exists.
+  - Bluetooth device list page displays connected status, pairing/connecting state, error hints,
+    and footer legend spreading (B Back, Y Search, X Forget, A Connect/Disconnect/Pair).
+- Tests: unit test suite in `bluetooth.rs` (6 tests) and integration test suite in `tests/bluetooth.rs`
+  (5 tests) cover toggle persistence, device sorting, headphone sound routing, error reporting,
+  forgetting, and overlay navigation.
+
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 
 The Phase 1 work compiled first time and `task test` passes, with clippy `-D warnings` clean.

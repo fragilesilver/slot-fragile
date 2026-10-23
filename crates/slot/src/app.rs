@@ -30,6 +30,7 @@ use crate::persist::{self, Snapshot};
 use crate::video_mode::{self, VideoMode};
 
 mod battery;
+mod bluetooth;
 mod cheats;
 mod cores;
 mod discs;
@@ -1156,7 +1157,9 @@ impl App {
             | QuickRow::MotionBlurGb
             | QuickRow::MotionBlurGbc
             | QuickRow::ControlsGuide
-            | QuickRow::PlayGuide => None,
+            | QuickRow::PlayGuide
+            | QuickRow::Bluetooth
+            | QuickRow::BtDevices => None,
         }
     }
 
@@ -2777,7 +2780,9 @@ impl App {
             | QuickRow::MotionBlurGb
             | QuickRow::MotionBlurGbc
             | QuickRow::ControlsGuide
-            | QuickRow::PlayGuide => {}
+            | QuickRow::PlayGuide
+            | QuickRow::Bluetooth
+            | QuickRow::BtDevices => {}
         }
     }
 
@@ -2994,7 +2999,9 @@ impl App {
             | QuickRow::MotionBlurGb
             | QuickRow::MotionBlurGbc
             | QuickRow::ControlsGuide
-            | QuickRow::PlayGuide => return,
+            | QuickRow::PlayGuide
+            | QuickRow::Bluetooth
+            | QuickRow::BtDevices => return,
         }
         self.persist();
     }
@@ -3225,6 +3232,7 @@ impl App {
     pub fn update(&mut self, dt: f32) {
         self.clock += dt as f64 * 1000.0;
         self.network_tick();
+        self.bluetooth_tick();
         self.game_art_tick();
         if self.name_pending && self.shelf_platform.face.is_some() {
             self.name_pending = false;

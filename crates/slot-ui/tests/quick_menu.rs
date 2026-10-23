@@ -204,7 +204,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::ScreenNes,
             QuickRow::ScreenSnes,
             QuickRow::ScreenPs,
-            QuickRow::GameArt
+            QuickRow::GameArt,
+            QuickRow::BtDevices,
         ]
     );
     for page in [

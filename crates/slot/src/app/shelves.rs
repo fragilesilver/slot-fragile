@@ -51,6 +51,7 @@ type Built = (
     [Vec<UndoFace>; 5],
     Vec<UndoFace>,
     Vec<UndoFace>,
+    Vec<UndoFace>,
 );
 
 /// What the keyboard is typing now and how its page reads: the field, the line under it, the
@@ -82,6 +83,8 @@ pub struct Collections {
     legends: [Vec<(TexId, u32)>; 5],
     /// A Join and X Forget, dark then light.
     pub(super) network_legends: Vec<(TexId, u32)>,
+    /// Search, Forget, Connect, Disconnect, Pair for Bluetooth, dark then light.
+    pub(super) bt_legends: Vec<(TexId, u32)>,
     building: Option<Receiver<Built>>,
     faces_for: Option<(String, String, usize)>,
     match_slots: Vec<Option<TexId>>,
@@ -594,6 +597,12 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                                 slot_ui::list_legend_faces(slot_ui::footer_ink(light))
                             })
                             .collect();
+                        let bluetooth: Vec<UndoFace> = [false, true]
+                            .into_iter()
+                            .flat_map(|light| {
+                                slot_ui::bluetooth_legend_faces(slot_ui::footer_ink(light))
+                            })
+                            .collect();
                         let _ = tx.send((
                             slot_ui::keyboard_key_faces(),
                             [
@@ -605,6 +614,7 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                             ],
                             network,
                             lists,
+                            bluetooth,
                         ));
                     });
                 if spawned.is_ok() {
@@ -612,12 +622,16 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                 }
             }
             Some(rx) => {
-                if let Ok((keys, legends, network, lists)) = rx.try_recv() {
+                if let Ok((keys, legends, network, lists, bluetooth)) = rx.try_recv() {
                     c.list_legends = lists
                         .iter()
                         .map(|f| (compositor.create_texture(f.w, f.h, &f.rgba), f.w))
                         .collect();
                     c.network_legends = network
+                        .iter()
+                        .map(|f| (compositor.create_texture(f.w, f.h, &f.rgba), f.w))
+                        .collect();
+                    c.bt_legends = bluetooth
                         .iter()
                         .map(|f| (compositor.create_texture(f.w, f.h, &f.rgba), f.w))
                         .collect();

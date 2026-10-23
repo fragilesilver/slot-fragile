@@ -27,7 +27,7 @@ pub use scraped::{box_hue, box_label, hue_of, scraped_label};
 mod power_menu;
 mod quick_menu;
 mod quick_menu_extras;
-pub use quick_menu_extras::{list_legend_faces, network_legend_faces};
+pub use quick_menu_extras::{bluetooth_legend_faces, list_legend_faces, network_legend_faces};
 mod rebuild;
 mod refusal;
 mod shelf;

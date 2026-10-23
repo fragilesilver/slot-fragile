@@ -18,6 +18,8 @@ pub enum Overlay {
     Cheats(ListPage),
     /// The Wi-Fi networks in range, from Main menu → Network.
     Networks(ListPage),
+    /// The Bluetooth devices in range or paired, from Main menu → Network → Devices.
+    Bluetooth(ListPage),
     /// The playing game's achievements, over the game.
     Achievements(ListPage),
     /// Main menu → Network → Game Art.
@@ -75,6 +77,7 @@ impl Overlay {
             | Overlay::Lists(page, _)
             | Overlay::Cheats(page)
             | Overlay::Networks(page)
+            | Overlay::Bluetooth(page)
             | Overlay::Achievements(page)
             | Overlay::GameArt(page) => page,
         }
@@ -87,6 +90,7 @@ impl Overlay {
             | Overlay::Lists(page, _)
             | Overlay::Cheats(page)
             | Overlay::Networks(page)
+            | Overlay::Bluetooth(page)
             | Overlay::Achievements(page)
             | Overlay::GameArt(page) => page,
         }
@@ -143,6 +147,10 @@ impl App {
                 self.open_networks();
                 return true;
             }
+            QuickRow::BtDevices => {
+                self.open_bluetooth();
+                return true;
+            }
             QuickRow::CheevosAccount => {
                 self.start_cheevos_sign_in();
                 return true;
@@ -177,6 +185,7 @@ impl App {
             Some(Overlay::Guide(_, from)) => Some(*from),
             Some(Overlay::Cheats(_)) => Some(From::InGame),
             Some(Overlay::Networks(_)) => Some(From::Menu),
+            Some(Overlay::Bluetooth(_)) => Some(From::Menu),
             Some(Overlay::GameArt(_)) => Some(From::Menu),
             Some(Overlay::Achievements(_)) => Some(From::InGame),
             _ => None,
@@ -209,6 +218,7 @@ impl App {
             Some(Overlay::Lists(..)) => matches!(self.phase, Phase::Shelf),
             Some(Overlay::Cheats(_)) => self.in_game_menu.is_some(),
             Some(Overlay::Networks(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
+            Some(Overlay::Bluetooth(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
             Some(Overlay::GameArt(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
             Some(Overlay::Achievements(_)) => self.in_game_menu.is_some(),
             Some(Overlay::Details(_)) => matches!(self.phase, Phase::About),
@@ -220,6 +230,7 @@ impl App {
         if super::shelves::lists_input(self, action)
             || self.cheats_input(action)
             || self.networks_input(action)
+            || self.bluetooth_input(action)
             || self.game_art_input(action)
         {
             return true;
@@ -284,6 +295,9 @@ impl App {
         };
         let legend = [faces.legend, faces.legend_light][self.light() as usize];
         if self.draw_networks_legend(legend[0], y, out) {
+            return true;
+        }
+        if self.draw_bluetooth_legend(legend[0], y, out) {
             return true;
         }
         self.draw_side_legend(legend[0], false, y, out);

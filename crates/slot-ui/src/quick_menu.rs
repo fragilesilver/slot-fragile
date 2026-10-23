@@ -140,10 +140,13 @@ pub enum QuickRow {
     GameR2,
     GameArt,
     ThisLabel,
+    // --- extras: bluetooth ---
+    Bluetooth,
+    BtDevices,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 128] = [
+    pub const ALL: [QuickRow; 130] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -273,6 +276,9 @@ impl QuickRow {
         QuickRow::GameR2,
         QuickRow::GameArt,
         QuickRow::ThisLabel,
+        // --- extras: bluetooth ---
+        QuickRow::Bluetooth,
+        QuickRow::BtDevices,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -538,6 +544,8 @@ impl QuickRow {
             | QuickRow::WifiNetworks
             | QuickRow::WifiStatus
             | QuickRow::WifiIp
+            | QuickRow::Bluetooth
+            | QuickRow::BtDevices
             | QuickRow::TimeSync
             | QuickRow::Cheevos
             | QuickRow::CheevosAccount
@@ -673,6 +681,8 @@ impl QuickRow {
             QuickRow::WifiNetworks => "Networks",
             QuickRow::WifiStatus => "Status",
             QuickRow::WifiIp => "IP Address",
+            QuickRow::Bluetooth => "Bluetooth",
+            QuickRow::BtDevices => "Devices",
             QuickRow::TimeSync => "Time Sync",
             QuickRow::Cheevos => "RetroAchievements",
             QuickRow::CheevosAccount => "Account",
@@ -799,6 +809,8 @@ impl QuickRow {
             QuickRow::WifiNetworks => "Pick a network to join.",
             QuickRow::WifiStatus => "The network the Wi-Fi is on.",
             QuickRow::WifiIp => "The address the network gave.",
+            QuickRow::Bluetooth => "Connect wireless controllers and headphones.",
+            QuickRow::BtDevices => "Pair, connect or disconnect Bluetooth devices.",
             QuickRow::TimeSync => "Set the clock from the internet when online.",
             QuickRow::Cheevos => "Earn achievements, softcore, while you play.",
             QuickRow::CheevosAccount => "Sign in to RetroAchievements.",
@@ -878,6 +890,7 @@ impl QuickRow {
                 | QuickRow::PlayCheats
                 | QuickRow::Network
                 | QuickRow::WifiNetworks
+                | QuickRow::BtDevices
                 | QuickRow::CheevosAccount
                 | QuickRow::GameArt
                 | QuickRow::PlayAchievements
