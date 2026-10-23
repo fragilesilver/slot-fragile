@@ -803,3 +803,42 @@ fn a_saved_network_plugs_the_slot_under_its_forget_legend() {
         "the slot under Forget is still open ({lit:?} lit)"
     );
 }
+
+/// Fragile: Main menu → Network → Game Art (Phase 13) draws its status, its systems and the
+/// ScreenScraper row, the pointer on All systems.
+#[test]
+fn the_game_art_page_renders() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::Menu);
+    for row in [QuickRow::Network, QuickRow::GameArt] {
+        for _ in 0..row.position(&f.app().hidden_rows()) {
+            tap(&mut f, &mut input, Btn::Down);
+        }
+        tap(&mut f, &mut input, Btn::A);
+    }
+    for _ in 0..50 {
+        f.compose(&mut c);
+        f.advance(&mut input);
+    }
+    let page = f
+        .app()
+        .overlay_page()
+        .expect("Game Art did not open")
+        .clone();
+    assert_eq!(page.rows()[1].label, "All systems");
+    let px = composed(&mut f, &mut c, "game-art");
+    beside(
+        "All systems",
+        pointer(&px, slot_ui::list_row_top(&page, 1) as usize),
+    );
+}

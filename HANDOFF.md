@@ -430,6 +430,25 @@ Then, on build 5135f74:
   it does `#version`, so RetroArch shaders with parameters load too. The other three loaded.
 - The card log: `mmcblk0p7` was set read-only at boot over FAT errors; fsck asked of the user.
 
+## Phase 13: Game Art (2026-10-23)
+
+- unslot's scraper (`slot/src/scrape.rs`, `json.rs`) cut to the six systems, fetching through
+  ureq (a direct dependency of `slot` now, the same 2.x RetroAchievements uses) instead of
+  BaseOS's curl; Cart Studio's Logo Only label from `slot-ui/src/scraped.rs`, unchanged.
+- Main menu → Network → **Game Art** (`slot/src/app/game_art.rs`, an overlay page like
+  Networks): a status row, All systems, each system with "n of m" labelled, ScreenScraper
+  (sign in on the keyboard; an empty name signs out). A finds the missing ones; a label made
+  goes on its cart on every shelf, and `CartFaces::rebuild` builds the face again.
+- ScreenScraper needs a developer ID: `devid=`/`devpassword=` in `Config/screenscraper.conf`,
+  or one built in from `FRAGILE_SS_DEVID`/`FRAGILE_SS_DEVPASSWORD`. None is built in now, so
+  libretro-thumbnails alone is used.
+- Off the device the scraper is pretend (`SimFetch`) unless `SLOT_SCRAPE_LIVE=1`. Live on the PC
+  with four of the user's games: all four labelled in 23 s (Pokémon Yellow by CRC under a
+  home-made name, FF Tactics' .chd by name); the PS1 redump database is 3.9 MB, cached in
+  `System/Cache/Scraper`.
+- Not run on the device yet. A multi-disc `.m3u` named unlike the database (e.g. "FF IX ATB")
+  finds nothing.
+
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 
 The Phase 1 work compiled first time and `task test` passes, with clippy `-D warnings` clean.

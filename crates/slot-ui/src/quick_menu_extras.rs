@@ -31,7 +31,7 @@ impl QuickRow {
     ];
 
     /// Main menu → Network: the Wi-Fi and network time.
-    pub const NETWORK: [QuickRow; 7] = [
+    pub const NETWORK: [QuickRow; 8] = [
         QuickRow::WifiPower,
         QuickRow::WifiNetworks,
         QuickRow::WifiStatus,
@@ -39,5 +39,6 @@ impl QuickRow {
         QuickRow::TimeSync,
         QuickRow::Cheevos,
         QuickRow::CheevosAccount,
+        QuickRow::GameArt,
     ];
 }

@@ -34,6 +34,7 @@ mod cheats;
 mod cores;
 mod discs;
 mod extras;
+mod game_art;
 mod guide;
 mod network;
 mod overlay;
@@ -671,6 +672,7 @@ impl App {
         app.controls = read_controls(root);
         app.load_extras(root);
         app.start_network(root);
+        app.start_game_art(root);
         app.load_profiles(root);
         app.restock_recents();
         app.restock_favorites();
@@ -1099,6 +1101,7 @@ impl App {
             | QuickRow::TimeSync
             | QuickRow::Cheevos
             | QuickRow::CheevosAccount
+            | QuickRow::GameArt
             | QuickRow::PlayAchievements
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
@@ -2721,6 +2724,7 @@ impl App {
             | QuickRow::TimeSync
             | QuickRow::Cheevos
             | QuickRow::CheevosAccount
+            | QuickRow::GameArt
             | QuickRow::PlayAchievements
             | QuickRow::PlayControls
             | QuickRow::GameUp
@@ -2932,6 +2936,7 @@ impl App {
             | QuickRow::TimeSync
             | QuickRow::Cheevos
             | QuickRow::CheevosAccount
+            | QuickRow::GameArt
             | QuickRow::PlayAchievements
             | QuickRow::PlayControls
             | QuickRow::Shortcuts
@@ -3217,6 +3222,7 @@ impl App {
     pub fn update(&mut self, dt: f32) {
         self.clock += dt as f64 * 1000.0;
         self.network_tick();
+        self.game_art_tick();
         if self.name_pending && self.shelf_platform.face.is_some() {
             self.name_pending = false;
             self.shelf_named = Some(self.now());

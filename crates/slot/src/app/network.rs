@@ -40,6 +40,9 @@ enum Typed {
     WifiPassword(String),
     CheevosUser,
     CheevosPassword(String),
+    /// Fragile: Game Art's ScreenScraper login (Phase 13).
+    SsUser,
+    SsPassword(String),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -138,7 +141,8 @@ impl App {
             QuickRow::WifiStatus
             | QuickRow::WifiIp
             | QuickRow::TimeSync
-            | QuickRow::CheevosAccount => Some(None),
+            | QuickRow::CheevosAccount
+            | QuickRow::GameArt => Some(None),
             _ => None,
         }
     }
@@ -162,6 +166,7 @@ impl App {
             }
             QuickRow::WifiIp => Some(self.wifi_view().ip.unwrap_or_else(|| "None".into())),
             QuickRow::TimeSync => Some(self.time_sync().text().into()),
+            QuickRow::GameArt => Some(self.game_art_text()),
             QuickRow::CheevosAccount => Some(match crate::cheevos::status() {
                 crate::cheevos::Status::SignedOut => "Sign in".into(),
                 crate::cheevos::Status::SigningIn if !crate::wifi::online() => {
@@ -293,6 +298,12 @@ impl App {
         self.overlay.network.typing = Some((keyboard, Typed::CheevosUser, None));
     }
 
+    /// Game Art's ScreenScraper sign in: the username, kept one filled in; none signs out.
+    pub(super) fn type_ss_user(&mut self, known: &str) {
+        let keyboard = Keyboard::default().with_max(NAME_MAX).with_text(known);
+        self.overlay.network.typing = Some((keyboard, Typed::SsUser, None));
+    }
+
     /// The keyboard takes everything while it is up, whatever page it was opened from. Says
     /// whether it was up.
     pub(super) fn typing_input(&mut self, action: Action) -> bool {
@@ -345,6 +356,24 @@ impl App {
                 let keyboard = Keyboard::password(NAME_MAX);
                 let typed = Typed::CheevosPassword(user);
                 self.overlay.network.typing = Some((keyboard, typed, None));
+            }
+            Typed::SsUser => {
+                let user = text.trim().to_string();
+                if user.is_empty() {
+                    self.overlay.network.typing = None;
+                    self.save_ss_login("", "");
+                    return;
+                }
+                let keyboard = Keyboard::password(NAME_MAX);
+                self.overlay.network.typing = Some((keyboard, Typed::SsPassword(user), None));
+            }
+            Typed::SsPassword(user) => {
+                if text.is_empty() {
+                    *said = Some("Type your password".into());
+                    return;
+                }
+                self.overlay.network.typing = None;
+                self.save_ss_login(&user, &text);
             }
             Typed::CheevosPassword(user) => {
                 if text.is_empty() {
@@ -425,6 +454,8 @@ impl App {
             Typed::WifiPassword(ssid) => (format!("Password for {ssid}"), 2),
             Typed::CheevosUser => ("RetroAchievements username".to_string(), 3),
             Typed::CheevosPassword(user) => (format!("Password for {user}"), 4),
+            Typed::SsUser => ("ScreenScraper username, or none to sign out".to_string(), 3),
+            Typed::SsPassword(user) => (format!("Password for {user}"), 4),
         };
         Some(Typing {
             shown: keyboard.shown(),

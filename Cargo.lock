@@ -2071,6 +2071,7 @@ name = "slot"
 version = "0.1.0"
 dependencies = [
  "cpal",
+ "crc32fast",
  "gilrs",
  "libc",
  "libloading",
@@ -2084,6 +2085,7 @@ dependencies = [
  "slot-store",
  "slot-ui",
  "tempfile",
+ "ureq",
  "winit",
 ]
 

@@ -138,10 +138,11 @@ pub enum QuickRow {
     GameY,
     GameL2,
     GameR2,
+    GameArt,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 126] = [
+    pub const ALL: [QuickRow; 127] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -269,6 +270,7 @@ impl QuickRow {
         QuickRow::GameY,
         QuickRow::GameL2,
         QuickRow::GameR2,
+        QuickRow::GameArt,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -535,7 +537,8 @@ impl QuickRow {
             | QuickRow::WifiIp
             | QuickRow::TimeSync
             | QuickRow::Cheevos
-            | QuickRow::CheevosAccount => &QuickRow::NETWORK,
+            | QuickRow::CheevosAccount
+            | QuickRow::GameArt => &QuickRow::NETWORK,
             _ => &QuickRow::MAIN,
         }
     }
@@ -670,6 +673,7 @@ impl QuickRow {
             QuickRow::TimeSync => "Time Sync",
             QuickRow::Cheevos => "RetroAchievements",
             QuickRow::CheevosAccount => "Account",
+            QuickRow::GameArt => "Game Art",
             QuickRow::PlayAchievements => "Achievements",
             QuickRow::PlayDisc => "Disc",
             QuickRow::ThisShader => "Shader",
@@ -794,6 +798,7 @@ impl QuickRow {
             QuickRow::TimeSync => "Set the clock from the internet when online.",
             QuickRow::Cheevos => "Earn achievements, softcore, while you play.",
             QuickRow::CheevosAccount => "Sign in to RetroAchievements.",
+            QuickRow::GameArt => "Find labels for your games online.",
             QuickRow::PlayAchievements => "This game's achievements and the ones you have.",
             QuickRow::PlayDisc => "Put another of this game's discs in.",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => {
@@ -869,6 +874,7 @@ impl QuickRow {
                 | QuickRow::Network
                 | QuickRow::WifiNetworks
                 | QuickRow::CheevosAccount
+                | QuickRow::GameArt
                 | QuickRow::PlayAchievements
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba

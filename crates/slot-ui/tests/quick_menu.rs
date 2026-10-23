@@ -203,7 +203,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::PlayAchievements,
             QuickRow::ScreenNes,
             QuickRow::ScreenSnes,
-            QuickRow::ScreenPs
+            QuickRow::ScreenPs,
+            QuickRow::GameArt
         ]
     );
     for page in [
