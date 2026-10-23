@@ -325,10 +325,17 @@ impl Session {
                 emu.set_cheats(codes);
             }
         }
-        // Fragile: the disc in the drive, and the one asked for.
+        // Fragile: the disc in the drive, and the one asked for, once the menu is shut and the
+        // game runs to see the tray open.
         self.app
             .set_discs(self.emu.as_ref().and_then(EmuHandle::discs));
-        if let Some(disc) = self.app.take_disc() {
+        if let Some(disc) = self
+            .app
+            .in_game_menu()
+            .is_none()
+            .then(|| self.app.take_disc())
+            .flatten()
+        {
             if let Some(emu) = &self.emu {
                 emu.set_disc(disc);
             }
@@ -571,6 +578,7 @@ impl Session {
                     .flatten();
                 launch("resume state read");
                 let palette = crate::core::palette_for(chosen, platform, &rom, player);
+                let palette_live = crate::core::takes_palette(platform, &rom, player);
                 let opened = open_core(&root, core, platform, serial, colour, palette, player);
                 launch("core opened");
                 let sav = persist::read_sav(&root, platform, &stem);
@@ -580,7 +588,7 @@ impl Session {
                     rom,
                     platform,
                     player,
-                    palette_live: palette.is_some(),
+                    palette_live,
                     sav,
                     resume,
                 }

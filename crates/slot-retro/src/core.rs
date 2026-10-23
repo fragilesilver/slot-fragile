@@ -117,6 +117,11 @@ pub trait RetroCore: Send {
     fn set_disc(&mut self, _index: u32) -> bool {
         false
     }
+    /// Fragile: opens the tray and leaves it open, so the running game sees the lid lift before
+    /// `set_disc` puts a disc in and shuts it. False for a core with no tray.
+    fn open_tray(&mut self) -> bool {
+        false
+    }
     fn take_audio(&mut self) -> Vec<i16>;
     fn serialize(&mut self) -> Result<Vec<u8>, CoreError>;
     fn unserialize(&mut self, data: &[u8]) -> Result<(), CoreError>;

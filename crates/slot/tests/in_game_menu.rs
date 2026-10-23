@@ -154,6 +154,11 @@ fn palette_steps_the_palette_and_asks_the_core() {
     a.set_palette_live(true);
     let before = a.gb_palette_label();
     go_to(&mut a, QuickRow::Palette);
+    // Fragile: palettes start off, so the first step turns them on at the palette last chosen.
+    press(&mut a, Btn::Right);
+    assert_eq!(a.gb_palette_label(), before);
+    assert!(a.gb_palette().is_some(), "palettes did not turn on");
+    assert!(a.take_gb_palette().is_some());
     press(&mut a, Btn::Right);
     assert_ne!(a.gb_palette_label(), before);
     assert!(a.take_gb_palette().is_some());

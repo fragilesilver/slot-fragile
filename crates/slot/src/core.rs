@@ -139,7 +139,13 @@ pub fn palette_for(
     rom: &Path,
     link: Option<u8>,
 ) -> Option<GbPalette> {
-    chosen.filter(|_| link.is_none() && platform != Platform::Gba && dmg_only(rom))
+    chosen.filter(|_| takes_palette(platform, rom, link))
+}
+
+/// Fragile: whether a game can be given a palette at all, whether or not palettes are on: a
+/// monochrome Game Boy game, not linked. A NES or SNES file's byte at 0x143 is not a GB header's.
+pub fn takes_palette(platform: Platform, rom: &Path, link: Option<u8>) -> bool {
+    link.is_none() && matches!(platform, Platform::Gb | Platform::Gbc) && dmg_only(rom)
 }
 
 pub fn dmg_only(rom: &Path) -> bool {

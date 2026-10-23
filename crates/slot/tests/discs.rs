@@ -102,6 +102,8 @@ fn a_bios_on_the_card_needs_no_note() {
 struct Discs {
     inner: MockCore,
     at: Arc<Mutex<u32>>,
+    /// With a tray: whether it is open, and the frames run while it was.
+    tray: Option<Arc<Mutex<(bool, u32)>>>,
 }
 
 impl RetroCore for Discs {
@@ -109,6 +111,12 @@ impl RetroCore for Discs {
         self.inner.load(rom)
     }
     fn run_frame(&mut self, input: ButtonMask) {
+        if let Some(tray) = &self.tray {
+            let mut t = tray.lock().unwrap();
+            if t.0 {
+                t.1 += 1;
+            }
+        }
         self.inner.run_frame(input)
     }
     fn video_xrgb8888(&self) -> &[u8] {
@@ -137,6 +145,16 @@ impl RetroCore for Discs {
     }
     fn set_disc(&mut self, index: u32) -> bool {
         *self.at.lock().unwrap() = index;
+        if let Some(tray) = &self.tray {
+            tray.lock().unwrap().0 = false;
+        }
+        true
+    }
+    fn open_tray(&mut self) -> bool {
+        let Some(tray) = &self.tray else {
+            return false;
+        };
+        tray.lock().unwrap().0 = true;
         true
     }
 }
@@ -162,6 +180,7 @@ fn the_emulator_puts_the_disc_in_and_says_which_is_in() {
     let core = Discs {
         inner: MockCore::new(),
         at: at.clone(),
+        tray: None,
     };
     let emu = EmuHandle::spawn(
         Box::new(core),
@@ -176,4 +195,46 @@ fn the_emulator_puts_the_disc_in_and_says_which_is_in() {
     emu.set_disc(2);
     assert!(until(|| emu.discs() == Some((2, 3))), "{:?}", emu.discs());
     assert_eq!(*at.lock().unwrap(), 2);
+}
+
+/// Fragile: with a tray, the disc goes in only after the game has run a second with it open, and
+/// not while the game is paused, as it is under the menu.
+#[test]
+fn a_disc_goes_in_after_the_game_has_seen_the_tray_open() {
+    let mut sink = StubSink::new();
+    sink.open(32_768).unwrap();
+    let drained = sink.clone();
+    std::thread::spawn(move || loop {
+        drained.device_drain();
+        std::thread::sleep(Duration::from_millis(2));
+    });
+    let at = Arc::new(Mutex::new(0));
+    let tray = Arc::new(Mutex::new((false, 0)));
+    let core = Discs {
+        inner: MockCore::new(),
+        at: at.clone(),
+        tray: Some(tray.clone()),
+    };
+    let emu = EmuHandle::spawn(
+        Box::new(core),
+        PathBuf::from("mock"),
+        sink.ring(),
+        None,
+        None,
+    );
+    emu.set_speed(Speed::Normal);
+    assert!(until(|| emu.state() == CoreState::Ready));
+    emu.set_speed(Speed::Paused);
+    emu.set_disc(2);
+    assert!(until(|| tray.lock().unwrap().0), "the tray never opened");
+    std::thread::sleep(Duration::from_millis(200));
+    assert_eq!(emu.discs(), Some((0, 3)), "the disc went in while paused");
+    emu.set_speed(Speed::Normal);
+    assert!(until(|| emu.discs() == Some((2, 3))), "{:?}", emu.discs());
+    let (open, ran) = *tray.lock().unwrap();
+    assert!(!open, "the tray was left open");
+    assert!(
+        ran >= 60,
+        "the game ran only {ran} frames with the tray open"
+    );
 }

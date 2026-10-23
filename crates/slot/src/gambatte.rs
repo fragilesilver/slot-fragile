@@ -51,7 +51,11 @@ pub fn palette_name(palette: GbPalette) -> String {
 /// Gambatte's two. A core with no Game Boy palettes gets none.
 pub fn palette_options(which: Core, palette: GbPalette) -> Vec<(&'static str, String)> {
     match which {
-        Core::Mgba => vec![("mgba_gb_colors", palette.core_name().to_string())],
+        // Fragile: off its hardware preset too, for a game opened with palettes off.
+        Core::Mgba => vec![
+            ("mgba_gb_colors_preset", "0".to_string()),
+            ("mgba_gb_colors", palette.core_name().to_string()),
+        ],
         Core::Gambatte => vec![
             ("gambatte_gb_colorization", "internal".to_string()),
             ("gambatte_gb_internal_palette", palette_name(palette)),

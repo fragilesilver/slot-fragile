@@ -477,7 +477,9 @@ tasks:
     vars:
       OUT: '{{.OUT | default "dist-device"}}'
     cmds:
-      - rm -rf {{.OUT}}
+      # Fragile: the card's own Games, Cheats and Wallpapers stay; the rest is built afresh.
+      - mkdir -p {{.OUT}}
+      - find {{.OUT}} -mindepth 1 -maxdepth 1 ! -name Games ! -name Cheats ! -name Wallpapers -exec rm -rf {} +
       - task: device:sh
         vars:
           CMD: ./target-device/device/slot --init-root {{.OUT}}
@@ -608,4 +610,5 @@ tasks:
     desc: Remove build output and dist
     cmds:
       - cargo clean
-      - rm -rf dist dist-device target-device
+      - rm -rf dist target-device
+      - test ! -d dist-device || find dist-device -mindepth 1 -maxdepth 1 ! -name Games ! -name Cheats ! -name Wallpapers -exec rm -rf {} +

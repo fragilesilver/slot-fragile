@@ -411,6 +411,20 @@ the PC with the host cores and those games, and fixed:
   in slot.log (`slot: shader: ...`) on the device, asked of the user.
 - The card's log shows FAT errors on the games partition (`invalid cluster chain`).
 
+Then, on build 5135f74:
+- Changing disc froze the game. The swap was made at once while the menu had the game paused,
+  and PCSX ReARMed's lid reads open only two wall-clock seconds after it shuts, so the game never
+  saw the lid lift. Now the Disc row's pick goes to the core when the menu shuts; the core opens
+  the tray (`RetroCore::open_tray`), the game runs `TRAY_OPEN_FRAMES` (60) with it open, then the
+  disc goes in and it shuts. Checked on the PC core with FF IX. Nothing swaps on its own: the
+  player changes disc when the game asks.
+- GB palettes did nothing: SEL+L2/R2 and the in-game Palette row needed Settings › Screen › GB ›
+  Palettes on (off by default), and said nothing. Now a monochrome GB game can always take one
+  (`core::takes_palette`, which no longer passes NES/SNES files), and the first step turns
+  palettes on. Checked Gambatte recolours at run time on Link's Awakening. The `gb_palettes.rs`
+  tests run on a header-only cart when Catrap is not on the machine.
+- `task dist:device` and `task clean` keep `dist-device/{Games,Cheats,Wallpapers}`.
+
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 
 The Phase 1 work compiled first time and `task test` passes, with clippy `-D warnings` clean.

@@ -52,6 +52,11 @@ impl Discs {
         unsafe { ((self.get_index)(), (self.count)()) }
     }
 
+    /// Opens the tray and leaves it open: PCSX ReARMed reads the lid as open until it is shut.
+    pub(crate) fn open(&self) -> bool {
+        unsafe { (self.set_eject)(true) }
+    }
+
     /// Opens the tray, puts in disc `index` and closes it again. A core that keeps the lid open
     /// a while after it shuts (PCSX ReARMed does, two seconds) lets the game see the swap.
     pub(crate) fn swap(&self, index: u32) -> bool {

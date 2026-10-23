@@ -30,6 +30,9 @@ const FAST_TARGET: Duration = Duration::from_micros(14_000);
 const COST_BLEND: u32 = 4;
 
 const SNAPSHOT_EVERY: u32 = 2;
+/// Fragile: about a second of the game running with the tray open before a disc goes in, as a
+/// hand swapping it would take; PCSX ReARMed then reads the lid as open two seconds more.
+const TRAY_OPEN_FRAMES: u32 = 60;
 
 const STALL: Duration = Duration::from_millis(25);
 
@@ -197,6 +200,7 @@ impl EmuHandle {
             cmds: rx,
             player,
             cheats: std::sync::Mutex::new(Vec::new()),
+            tray: std::sync::Mutex::new(None),
         };
         let worker_link = link.clone();
         let join = std::thread::Builder::new()
@@ -508,9 +512,35 @@ struct Worker {
     player: Option<u8>,
     /// The codes last given, put back after a state is loaded.
     cheats: std::sync::Mutex<Vec<String>>,
+    /// Fragile: a disc waiting with the tray open, and how many more frames the game runs
+    /// before it goes in.
+    tray: std::sync::Mutex<Option<(u32, u32)>>,
 }
 
 impl Worker {
+    fn put_disc(&self, core: &mut dyn RetroCore, index: u32) {
+        if !core.set_disc(index) {
+            eprintln!("slot: discs: the core would not take disc {}", index + 1);
+        }
+        self.publish_discs(core);
+    }
+
+    /// Fragile: counts down the frames the game has run with the tray open, then puts the disc
+    /// in and shuts it.
+    fn tray_ran(&self, core: &mut dyn RetroCore, frames: u32) {
+        let mut tray = self.tray.lock().unwrap_or_else(|e| e.into_inner());
+        let Some((index, left)) = *tray else {
+            return;
+        };
+        if left > frames {
+            *tray = Some((index, left - frames));
+            return;
+        }
+        *tray = None;
+        drop(tray);
+        self.put_disc(core, index);
+    }
+
     /// Fragile: what the core says of its discs, for the menu's Disc row.
     fn publish_discs(&self, core: &dyn RetroCore) {
         self.shared
@@ -852,6 +882,7 @@ impl Worker {
                             .store(rewind.fill(), Ordering::Relaxed);
                     }
                 }
+                self.tray_ran(core.as_mut(), ran);
 
                 let audio = core.take_audio();
                 if speed == Speed::Normal || ff_sound {
@@ -972,10 +1003,14 @@ impl Worker {
                 *self.cheats.lock().unwrap_or_else(|e| e.into_inner()) = codes;
             }
             Cmd::SetDisc(index) => {
-                if !core.set_disc(index) {
-                    eprintln!("slot: discs: the core would not take disc {}", index + 1);
+                // Fragile: the game must run a while with the lid up to see the disc change; a
+                // swap all at once, made while the menu has it paused, it never notices.
+                if core.open_tray() {
+                    *self.tray.lock().unwrap_or_else(|e| e.into_inner()) =
+                        Some((index, TRAY_OPEN_FRAMES));
+                    return;
                 }
-                self.publish_discs(core);
+                self.put_disc(core, index);
             }
             Cmd::Refresh => match core.serialize() {
                 Ok(state) => {

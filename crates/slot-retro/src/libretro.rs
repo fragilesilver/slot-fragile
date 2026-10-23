@@ -754,6 +754,14 @@ impl RetroCore for LibretroCore {
         discs.swap(index)
     }
 
+    fn open_tray(&mut self) -> bool {
+        let Some(discs) = self.host.discs else {
+            return false;
+        };
+        let _a = Active::bind(&mut self.host);
+        discs.open()
+    }
+
     fn set_native(&mut self, native: bool) {
         self.host.canvas = match native {
             true => Canvas::Native,

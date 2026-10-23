@@ -2290,6 +2290,22 @@ impl App {
         self.palette_live
     }
 
+    /// Fragile: the next or previous palette for the playing game. With palettes off, the first
+    /// step turns them on at the palette last chosen, rather than doing nothing.
+    fn step_palette(&mut self, right: bool) -> GbPalette {
+        let at = self.state.gb_palette;
+        let to = match (self.state.gb_palettes, right) {
+            (false, _) => at,
+            (true, true) => at.next(),
+            (true, false) => at.prev(),
+        };
+        self.state.gb_palettes = true;
+        self.state.gb_palette = to;
+        self.palette_pending = Some(to);
+        self.persist();
+        to
+    }
+
     pub fn take_gb_palette(&mut self) -> Option<GbPalette> {
         self.palette_pending.take()
     }
@@ -2765,13 +2781,7 @@ impl App {
             return;
         }
         if row == QuickRow::Palette {
-            let to = match right {
-                true => self.state.gb_palette.next(),
-                false => self.state.gb_palette.prev(),
-            };
-            self.state.gb_palette = to;
-            self.palette_pending = Some(to);
-            self.persist();
+            self.step_palette(right);
             return;
         }
         if let QuickRow::GbaBezel | QuickRow::GbBezel | QuickRow::GbcBezel = row {
@@ -3032,13 +3042,7 @@ impl App {
         }
         if let Action::PaletteNext | Action::PalettePrev = action {
             if self.palette_live && matches!(self.phase, Phase::Playing { .. }) {
-                let to = match action {
-                    Action::PalettePrev => self.state.gb_palette.prev(),
-                    _ => self.state.gb_palette.next(),
-                };
-                self.state.gb_palette = to;
-                self.palette_pending = Some(to);
-                self.persist();
+                let to = self.step_palette(action == Action::PaletteNext);
                 self.hud.toast(Toast::Palette(to), self.now());
             }
             return true;
