@@ -143,10 +143,13 @@ pub enum QuickRow {
     // --- extras: bluetooth ---
     Bluetooth,
     BtDevices,
+    // --- extras: ssh ---
+    SshPower,
+    SshPassword,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 130] = [
+    pub const ALL: [QuickRow; 132] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -279,6 +282,9 @@ impl QuickRow {
         // --- extras: bluetooth ---
         QuickRow::Bluetooth,
         QuickRow::BtDevices,
+        // --- extras: ssh ---
+        QuickRow::SshPower,
+        QuickRow::SshPassword,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -546,6 +552,8 @@ impl QuickRow {
             | QuickRow::WifiIp
             | QuickRow::Bluetooth
             | QuickRow::BtDevices
+            | QuickRow::SshPower
+            | QuickRow::SshPassword
             | QuickRow::TimeSync
             | QuickRow::Cheevos
             | QuickRow::CheevosAccount
@@ -683,6 +691,8 @@ impl QuickRow {
             QuickRow::WifiIp => "IP Address",
             QuickRow::Bluetooth => "Bluetooth",
             QuickRow::BtDevices => "Devices",
+            QuickRow::SshPower => "SSH & SFTP",
+            QuickRow::SshPassword => "Password",
             QuickRow::TimeSync => "Time Sync",
             QuickRow::Cheevos => "RetroAchievements",
             QuickRow::CheevosAccount => "Account",
@@ -811,6 +821,8 @@ impl QuickRow {
             QuickRow::WifiIp => "The address the network gave.",
             QuickRow::Bluetooth => "Connect wireless controllers and headphones.",
             QuickRow::BtDevices => "Pair, connect or disconnect Bluetooth devices.",
+            QuickRow::SshPower => "Secure shell and SFTP file transfer.",
+            QuickRow::SshPassword => "Password for root login over SSH and SFTP.",
             QuickRow::TimeSync => "Set the clock from the internet when online.",
             QuickRow::Cheevos => "Earn achievements, softcore, while you play.",
             QuickRow::CheevosAccount => "Sign in to RetroAchievements.",
@@ -891,6 +903,7 @@ impl QuickRow {
                 | QuickRow::Network
                 | QuickRow::WifiNetworks
                 | QuickRow::BtDevices
+                | QuickRow::SshPassword
                 | QuickRow::CheevosAccount
                 | QuickRow::GameArt
                 | QuickRow::PlayAchievements

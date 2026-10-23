@@ -423,6 +423,7 @@ pub struct App {
     quick_wallpaper_faces: Option<[(TexId, u32, u32); 2]>,
     quick_palette_faces: Option<[(TexId, u32, u32); 2]>,
     quick_bezel_faces: [Option<[(TexId, u32, u32); 2]>; 3],
+    ssh_help_face: Option<(TexId, u32, u32)>,
     game_bezel: Option<TexId>,
     in_game_menu: Option<QuickRow>,
     /// 0 while the pause footer is off the bottom, 1 when it sits in the carousel's place.
@@ -612,6 +613,7 @@ impl App {
             quick_wallpaper_faces: None,
             quick_palette_faces: None,
             quick_bezel_faces: [None, None, None],
+            ssh_help_face: None,
             game_bezel: None,
             in_game_menu: None,
             footer: 0.0,
@@ -1159,8 +1161,14 @@ impl App {
             | QuickRow::ControlsGuide
             | QuickRow::PlayGuide
             | QuickRow::Bluetooth
-            | QuickRow::BtDevices => None,
+            | QuickRow::BtDevices
+            | QuickRow::SshPower
+            | QuickRow::SshPassword => None,
         }
+    }
+
+    pub fn set_ssh_help_face(&mut self, face: Option<(TexId, u32, u32)>) {
+        self.ssh_help_face = face;
     }
 
     pub fn set_quick_menu_faces(&mut self, faces: QuickMenuFaces) {
@@ -1930,6 +1938,11 @@ impl App {
         // The in-game screen panel sits where the line would go.
         if row.page() == QuickRow::PLAY_SCREEN {
             return None;
+        }
+        if matches!(row, QuickRow::SshPower | QuickRow::SshPassword) {
+            if let Some(face) = self.ssh_help_face {
+                return Some(face);
+            }
         }
         let faces = self.quick_menu_faces.as_ref()?;
         faces.descriptions.get(row.index()).copied().flatten()
@@ -2782,7 +2795,9 @@ impl App {
             | QuickRow::ControlsGuide
             | QuickRow::PlayGuide
             | QuickRow::Bluetooth
-            | QuickRow::BtDevices => {}
+            | QuickRow::BtDevices
+            | QuickRow::SshPower
+            | QuickRow::SshPassword => {}
         }
     }
 
@@ -3001,7 +3016,9 @@ impl App {
             | QuickRow::ControlsGuide
             | QuickRow::PlayGuide
             | QuickRow::Bluetooth
-            | QuickRow::BtDevices => return,
+            | QuickRow::BtDevices
+            | QuickRow::SshPower
+            | QuickRow::SshPassword => return,
         }
         self.persist();
     }

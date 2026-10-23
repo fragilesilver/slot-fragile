@@ -113,6 +113,7 @@ tasks:
       - sh card/test-repair.sh
       - sh card/test-slotwifi.sh
       - sh card/test-slotbt.sh
+      - sh card/test-slotssh.sh
 
   core:
     desc: >-

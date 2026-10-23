@@ -151,6 +151,10 @@ impl App {
                 self.open_bluetooth();
                 return true;
             }
+            QuickRow::SshPassword => {
+                self.start_ssh_password();
+                return true;
+            }
             QuickRow::CheevosAccount => {
                 self.start_cheevos_sign_in();
                 return true;

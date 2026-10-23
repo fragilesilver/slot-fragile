@@ -48,7 +48,7 @@ impl Naming {
 /// legends, drawn off the main thread.
 type Built = (
     Vec<UndoFace>,
-    [Vec<UndoFace>; 5],
+    [Vec<UndoFace>; 6],
     Vec<UndoFace>,
     Vec<UndoFace>,
     Vec<UndoFace>,
@@ -80,7 +80,7 @@ pub struct Collections {
     names: Vec<&'static str>,
     faces: KeyboardFaces,
     /// The keyboard's legends for a search and for a list's name.
-    legends: [Vec<(TexId, u32)>; 5],
+    legends: [Vec<(TexId, u32)>; 6],
     /// A Join and X Forget, dark then light.
     pub(super) network_legends: Vec<(TexId, u32)>,
     /// Search, Forget, Connect, Disconnect, Pair for Bluetooth, dark then light.
@@ -611,6 +611,7 @@ pub fn sync_faces(app: &mut App, compositor: &mut Compositor) {
                                 slot_ui::keyboard_legend_faces("Join"),
                                 slot_ui::keyboard_legend_faces("Next"),
                                 slot_ui::keyboard_legend_faces("Sign In"),
+                                slot_ui::keyboard_legend_faces("Set"),
                             ],
                             network,
                             lists,

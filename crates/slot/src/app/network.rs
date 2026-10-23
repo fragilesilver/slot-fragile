@@ -16,6 +16,8 @@ use crate::wifi::{psk_value, Busy, Network, Security, Wifi, WifiView};
 /// extras.state: whether the Wi-Fi is on, and whether achievements are followed.
 const WIFI: &str = "wifi";
 const CHEEVOS: &str = "cheevos";
+const SSH: &str = "ssh";
+const SSH_PASSWORD: &str = "ssh_password";
 /// Where the RetroAchievements account is kept, as `slot_cheevos::CHEEVOS_FILE` names it.
 const CHEEVOS_FILE: &str = "Config/retroachievements.txt";
 const PASSWORD_MAX: usize = 63;
@@ -30,6 +32,7 @@ pub struct NetworkState {
     wifi: Option<Wifi>,
     pub(super) bluetooth: Option<crate::bluetooth::Bluetooth>,
     pub(super) bt_view: crate::bluetooth::BtView,
+    pub(super) ssh: Option<Box<dyn crate::ssh::SshServer>>,
     time: Option<Box<dyn TimeSync>>,
     /// What is being typed and what for, with what went wrong last.
     typing: Option<(Keyboard, Typed, Option<String>)>,
@@ -42,6 +45,7 @@ enum Typed {
     WifiPassword(String),
     CheevosUser,
     CheevosPassword(String),
+    SshPassword,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -99,12 +103,54 @@ impl App {
             }
             self.overlay.network.bluetooth = Some(bt);
         }
+        if crate::ssh::present() {
+            let mut ssh = crate::ssh::for_card(root);
+            if self.ssh_on() {
+                if let Err(e) = ssh.start() {
+                    eprintln!("slot: ssh: {e}");
+                }
+            } else {
+                ssh.stop();
+            }
+            self.overlay.network.ssh = Some(ssh);
+        }
         self.overlay.network.time = Some(crate::timesync::for_build());
         crate::cheevos::set_enabled(self.cheevos_on());
     }
 
     fn wifi_on(&self) -> bool {
         self.extras.flag(WIFI, false)
+    }
+
+    pub fn ssh_on(&self) -> bool {
+        self.extras.flag(SSH, false)
+    }
+
+    pub fn ssh_password(&self) -> String {
+        self.extras
+            .get(SSH_PASSWORD)
+            .map(str::to_string)
+            .unwrap_or_else(|| crate::ssh::read_ssh_password(self.root.as_deref()))
+    }
+
+    pub fn set_ssh_password(&mut self, password: &str) {
+        self.extras.set(SSH_PASSWORD, Some(password));
+        self.save_extras();
+        if let Some(root) = self.root.as_deref() {
+            if let Err(e) = crate::ssh::write_baseos_conf_password(root, password) {
+                eprintln!("slot: ssh: baseos.conf: {e}");
+            }
+        }
+        if let Some(ssh) = self.overlay.network.ssh.as_mut() {
+            if let Err(e) = ssh.set_password(password) {
+                eprintln!("slot: ssh: {e}");
+            }
+        }
+    }
+
+    pub fn ssh_connection_string(&self) -> Option<String> {
+        let ip = self.wifi_view().ip?;
+        Some(crate::ssh::connection_string(&ip))
     }
 
     fn cheevos_on(&self) -> bool {
@@ -143,6 +189,11 @@ impl App {
         } else if !self.bluetooth_on() {
             hidden.push(QuickRow::BtDevices);
         }
+        if !crate::ssh::present() {
+            hidden.extend([QuickRow::SshPower, QuickRow::SshPassword]);
+        } else if !self.ssh_on() {
+            hidden.push(QuickRow::SshPassword);
+        }
         hidden
     }
 
@@ -150,13 +201,15 @@ impl App {
         match row {
             QuickRow::WifiPower => Some(Some(QuickValue::flag(self.wifi_on()))),
             QuickRow::Bluetooth => Some(Some(QuickValue::flag(self.bluetooth_on()))),
+            QuickRow::SshPower => Some(Some(QuickValue::flag(self.ssh_on()))),
             QuickRow::Cheevos => Some(Some(QuickValue::flag(self.cheevos_on()))),
             QuickRow::WifiStatus
             | QuickRow::WifiIp
             | QuickRow::TimeSync
             | QuickRow::CheevosAccount
             | QuickRow::GameArt
-            | QuickRow::BtDevices => Some(None),
+            | QuickRow::BtDevices
+            | QuickRow::SshPassword => Some(None),
             _ => None,
         }
     }
@@ -179,6 +232,7 @@ impl App {
                 })
             }
             QuickRow::WifiIp => Some(self.wifi_view().ip.unwrap_or_else(|| "None".into())),
+            QuickRow::SshPassword => Some(self.ssh_password()),
             QuickRow::TimeSync => Some(self.time_sync().text().into()),
             QuickRow::GameArt => Some(self.game_art_text()),
             QuickRow::CheevosAccount => Some(match crate::cheevos::status() {
@@ -228,6 +282,21 @@ impl App {
                     match on {
                         true => bt.turn_on(),
                         false => bt.turn_off(),
+                    }
+                }
+            }
+            QuickRow::SshPower => {
+                let on = !self.ssh_on();
+                self.extras.set_flag(SSH, on);
+                self.save_extras();
+                if let Some(ssh) = self.overlay.network.ssh.as_mut() {
+                    match on {
+                        true => {
+                            if let Err(e) = ssh.start() {
+                                eprintln!("slot: ssh: {e}");
+                            }
+                        }
+                        false => ssh.stop(),
                     }
                 }
             }
@@ -323,6 +392,15 @@ impl App {
         self.overlay.network.typing = Some((keyboard, Typed::CheevosUser, None));
     }
 
+    /// A on SshPassword: opens keyboard to edit the root password.
+    pub(super) fn start_ssh_password(&mut self) {
+        let known = self.ssh_password();
+        let keyboard = Keyboard::password(NAME_MAX)
+            .with_masked(false)
+            .with_text(&known);
+        self.overlay.network.typing = Some((keyboard, Typed::SshPassword, None));
+    }
+
     /// The keyboard takes everything while it is up, whatever page it was opened from. Says
     /// whether it was up.
     pub(super) fn typing_input(&mut self, action: Action) -> bool {
@@ -383,6 +461,15 @@ impl App {
                 }
                 self.overlay.network.typing = None;
                 self.sign_in(&user, &text);
+            }
+            Typed::SshPassword => {
+                let password = text.trim().to_string();
+                if password.is_empty() {
+                    *said = Some("Type a password".into());
+                    return;
+                }
+                self.overlay.network.typing = None;
+                self.set_ssh_password(&password);
             }
         }
     }
@@ -455,6 +542,7 @@ impl App {
             Typed::WifiPassword(ssid) => (format!("Password for {ssid}"), 2),
             Typed::CheevosUser => ("RetroAchievements username".to_string(), 3),
             Typed::CheevosPassword(user) => (format!("Password for {user}"), 4),
+            Typed::SshPassword => ("SSH & SFTP root password".to_string(), 5),
         };
         Some(Typing {
             shown: keyboard.shown(),

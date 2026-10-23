@@ -48,6 +48,7 @@ pub mod rewind;
 pub mod root;
 pub mod scrape;
 pub mod session;
+pub mod ssh;
 pub mod state_writer;
 pub mod text_faces;
 pub mod thumb;

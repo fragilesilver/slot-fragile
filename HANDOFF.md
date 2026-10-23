@@ -453,6 +453,29 @@ Then, on build 5135f74:
 - Automatic (extras `game_art_auto`, default on): with the internet up and scraper idle, finds
   games with no label not yet asked for since boot.
 
+## Phase 15: SSH & SFTP (2026-10-24)
+
+- Driver script (`card/System/slotssh.sh`, `card/test-slotssh.sh`): controls BaseOS's Dropbear daemon
+  (`on`, `off`, `status`) and updates the root shadow password (`password <new_password>`). Dropbear
+  automatically delegates SFTP requests to BaseOS's static OpenSSH `/usr/libexec/sftp-server`. Tested
+  via mock rootfs/shadow tests in `test:card`.
+- Backend actor (`crates/slot/src/ssh.rs`): `SshServer` trait with `DeviceSsh` and `SimSsh` implementations.
+  Manages password synchronization between BaseOS configuration (`baseos.conf` on card root),
+  `Config/extras.state`, and device shadow hashes.
+- UI & QuickMenu:
+  - Added `QuickRow::SshPower` (On/Off toggle, stored in `Config/extras.state` under `ssh`, off by default)
+    and `QuickRow::SshPassword` ("Password", displaying current root password).
+  - `QuickRow::SshPassword` is dynamically hidden when SSH is off (`extras.flag("ssh", false)`). Both rows
+    are hidden if no SSH daemon exists on the device.
+  - Interactive password editing: selecting `QuickRow::SshPassword` opens the on-screen `Keyboard` with
+    `Typed::SshPassword`, allowing in-place editing of the root password with footer action `A Set`.
+  - Dynamic Help / Connection String: when Wi-Fi is connected with an assigned IP address, highlighting
+    `SshPower` or `SshPassword` renders `ssh root@<ip> (port 22, SFTP enabled)` as the description face.
+- Tests: unit test suite in `ssh.rs` (6 tests) and integration test suite in `tests/ssh.rs` (5 tests)
+  covering toggle persistence, `baseos.conf` parsing and updating, password editing via on-screen keyboard,
+  empty password refusal, and dynamic connection string generation. Full workspace test suite and clippy
+  clean.
+
 ## Phase 14: Bluetooth (2026-10-23)
 
 - Bluetooth radio driver (`card/System/slotbt.sh`, `card/test-slotbt.sh`): drives BaseOS's

@@ -70,6 +70,7 @@ pub struct Frontend {
     named_faces: TextFaces<(String, bool)>,
     /// The card shader last put on the game layer, so a failing file is tried once a choice.
     card_shader: Option<Option<String>>,
+    ssh_help: SshHelpFace,
 }
 
 #[derive(Default)]
@@ -199,6 +200,7 @@ impl Frontend {
             overlay_faces: TextFaces::new(OVERLAY_FACES),
             named_faces: TextFaces::new(NAMED_FACES),
             card_shader: None,
+            ssh_help: SshHelpFace::default(),
         }
     }
 
@@ -583,6 +585,7 @@ impl Frontend {
         sync_overlay(self.session.app_mut(), compositor, &mut self.overlay_faces);
         crate::app::shelves::sync_faces(self.session.app_mut(), compositor);
         sync_named(self.session.app_mut(), compositor, &mut self.named_faces);
+        sync_ssh_help(self.session.app_mut(), compositor, &mut self.ssh_help);
         sync_card_shader(self.session.app_mut(), compositor, &mut self.card_shader);
         sync_quick_palette(self.session.app_mut(), compositor, &mut self.quick_palette);
         sync_wallpaper(self.session.app_mut(), compositor, &mut self.wallpaper);
@@ -1326,6 +1329,34 @@ fn sync_about(app: &mut App, compositor: &mut Compositor, state: &mut AboutFace)
     app.set_sticker_size((face.w, face.h));
     let id = upload(compositor, &mut state.tex, face);
     app.set_sticker_face(id);
+}
+
+#[derive(Default)]
+struct SshHelpFace {
+    tex: Option<TexId>,
+    size: (u32, u32),
+    shown: Option<String>,
+}
+
+fn sync_ssh_help(app: &mut App, compositor: &mut Compositor, state: &mut SshHelpFace) {
+    if app.quick_menu().is_none() {
+        return;
+    }
+    let wanted = app.ssh_connection_string();
+    if state.shown == wanted {
+        return;
+    }
+    state.shown = wanted.clone();
+    let face = match wanted {
+        Some(text) => {
+            let face = slot_ui::quick_description_face(&[&text]);
+            state.size = (face.w, face.h);
+            let id = upload(compositor, &mut state.tex, face);
+            Some((id, state.size.0, state.size.1))
+        }
+        None => None,
+    };
+    app.set_ssh_help_face(face);
 }
 
 /// The textures the core picker reuses from one cart to the next.

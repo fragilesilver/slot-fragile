@@ -171,6 +171,11 @@ impl Keyboard {
         self
     }
 
+    pub fn with_masked(mut self, masked: bool) -> Self {
+        self.masked = masked;
+        self
+    }
+
     pub fn key(&self) -> Key {
         key_at(self.layer, self.row, self.col)
     }
