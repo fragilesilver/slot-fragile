@@ -18,6 +18,7 @@ const WIFI: &str = "wifi";
 const CHEEVOS: &str = "cheevos";
 const SSH: &str = "ssh";
 const SSH_PASSWORD: &str = "ssh_password";
+pub const WEB_DASHBOARD: &str = "web_dashboard";
 /// Where the RetroAchievements account is kept, as `slot_cheevos::CHEEVOS_FILE` names it.
 const CHEEVOS_FILE: &str = "Config/retroachievements.txt";
 const PASSWORD_MAX: usize = 63;
@@ -33,6 +34,7 @@ pub struct NetworkState {
     pub(super) bluetooth: Option<crate::bluetooth::Bluetooth>,
     pub(super) bt_view: crate::bluetooth::BtView,
     pub(super) ssh: Option<Box<dyn crate::ssh::SshServer>>,
+    pub(super) web: Option<crate::web::WebServer>,
     time: Option<Box<dyn TimeSync>>,
     /// What is being typed and what for, with what went wrong last.
     typing: Option<(Keyboard, Typed, Option<String>)>,
@@ -114,6 +116,13 @@ impl App {
             }
             self.overlay.network.ssh = Some(ssh);
         }
+        if self.web_dashboard_on() {
+            if let Ok(srv) =
+                crate::web::WebServer::start(root.to_path_buf(), crate::web::DASHBOARD_PORT)
+            {
+                self.overlay.network.web = Some(srv);
+            }
+        }
         self.overlay.network.time = Some(crate::timesync::for_build());
         crate::cheevos::set_enabled(self.cheevos_on());
     }
@@ -124,6 +133,15 @@ impl App {
 
     pub fn ssh_on(&self) -> bool {
         self.extras.flag(SSH, false)
+    }
+
+    pub fn web_dashboard_on(&self) -> bool {
+        self.extras.flag(WEB_DASHBOARD, false)
+    }
+
+    pub fn set_web_dashboard(&mut self, on: bool) {
+        self.extras.set_flag(WEB_DASHBOARD, on);
+        self.save_extras();
     }
 
     pub fn ssh_password(&self) -> String {
@@ -151,6 +169,18 @@ impl App {
     pub fn ssh_connection_string(&self) -> Option<String> {
         let ip = self.wifi_view().ip?;
         Some(crate::ssh::connection_string(&ip))
+    }
+
+    pub fn web_connection_string(&self) -> Option<String> {
+        if !self.web_dashboard_on() {
+            return None;
+        }
+        let ip = self.wifi_view().ip?;
+        let pw = self.ssh_password();
+        Some(format!(
+            "http://{ip}:{port} (root / {pw})",
+            port = crate::web::DASHBOARD_PORT
+        ))
     }
 
     fn cheevos_on(&self) -> bool {
@@ -182,6 +212,7 @@ impl App {
                 QuickRow::WifiNetworks,
                 QuickRow::WifiStatus,
                 QuickRow::WifiIp,
+                QuickRow::WebDashboard,
             ]);
         }
         if self.overlay.network.bluetooth.is_none() {
@@ -202,6 +233,7 @@ impl App {
             QuickRow::WifiPower => Some(Some(QuickValue::flag(self.wifi_on()))),
             QuickRow::Bluetooth => Some(Some(QuickValue::flag(self.bluetooth_on()))),
             QuickRow::SshPower => Some(Some(QuickValue::flag(self.ssh_on()))),
+            QuickRow::WebDashboard => Some(Some(QuickValue::flag(self.web_dashboard_on()))),
             QuickRow::Cheevos => Some(Some(QuickValue::flag(self.cheevos_on()))),
             QuickRow::WifiStatus
             | QuickRow::WifiIp
@@ -298,6 +330,22 @@ impl App {
                         }
                         false => ssh.stop(),
                     }
+                }
+            }
+            QuickRow::WebDashboard => {
+                let on = !self.web_dashboard_on();
+                self.extras.set_flag(WEB_DASHBOARD, on);
+                self.save_extras();
+                if on {
+                    if let Some(root) = &self.root {
+                        if let Ok(srv) =
+                            crate::web::WebServer::start(root.clone(), crate::web::DASHBOARD_PORT)
+                        {
+                            self.overlay.network.web = Some(srv);
+                        }
+                    }
+                } else if let Some(mut srv) = self.overlay.network.web.take() {
+                    srv.stop();
                 }
             }
             _ => return false,

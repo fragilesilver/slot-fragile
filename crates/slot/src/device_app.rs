@@ -271,6 +271,12 @@ pub fn run() {
                 re_exec();
             }
         }
+        if std::path::Path::new("/tmp/slot_restart").exists() {
+            let _ = std::fs::remove_file("/tmp/slot_restart");
+            eprintln!("slot: restart signaled via web dashboard");
+            frontend.app_mut().settle_saves();
+            re_exec();
+        }
         if frontend.restarting() {
             frontend.restart();
         }

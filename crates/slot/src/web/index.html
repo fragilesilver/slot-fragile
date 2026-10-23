@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fragile — Web Dashboard</title>
+  <style>
+    :root {
+      --bg: #111115;
+      --surface: #18181f;
+      --card: #22222c;
+      --card-hover: #2a2a36;
+      --border: #323240;
+      --accent: #e056fd;
+      --accent-hover: #be2edd;
+      --text: #f1f2f6;
+      --text-muted: #a4b0be;
+      --success: #2ed573;
+      --warning: #ffa502;
+      --danger: #ff4757;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    .brand { display: flex; align-items: center; gap: 0.75rem; font-weight: 800; font-size: 1.25rem; letter-spacing: 1px; color: var(--text); }
+    .brand span { color: var(--accent); }
+    .status-badge { display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-muted); align-items: center; }
+    .badge-item { background: var(--card); padding: 0.35rem 0.75rem; border-radius: var(--radius); border: 1px solid var(--border); }
+    nav { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 2rem; overflow-x: auto; }
+    nav button { background: none; border: none; color: var(--text-muted); font-size: 0.95rem; font-weight: 600; padding: 1rem 1.25rem; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+    nav button:hover { color: var(--text); }
+    nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+    main { flex: 1; padding: 2rem; max-width: 1400px; margin: 0 auto; width: 100%; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .studio-layout { display: grid; grid-template-columns: 350px 1fr; gap: 2rem; }
+    @media (max-width: 900px) { .studio-layout { grid-template-columns: 1fr; } }
+    .game-list-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; max-height: 75vh; display: flex; flex-direction: column; }
+    .filter-box { margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-direction: column; }
+    .search-input, select, input[type="text"], input[type="file"] { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 0.6rem 0.8rem; border-radius: var(--radius); width: 100%; font-size: 0.9rem; }
+    .search-input:focus, select:focus, input[type="text"]:focus { outline: none; border-color: var(--accent); }
+    .games-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem; }
+    .game-item { padding: 0.6rem 0.75rem; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s; }
+    .game-item:hover { background: var(--card-hover); }
+    .game-item.selected { border-color: var(--accent); background: #352640; font-weight: 600; }
+    .platform-tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 0.15rem 0.4rem; border-radius: 4px; background: #2f3542; color: #a4b0be; }
+    .preview-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 2rem; }
+    .cart-preview-stage { width: 320px; height: 320px; display: flex; justify-content: center; align-items: center; position: relative; }
+    .cart-shell-mock { width: 240px; height: 260px; border-radius: 12px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.5); transition: all 0.3s ease; border: 2px solid rgba(255,255,255,0.15); }
+    .cart-shell-mock.notched { border-radius: 4px 20px 4px 4px; }
+    .cart-shell-mock.rounded { border-radius: 16px; }
+    .cart-label-mock { width: 180px; height: 160px; background: #1e1e24; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); overflow: hidden; display: flex; justify-content: center; align-items: center; position: relative; }
+    .cart-label-mock img { width: 100%; height: 100%; object-fit: cover; }
+    .cart-label-fallback { font-size: 0.8rem; font-weight: 700; text-align: center; color: var(--text-muted); padding: 1rem; }
+    .controls-grid { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 1.25rem; }
+    .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
+    .control-label { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+    .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .choice-btn { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 1rem; border-radius: var(--radius); cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.15s; }
+    .choice-btn:hover { background: var(--card-hover); }
+    .choice-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .swatches-grid { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; transition: transform 0.15s; }
+    .swatch:hover { transform: scale(1.15); }
+    .swatch.selected { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 10px rgba(255,255,255,0.4); }
+    .action-btn { background: var(--accent); color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius); font-weight: 700; cursor: pointer; transition: background 0.2s; font-size: 0.95rem; }
+    .action-btn:hover { background: var(--accent-hover); }
+    .action-btn.secondary { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+    .action-btn.secondary:hover { background: var(--card-hover); }
+    .action-btn.danger { background: var(--danger); }
+    .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+    .card-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+    .card-thumb { width: 100%; height: 160px; background: var(--card); border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); }
+    .card-thumb img { width: 100%; height: 100%; object-fit: contain; }
+    .dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 1.5rem; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+    .dropzone:hover { border-color: var(--accent); }
+    .table-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 0.85rem 1.25rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--card); font-weight: 700; color: var(--text-muted); text-transform: uppercase; font-size: 0.8rem; }
+    tr:hover td { background: var(--card); }
+    .badge-fav { color: #f1c40f; cursor: pointer; font-size: 1.1rem; }
+    .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--surface); border: 1px solid var(--accent); color: var(--text); padding: 0.85rem 1.5rem; border-radius: var(--radius); box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: none; z-index: 1000; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="2" width="16" height="20" rx="2"></rect><circle cx="12" cy="14" r="4"></circle><line x1="12" y1="6" x2="12" y2="6"></line></svg>
+      FRAGILE <span>DASHBOARD</span>
+    </div>
+    <div class="status-badge" id="device-status">
+      <div class="badge-item">Device: <b id="stat-model">RG35XX Pro</b></div>
+      <div class="badge-item">Battery: <b id="stat-bat">--%</b></div>
+      <div class="badge-item">Storage: <b id="stat-disk">-- GB free</b></div>
+    </div>
+  </header>
+
+  <nav>
+    <button class="active" onclick="showTab('studio')">Cart Studio</button>
+    <button onclick="showTab('labels')">Labels & Media</button>
+    <button onclick="showTab('lists')">Lists & Favorites</button>
+    <button onclick="showTab('saves')">Save Manager</button>
+    <button onclick="showTab('roms')">ROM Uploader</button>
+    <button onclick="showTab('system')">System</button>
+  </nav>
+
+  <main>
+    <!-- TAB 1: CART STUDIO -->
+    <section id="tab-studio" class="tab-content active">
+      <div class="studio-layout">
+        <div class="game-list-panel">
+          <div class="filter-box">
+            <select id="studio-sys-filter" onchange="renderStudioList()">
+              <option value="all">All Systems (GBA, GB, GBC, NES, SNES, PS1)</option>
+              <option value="gba">Game Boy Advance</option>
+              <option value="gb">Game Boy</option>
+              <option value="gbc">Game Boy Color</option>
+              <option value="nes">NES</option>
+              <option value="snes">SNES</option>
+              <option value="ps">PlayStation</option>
+            </select>
+            <input type="text" id="studio-search" class="search-input" placeholder="Filter games..." oninput="renderStudioList()">
+          </div>
+          <div class="games-scroll" id="studio-game-items"></div>
+        </div>
+
+        <div class="preview-panel">
+          <div class="cart-preview-stage">
+            <div id="cart-mock" class="cart-shell-mock">
+              <div id="cart-label" class="cart-label-mock">
+                <span class="cart-label-fallback" id="preview-fallback-title">Select a game</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="controls-grid">
+            <div class="control-group">
+              <label class="control-label">Outline Style</label>
+              <div class="btn-row">
+                <button class="choice-btn active" id="btn-out-auto" onclick="setOutline('auto')">Auto</button>
+                <button class="choice-btn" id="btn-out-notched" onclick="setOutline('notched')">Notched (GB)</button>
+                <button class="choice-btn" id="btn-out-rounded" onclick="setOutline('rounded')">Rounded (GBA)</button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">Plastic Color</label>
+              <div class="swatches-grid">
+                <div class="swatch selected" style="background:#4b3869" title="Atomic Purple" onclick="setColor('#4b3869','clear')"></div>
+                <div class="swatch" style="background:#00aa44" title="Emerald Green" onclick="setColor('#00aa44','clear')"></div>
+                <div class="swatch" style="background:#cc0022" title="Ruby Red" onclick="setColor('#cc0022','clear')"></div>
+                <div class="swatch" style="background:#0044cc" title="Sapphire Blue" onclick="setColor('#0044cc','clear')"></div>
+                <div class="swatch" style="background:#ffd700" title="Pokémon Gold Glitter" onclick="setColor('#ffd700','glitter')"></div>
+                <div class="swatch" style="background:#c0c0c0" title="Pokémon Silver Glitter" onclick="setColor('#c0c0c0','glitter')"></div>
+                <div class="swatch" style="background:#00c4d4" title="Crystal Blue" onclick="setColor('#00c4d4','glitter')"></div>
+                <div class="swatch" style="background:#908e82" title="Classic DMG Grey" onclick="setColor('#908e82','solid')"></div>
+                <div class="swatch" style="background:#fed833" title="Pikachu Yellow" onclick="setColor('#fed833','solid')"></div>
+                <div class="swatch" style="background:#bfbfb8" title="Super Famicom Grey" onclick="setColor('#bfbfb8','solid')"></div>
+                <div class="swatch" style="background:#1c1c1c" title="Jet Black" onclick="setColor('#1c1c1c','solid')"></div>
+                <div class="swatch" style="background:#f0f0ee" title="Arctic White" onclick="setColor('#f0f0ee','solid')"></div>
+                <input type="color" id="custom-color-picker" style="width:36px;height:36px;border:none;cursor:pointer;background:none;" onchange="setColor(this.value, curFinish)">
+                <input type="text" id="custom-color-hex" style="width:90px;font-family:monospace;" value="4b3869" maxlength="6" oninput="if(this.value.length===6) setColor('#'+this.value, curFinish)">
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">Plastic Finish</label>
+              <div class="btn-row">
+                <button class="choice-btn" id="btn-fin-solid" onclick="setFinish('solid')">Solid</button>
+                <button class="choice-btn active" id="btn-fin-clear" onclick="setFinish('clear')">Clear (Translucent)</button>
+                <button class="choice-btn" id="btn-fin-glitter" onclick="setFinish('glitter')">Glitter</button>
+              </div>
+            </div>
+
+            <div class="btn-row" style="margin-top:0.5rem;">
+              <button class="action-btn" onclick="saveCartShell()">Save to Cartridge</button>
+              <button class="action-btn secondary" onclick="resetCartShell()">Reset to Default</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: LABELS & MEDIA -->
+    <section id="tab-labels" class="tab-content">
+      <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; gap:1rem; flex-wrap:wrap;">
+        <div style="display:flex; gap:0.5rem; flex:1; max-width:600px;">
+          <select id="labels-sys-filter" style="max-width:180px;" onchange="renderLabelsGrid()">
+            <option value="all">All Systems</option>
+            <option value="GBA">GBA</option>
+            <option value="GB">GB</option>
+            <option value="GBC">GBC</option>
+            <option value="NES">NES</option>
+            <option value="SNES">SNES</option>
+            <option value="PlayStation">PlayStation</option>
+          </select>
+          <input type="text" id="labels-search" class="search-input" placeholder="Search games..." oninput="renderLabelsGrid()">
+        </div>
+        <div>
+          <button class="action-btn secondary" onclick="loadGames()">Refresh Labels</button>
+        </div>
+      </div>
+      <div class="grid-cards" id="labels-grid"></div>
+    </section>
+
+    <!-- TAB 3: LISTS & FAVORITES -->
+    <section id="tab-lists" class="tab-content">
+      <div style="display:grid; grid-template-columns: 320px 1fr; gap: 2rem;">
+        <div class="game-list-panel">
+          <div style="font-weight:700; margin-bottom:0.75rem;">Custom Shelves & Lists</div>
+          <div class="games-scroll" id="lists-nav"></div>
+          <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+            <input type="text" id="new-list-name" placeholder="New list name...">
+            <button class="action-btn" style="padding:0.5rem 0.8rem;" onclick="createList()">+</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;">★</th>
+                <th>Platform</th>
+                <th>Game Title</th>
+                <th style="width:100px;">In List</th>
+              </tr>
+            </thead>
+            <tbody id="list-games-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: SAVE MANAGER -->
+    <section id="tab-saves" class="tab-content">
+      <div style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+        <div style="color:var(--text-muted); font-size:0.9rem;">Backup or restore battery save files (.sav / .srm) directly to and from your device.</div>
+        <button class="action-btn secondary" onclick="loadSaves()">Refresh Saves</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>System</th>
+              <th>Game Stem</th>
+              <th>File Size</th>
+              <th>Modified</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="saves-table"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 5: ROM UPLOADER -->
+    <section id="tab-roms" class="tab-content">
+      <div style="max-width:650px; margin:0 auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:2rem; display:flex; flex-direction:column; gap:1.5rem;">
+        <h2 style="font-size:1.25rem;">Upload Game ROMs & Discs</h2>
+        <div class="control-group">
+          <label class="control-label">Target Console</label>
+          <select id="rom-target-sys">
+            <option value="GBA">Game Boy Advance (GBA/)</option>
+            <option value="GB">Game Boy (GB/)</option>
+            <option value="GBC">Game Boy Color (GBC/)</option>
+            <option value="NES">NES (NES/)</option>
+            <option value="SNES">Super Nintendo (SNES/)</option>
+            <option value="PlayStation">Sony PlayStation (PlayStation/)</option>
+          </select>
+        </div>
+        <div class="dropzone" id="rom-dropzone" onclick="document.getElementById('rom-file-input').click()">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:0.5rem;color:var(--text-muted);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <div style="font-weight:600;">Click or drag ROM file here</div>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">Supports .gba, .gb, .gbc, .nes, .sfc, .smc, .chd, .pbp, .cue, .bin, .zip</div>
+          <input type="file" id="rom-file-input" style="display:none;" onchange="handleRomUpload(this.files[0])">
+        </div>
+        <div id="rom-upload-progress" style="display:none; font-size:0.9rem; color:var(--accent); font-weight:600; text-align:center;"></div>
+      </div>
+    </section>
+
+    <!-- TAB 6: SYSTEM -->
+    <section id="tab-system" class="tab-content">
+      <div style="max-width:700px; margin:0 auto; display:flex; flex-direction:column; gap:1.5rem;">
+        <div class="card-item">
+          <h2 style="font-size:1.15rem;">Device Details</h2>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; font-size:0.9rem;">
+            <div>Model: <b id="sys-detail-model">Anbernic RG35XX Pro</b></div>
+            <div>BaseOS Target: <b id="sys-detail-target">H700 BaseOS</b></div>
+            <div>Storage Free: <b id="sys-detail-free">-- GB</b></div>
+            <div>Storage Total: <b id="sys-detail-total">-- GB</b></div>
+            <div>Battery: <b id="sys-detail-bat">--%</b></div>
+            <div>Charging: <b id="sys-detail-charge">No</b></div>
+          </div>
+        </div>
+
+        <div class="card-item" style="border-color:var(--warning);">
+          <h2 style="font-size:1.15rem; color:var(--warning);">Frontend Reload</h2>
+          <p style="font-size:0.85rem; color:var(--text-muted);">After saving shell changes or uploading new cartridge labels and ROMs, trigger a live reload of Slot without power cycling.</p>
+          <button class="action-btn" style="background:var(--warning); color:#000;" onclick="restartFrontend()">Restart Slot Frontend</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let allGames = [];
+    let curGame = null;
+    let curOutline = 'auto';
+    let curHex = '4b3869';
+    let curFinish = 'clear';
+    let curList = 'favorites';
+    let listsMap = {};
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    function showTab(id) {
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + id).classList.add('active');
+      if (id === 'studio') renderStudioList();
+      if (id === 'labels') renderLabelsGrid();
+      if (id === 'lists') loadLists();
+      if (id === 'saves') loadSaves();
+    }
+
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/status');
+        if (res.status === 401) { return; }
+        const data = await res.json();
+        document.getElementById('stat-model').innerText = data.model || 'RG35XX Pro';
+        document.getElementById('stat-bat').innerText = (data.battery ?? '--') + '% ' + (data.charging ? '⚡' : '');
+        if (data.storage) {
+          const freeGb = (data.storage.free_bytes / (1024**3)).toFixed(1);
+          const totalGb = (data.storage.total_bytes / (1024**3)).toFixed(1);
+          document.getElementById('stat-disk').innerText = freeGb + ' GB free';
+          document.getElementById('sys-detail-free').innerText = freeGb + ' GB';
+          document.getElementById('sys-detail-total').innerText = totalGb + ' GB';
+        }
+        document.getElementById('sys-detail-model').innerText = data.model || 'Anbernic RG35XX Pro';
+        document.getElementById('sys-detail-target').innerText = data.target || 'H700';
+        document.getElementById('sys-detail-bat').innerText = (data.battery ?? '--') + '%';
+        document.getElementById('sys-detail-charge').innerText = data.charging ? 'Yes' : 'No';
+      } catch (e) { console.error('status error', e); }
+    }
+
+    async function loadGames() {
+      try {
+        const res = await fetch('/api/games');
+        allGames = await res.json();
+        renderStudioList();
+        renderLabelsGrid();
+      } catch (e) { console.error('games error', e); }
+    }
+
+    function renderStudioList() {
+      const filter = document.getElementById('studio-sys-filter').value;
+      const q = document.getElementById('studio-search').value.toLowerCase();
+      const container = document.getElementById('studio-game-items');
+      container.innerHTML = '';
+      const filtered = allGames.filter(g => {
+        const matchSys = filter === 'all' || g.platform.toLowerCase() === filter.toLowerCase();
+        const matchQ = !q || g.stem.toLowerCase().includes(q);
+        return matchSys && matchQ;
+      });
+      filtered.forEach(g => {
+        const div = document.createElement('div');
+        div.className = 'game-item' + (curGame && curGame.stem === g.stem && curGame.platform === g.platform ? ' selected' : '');
+        div.onclick = () => selectGame(g);
+        div.innerHTML = `<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${g.stem}</span><span class="platform-tag">${g.platform}</span>`;
+        container.appendChild(div);
+      });
+      if (!curGame && filtered.length > 0) {
+        selectGame(filtered[0]);
+      }
+    }
+
+    function selectGame(g) {
+      curGame = g;
+      document.querySelectorAll('.game-item').forEach(el => el.classList.remove('selected'));
+      renderStudioList();
+      document.getElementById('preview-fallback-title').innerText = g.stem;
+      const labelBox = document.getElementById('cart-label');
+      labelBox.innerHTML = '';
+      if (g.has_label) {
+        const img = document.createElement('img');
+        img.src = `/api/label?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}`;
+        labelBox.appendChild(img);
+      } else {
+        const span = document.createElement('span');
+        span.className = 'cart-label-fallback';
+        span.innerText = g.stem;
+        labelBox.appendChild(span);
+      }
+      if (g.shell) {
+        const parts = g.shell.split(' ');
+        setOutline(parts[0] || 'auto', false);
+        setColor('#' + (parts[1] || '4b3869'), parts[2] || 'solid', false);
+      } else {
+        setOutline('auto', false);
+        setColor('#4b3869', 'clear', false);
+      }
+      updateMockStyle();
+    }
+
+    function setOutline(out, redraw = true) {
+      curOutline = out;
+      document.querySelectorAll('[id^="btn-out-"]').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById('btn-out-' + out);
+      if (activeBtn) activeBtn.classList.add('active');
+      if (redraw) updateMockStyle();
+    }
+
+    function setColor(hex, finish, redraw = true) {
+      curHex = hex.replace('#', '');
+      document.getElementById('custom-color-picker').value = '#' + curHex;
+      document.getElementById('custom-color-hex').value = curHex;
+      setFinish(finish, false);
+      if (redraw) updateMockStyle();
+    }
+
+    function setFinish(fin, redraw = true) {
+      curFinish = fin;
+      document.querySelectorAll('[id^="btn-fin-"]').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById('btn-fin-' + fin);
+      if (activeBtn) activeBtn.classList.add('active');
+      if (redraw) updateMockStyle();
+    }
+
+    function updateMockStyle() {
+      const mock = document.getElementById('cart-mock');
+      mock.className = 'cart-shell-mock ' + (curOutline === 'notched' ? 'notched' : (curOutline === 'rounded' ? 'rounded' : ''));
+      let bg = '#' + curHex;
+      if (curFinish === 'clear') {
+        const r = parseInt(curHex.substr(0,2), 16) || 0;
+        const g = parseInt(curHex.substr(2,2), 16) || 0;
+        const b = parseInt(curHex.substr(4,2), 16) || 0;
+        mock.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.75)`;
+        mock.style.backgroundImage = 'none';
+      } else if (curFinish === 'glitter') {
+        const r = parseInt(curHex.substr(0,2), 16) || 0;
+        const g = parseInt(curHex.substr(2,2), 16) || 0;
+        const b = parseInt(curHex.substr(4,2), 16) || 0;
+        mock.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.8)`;
+        mock.style.backgroundImage = 'radial-gradient(circle, rgba(255,255,255,0.7) 1px, transparent 1px)';
+        mock.style.backgroundSize = '8px 8px';
+      } else {
+        mock.style.backgroundColor = bg;
+        mock.style.backgroundImage = 'none';
+      }
+    }
+
+    async function saveCartShell() {
+      if (!curGame) return;
+      try {
+        const res = await fetch('/api/cart_shell', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stem: curGame.stem,
+            outline: curOutline,
+            colour: curHex,
+            finish: curFinish
+          })
+        });
+        if (res.ok) {
+          curGame.shell = `${curOutline} ${curHex} ${curFinish}`;
+          showToast(`Saved shell for ${curGame.stem}!`);
+        } else {
+          showToast('Failed to save shell');
+        }
+      } catch (e) { showToast('Error saving shell'); }
+    }
+
+    async function resetCartShell() {
+      if (!curGame) return;
+      try {
+        const res = await fetch('/api/cart_shell', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stem: curGame.stem, outline: 'auto', colour: '', finish: 'auto' })
+        });
+        if (res.ok) {
+          curGame.shell = null;
+          selectGame(curGame);
+          showToast(`Reset shell for ${curGame.stem} to default`);
+        }
+      } catch (e) { showToast('Error resetting shell'); }
+    }
+
+    function renderLabelsGrid() {
+      const filter = document.getElementById('labels-sys-filter').value;
+      const q = document.getElementById('labels-search').value.toLowerCase();
+      const grid = document.getElementById('labels-grid');
+      grid.innerHTML = '';
+      const filtered = allGames.filter(g => {
+        const matchSys = filter === 'all' || g.platform.toLowerCase() === filter.toLowerCase();
+        const matchQ = !q || g.stem.toLowerCase().includes(q);
+        return matchSys && matchQ;
+      });
+      filtered.forEach(g => {
+        const card = document.createElement('div');
+        card.className = 'card-item';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b style="font-size:0.95rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${g.stem}">${g.stem}</b>
+            <span class="platform-tag">${g.platform}</span>
+          </div>
+          <div class="card-thumb">
+            ${g.has_label ? `<img src="/api/label?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}" alt="${g.stem}">` : `<span style="font-size:0.8rem; color:var(--text-muted);">No custom label</span>`}
+          </div>
+          <div class="dropzone" style="padding:0.75rem;" onclick="triggerLabelUpload('${g.platform}', '${g.stem.replace(/'/g, "\\'")}')">
+            <span style="font-size:0.85rem; font-weight:600;">Upload PNG</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    let uploadTarget = null;
+    function triggerLabelUpload(platform, stem) {
+      uploadTarget = { platform, stem };
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png';
+      input.onchange = async () => {
+        if (!input.files[0]) return;
+        const form = new FormData();
+        form.append('label', input.files[0]);
+        try {
+          const res = await fetch(`/api/upload_label?platform=${encodeURIComponent(platform)}&stem=${encodeURIComponent(stem)}`, {
+            method: 'POST',
+            body: input.files[0]
+          });
+          if (res.ok) {
+            showToast(`Uploaded label for ${stem}`);
+            await loadGames();
+          } else {
+            showToast('Failed to upload label');
+          }
+        } catch (e) { showToast('Upload error'); }
+      };
+      input.click();
+    }
+
+    async function loadLists() {
+      try {
+        const res = await fetch('/api/lists');
+        listsMap = await res.json();
+        const nav = document.getElementById('lists-nav');
+        nav.innerHTML = '';
+        const favDiv = document.createElement('div');
+        favDiv.className = 'game-item' + (curList === 'favorites' ? ' selected' : '');
+        favDiv.innerHTML = `<span>★ Favorites</span>`;
+        favDiv.onclick = () => selectList('favorites');
+        nav.appendChild(favDiv);
+        for (const name in listsMap) {
+          const div = document.createElement('div');
+          div.className = 'game-item' + (curList === name ? ' selected' : '');
+          div.innerHTML = `<span>${name}</span><button style="background:none;border:none;color:var(--danger);cursor:pointer;" onclick="deleteList(event, '${name}')">×</button>`;
+          div.onclick = (e) => { if(e.target.tagName !== 'BUTTON') selectList(name); };
+          nav.appendChild(div);
+        }
+        renderListTable();
+      } catch (e) { console.error('lists error', e); }
+    }
+
+    function selectList(name) {
+      curList = name;
+      loadLists();
+    }
+
+    function renderListTable() {
+      const tbody = document.getElementById('list-games-table');
+      tbody.innerHTML = '';
+      const currentListGames = curList === 'favorites' ? [] : (listsMap[curList] || []);
+      allGames.forEach(g => {
+        const tr = document.createElement('tr');
+        const isFav = g.favorite;
+        const inList = currentListGames.includes(`${g.platform}/${g.stem}`) || currentListGames.includes(g.stem);
+        tr.innerHTML = `
+          <td><span class="badge-fav" onclick="toggleFav('${g.platform}', '${g.stem.replace(/'/g, "\\'")}')">${isFav ? '★' : '☆'}</span></td>
+          <td><span class="platform-tag">${g.platform}</span></td>
+          <td><b>${g.stem}</b></td>
+          <td>
+            ${curList !== 'favorites' ? `<input type="checkbox" ${inList ? 'checked' : ''} onchange="toggleInList('${curList}', '${g.platform}', '${g.stem.replace(/'/g, "\\'")}', this.checked)">` : (isFav ? 'Yes' : 'No')}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function toggleFav(platform, stem) {
+      try {
+        const res = await fetch('/api/favorite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform, stem })
+        });
+        if (res.ok) {
+          const g = allGames.find(x => x.platform === platform && x.stem === stem);
+          if (g) g.favorite = !g.favorite;
+          renderListTable();
+          showToast(`Toggled favorite for ${stem}`);
+        }
+      } catch (e) { showToast('Error updating favorite'); }
+    }
+
+    async function createList() {
+      const input = document.getElementById('new-list-name');
+      const name = input.value.trim();
+      if (!name) return;
+      try {
+        const res = await fetch('/api/lists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, action: 'create' })
+        });
+        if (res.ok) {
+          input.value = '';
+          curList = name;
+          await loadLists();
+          showToast(`Created list "${name}"`);
+        }
+      } catch (e) { showToast('Error creating list'); }
+    }
+
+    async function deleteList(e, name) {
+      e.stopPropagation();
+      if (!confirm(`Delete list "${name}"?`)) return;
+      try {
+        const res = await fetch('/api/lists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, action: 'delete' })
+        });
+        if (res.ok) {
+          if (curList === name) curList = 'favorites';
+          await loadLists();
+          showToast(`Deleted list "${name}"`);
+        }
+      } catch (e) { showToast('Error deleting list'); }
+    }
+
+    async function toggleInList(listName, platform, stem, add) {
+      try {
+        await fetch('/api/lists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: listName, platform, stem, action: add ? 'add' : 'remove' })
+        });
+        await loadLists();
+      } catch (e) { showToast('Error modifying list'); }
+    }
+
+    async function loadSaves() {
+      try {
+        const res = await fetch('/api/saves');
+        const saves = await res.json();
+        const tbody = document.getElementById('saves-table');
+        tbody.innerHTML = '';
+        if (saves.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">No battery save files found in Saves/</td></tr>`;
+          return;
+        }
+        saves.forEach(s => {
+          const tr = document.createElement('tr');
+          const sizeKb = (s.size / 1024).toFixed(1) + ' KB';
+          tr.innerHTML = `
+            <td><span class="platform-tag">${s.platform}</span></td>
+            <td><b>${s.stem}</b></td>
+            <td>${sizeKb}</td>
+            <td>${s.modified || '--'}</td>
+            <td style="text-align:right;">
+              <a href="/api/save?platform=${encodeURIComponent(s.platform)}&stem=${encodeURIComponent(s.stem)}" class="action-btn secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem; text-decoration:none; display:inline-block;" download="${s.stem}.sav">Download</a>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) { console.error('saves error', e); }
+    }
+
+    async function handleRomUpload(file) {
+      if (!file) return;
+      const targetSys = document.getElementById('rom-target-sys').value;
+      const progress = document.getElementById('rom-upload-progress');
+      progress.style.display = 'block';
+      progress.innerText = `Uploading ${file.name} to ${targetSys}/...`;
+      try {
+        const res = await fetch(`/api/upload_rom?platform=${encodeURIComponent(targetSys)}&filename=${encodeURIComponent(file.name)}`, {
+          method: 'POST',
+          body: file
+        });
+        if (res.ok) {
+          progress.innerText = `Successfully uploaded ${file.name}!`;
+          showToast(`Uploaded ${file.name}`);
+          setTimeout(() => { progress.style.display = 'none'; }, 3000);
+          await loadGames();
+        } else {
+          progress.innerText = 'Upload failed';
+          showToast('Upload failed');
+        }
+      } catch (e) {
+        progress.innerText = 'Upload error';
+        showToast('Upload error');
+      }
+    }
+
+    async function restartFrontend() {
+      if (!confirm('Restart the Slot frontend process now?')) return;
+      try {
+        const res = await fetch('/api/restart', { method: 'POST' });
+        if (res.ok) {
+          showToast('Restarting frontend...');
+        }
+      } catch (e) { showToast('Restart signaled'); }
+    }
+
+    // Startup
+    loadStatus();
+    loadGames();
+    setInterval(loadStatus, 5000);
+  </script>
+</body>
+</html>

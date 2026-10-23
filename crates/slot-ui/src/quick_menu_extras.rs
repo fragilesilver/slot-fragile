@@ -44,7 +44,7 @@ impl QuickRow {
     ];
 
     /// Main menu → Network: the Wi-Fi, Bluetooth and network time.
-    pub const NETWORK: [QuickRow; 12] = [
+    pub const NETWORK: [QuickRow; 13] = [
         QuickRow::WifiPower,
         QuickRow::WifiNetworks,
         QuickRow::WifiStatus,
@@ -53,6 +53,7 @@ impl QuickRow {
         QuickRow::BtDevices,
         QuickRow::SshPower,
         QuickRow::SshPassword,
+        QuickRow::WebDashboard,
         QuickRow::TimeSync,
         QuickRow::Cheevos,
         QuickRow::CheevosAccount,

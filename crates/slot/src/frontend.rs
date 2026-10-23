@@ -71,6 +71,7 @@ pub struct Frontend {
     /// The card shader last put on the game layer, so a failing file is tried once a choice.
     card_shader: Option<Option<String>>,
     ssh_help: SshHelpFace,
+    web_help: SshHelpFace,
 }
 
 #[derive(Default)]
@@ -201,6 +202,7 @@ impl Frontend {
             named_faces: TextFaces::new(NAMED_FACES),
             card_shader: None,
             ssh_help: SshHelpFace::default(),
+            web_help: SshHelpFace::default(),
         }
     }
 
@@ -586,6 +588,7 @@ impl Frontend {
         crate::app::shelves::sync_faces(self.session.app_mut(), compositor);
         sync_named(self.session.app_mut(), compositor, &mut self.named_faces);
         sync_ssh_help(self.session.app_mut(), compositor, &mut self.ssh_help);
+        sync_web_help(self.session.app_mut(), compositor, &mut self.web_help);
         sync_card_shader(self.session.app_mut(), compositor, &mut self.card_shader);
         sync_quick_palette(self.session.app_mut(), compositor, &mut self.quick_palette);
         sync_wallpaper(self.session.app_mut(), compositor, &mut self.wallpaper);
@@ -1357,6 +1360,27 @@ fn sync_ssh_help(app: &mut App, compositor: &mut Compositor, state: &mut SshHelp
         None => None,
     };
     app.set_ssh_help_face(face);
+}
+
+fn sync_web_help(app: &mut App, compositor: &mut Compositor, state: &mut SshHelpFace) {
+    if app.quick_menu().is_none() {
+        return;
+    }
+    let wanted = app.web_connection_string();
+    if state.shown == wanted {
+        return;
+    }
+    state.shown = wanted.clone();
+    let face = match wanted {
+        Some(text) => {
+            let face = slot_ui::quick_description_face(&[&text]);
+            state.size = (face.w, face.h);
+            let id = upload(compositor, &mut state.tex, face);
+            Some((id, state.size.0, state.size.1))
+        }
+        None => None,
+    };
+    app.set_web_help_face(face);
 }
 
 /// The textures the core picker reuses from one cart to the next.

@@ -56,4 +56,5 @@ pub mod thumb;
 pub mod timesync;
 pub mod video_mode;
 pub mod wallpaper;
+pub mod web;
 pub mod wifi;

@@ -148,10 +148,12 @@ pub enum QuickRow {
     SshPassword,
     // --- extras: hdmi ---
     HdmiOutput,
+    // --- extras: web ---
+    WebDashboard,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 133] = [
+    pub const ALL: [QuickRow; 134] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -289,6 +291,8 @@ impl QuickRow {
         QuickRow::SshPassword,
         // --- extras: hdmi ---
         QuickRow::HdmiOutput,
+        // --- extras: web ---
+        QuickRow::WebDashboard,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -561,6 +565,7 @@ impl QuickRow {
             | QuickRow::BtDevices
             | QuickRow::SshPower
             | QuickRow::SshPassword
+            | QuickRow::WebDashboard
             | QuickRow::TimeSync
             | QuickRow::Cheevos
             | QuickRow::CheevosAccount
@@ -700,6 +705,7 @@ impl QuickRow {
             QuickRow::BtDevices => "Devices",
             QuickRow::SshPower => "SSH & SFTP",
             QuickRow::SshPassword => "Password",
+            QuickRow::WebDashboard => "Web Dashboard",
             QuickRow::HdmiOutput => "HDMI Output",
             QuickRow::TimeSync => "Time Sync",
             QuickRow::Cheevos => "RetroAchievements",
@@ -831,6 +837,7 @@ impl QuickRow {
             QuickRow::BtDevices => "Pair, connect or disconnect Bluetooth devices.",
             QuickRow::SshPower => "Secure shell and SFTP file transfer.",
             QuickRow::SshPassword => "Password for root login over SSH and SFTP.",
+            QuickRow::WebDashboard => "Edit cart shells, labels and lists in a browser.",
             QuickRow::HdmiOutput => "Output video and audio to TV when connected.",
             QuickRow::TimeSync => "Set the clock from the internet when online.",
             QuickRow::Cheevos => "Earn achievements, softcore, while you play.",

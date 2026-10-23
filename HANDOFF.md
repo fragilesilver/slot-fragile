@@ -453,6 +453,35 @@ Then, on build 5135f74:
 - Automatic (extras `game_art_auto`, default on): with the internet up and scraper idle, finds
   games with no label not yet asked for since boot.
 
+## Phase 17: Web Dashboard (2026-10-24)
+
+- Embedded LAN Web Server (`crates/slot/src/web.rs`, `crates/slot/src/web/index.html`): pure standard library
+  `std::net::TcpListener` HTTP daemon running on port 1507 (`DASHBOARD_PORT = 1507`). Zero external dependencies.
+- Authentication & Security: Protected by HTTP Basic Auth checking against the device root password in
+  `baseos.conf` / `extras.state` (default `"root"`). All endpoints reject unauthenticated or mismatched credentials
+  with 401 Unauthorized (`WWW-Authenticate: Basic realm="Fragile Dashboard"`).
+- Multi-System Coverage (All 6 Platforms): Covers GBA, GB, GBC, NES, SNES, and PlayStation 1 across all tabs and APIs.
+- Features & Web UI:
+  - **Cart Studio**: Interactive shell styling (outline: `auto`, `notched`, `rounded`; colors: 12 curated swatches
+    plus hex picker; finish: `solid`, `clear`, `glitter`). Writes atomically to `Labels/cart_shell.txt`.
+  - **Labels & Disc Art**: Custom PNG cartridge label / disc artwork uploader to `Labels/<system>/<stem>.png`.
+    Previews existing labels and supports live cache-busted replacement.
+  - **Shelves & Favorites**: Reorder/add/remove games in custom shelves (`Config/Lists/*.txt`) and toggle favorites
+    in `Config/favorites.txt`.
+  - **Save Manager**: Battery save export/import (`.sav` / `.srm`) across all systems with one-click download/upload.
+  - **ROM Uploader**: Multi-file drag-and-drop game uploader depositing files into system ROM directories
+    (`GBA/`, `GB/`, `GBC/`, `NES/`, `SNES/`, `PlayStation/`).
+  - **System & Reload**: Real-time battery %, storage capacity/free space, and 1-click frontend reload triggering
+    `re_exec()` via `/tmp/slot_restart`.
+- QuickMenu & UI Integration:
+  - Added `QuickRow::WebDashboard` to `QuickRow::ALL` (134 total) and `QuickRow::NETWORK` (13 total).
+  - Label: `"Web Dashboard"`, Help: `"Edit cart shells, labels and lists in a browser."`.
+  - Dynamic connection string: Highlighting `WebDashboard` displays `http://<ip>:1507 (root / <password>)`
+    using the dynamic description texture pool (`web_help_face`).
+  - Automatically hidden when Wi-Fi is off or radio is unavailable.
+- Tests: Integration test suite in `tests/web_dashboard.rs` (6 tests) covering auth enforcement, games/lists
+  inventory, cart shell persistence, label uploading/retrieval, list/favorite editing, and QuickMenu toggle behavior.
+
 ## Phase 16: HDMI Out (2026-10-24)
 
 - Shell driver (`card/System/slothdmi.sh`, `card/test-slothdmi.sh`): controls Sunxi `disp2` output routing

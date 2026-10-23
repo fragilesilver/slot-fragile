@@ -424,6 +424,7 @@ pub struct App {
     quick_palette_faces: Option<[(TexId, u32, u32); 2]>,
     quick_bezel_faces: [Option<[(TexId, u32, u32); 2]>; 3],
     ssh_help_face: Option<(TexId, u32, u32)>,
+    web_help_face: Option<(TexId, u32, u32)>,
     game_bezel: Option<TexId>,
     in_game_menu: Option<QuickRow>,
     /// 0 while the pause footer is off the bottom, 1 when it sits in the carousel's place.
@@ -614,6 +615,7 @@ impl App {
             quick_palette_faces: None,
             quick_bezel_faces: [None, None, None],
             ssh_help_face: None,
+            web_help_face: None,
             game_bezel: None,
             in_game_menu: None,
             footer: 0.0,
@@ -1164,12 +1166,17 @@ impl App {
             | QuickRow::BtDevices
             | QuickRow::SshPower
             | QuickRow::SshPassword
-            | QuickRow::HdmiOutput => None,
+            | QuickRow::HdmiOutput
+            | QuickRow::WebDashboard => None,
         }
     }
 
     pub fn set_ssh_help_face(&mut self, face: Option<(TexId, u32, u32)>) {
         self.ssh_help_face = face;
+    }
+
+    pub fn set_web_help_face(&mut self, face: Option<(TexId, u32, u32)>) {
+        self.web_help_face = face;
     }
 
     pub fn set_quick_menu_faces(&mut self, faces: QuickMenuFaces) {
@@ -1942,6 +1949,11 @@ impl App {
         }
         if matches!(row, QuickRow::SshPower | QuickRow::SshPassword) {
             if let Some(face) = self.ssh_help_face {
+                return Some(face);
+            }
+        }
+        if row == QuickRow::WebDashboard {
+            if let Some(face) = self.web_help_face {
                 return Some(face);
             }
         }
@@ -2799,7 +2811,8 @@ impl App {
             | QuickRow::BtDevices
             | QuickRow::SshPower
             | QuickRow::SshPassword
-            | QuickRow::HdmiOutput => {}
+            | QuickRow::HdmiOutput
+            | QuickRow::WebDashboard => {}
         }
     }
 
@@ -3021,7 +3034,8 @@ impl App {
             | QuickRow::BtDevices
             | QuickRow::SshPower
             | QuickRow::SshPassword
-            | QuickRow::HdmiOutput => return,
+            | QuickRow::HdmiOutput
+            | QuickRow::WebDashboard => return,
         }
         self.persist();
     }
