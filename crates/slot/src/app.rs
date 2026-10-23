@@ -1163,7 +1163,8 @@ impl App {
             | QuickRow::Bluetooth
             | QuickRow::BtDevices
             | QuickRow::SshPower
-            | QuickRow::SshPassword => None,
+            | QuickRow::SshPassword
+            | QuickRow::HdmiOutput => None,
         }
     }
 
@@ -2797,7 +2798,8 @@ impl App {
             | QuickRow::Bluetooth
             | QuickRow::BtDevices
             | QuickRow::SshPower
-            | QuickRow::SshPassword => {}
+            | QuickRow::SshPassword
+            | QuickRow::HdmiOutput => {}
         }
     }
 
@@ -3018,7 +3020,8 @@ impl App {
             | QuickRow::Bluetooth
             | QuickRow::BtDevices
             | QuickRow::SshPower
-            | QuickRow::SshPassword => return,
+            | QuickRow::SshPassword
+            | QuickRow::HdmiOutput => return,
         }
         self.persist();
     }

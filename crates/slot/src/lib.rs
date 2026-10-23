@@ -28,6 +28,7 @@ pub mod face_builder;
 pub mod frames;
 pub mod frontend;
 pub mod gambatte;
+pub mod hdmi;
 pub mod input;
 pub mod label_cache;
 pub mod latency;

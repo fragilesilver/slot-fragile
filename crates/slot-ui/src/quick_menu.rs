@@ -146,10 +146,12 @@ pub enum QuickRow {
     // --- extras: ssh ---
     SshPower,
     SshPassword,
+    // --- extras: hdmi ---
+    HdmiOutput,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 132] = [
+    pub const ALL: [QuickRow; 133] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -285,6 +287,8 @@ impl QuickRow {
         // --- extras: ssh ---
         QuickRow::SshPower,
         QuickRow::SshPassword,
+        // --- extras: hdmi ---
+        QuickRow::HdmiOutput,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -297,7 +301,7 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const GENERAL: [QuickRow; 12] = [
+    pub const GENERAL: [QuickRow; 13] = [
         QuickRow::Theme,
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
@@ -310,6 +314,8 @@ impl QuickRow {
         QuickRow::LidOff,
         QuickRow::SleepOff,
         QuickRow::DateTime,
+        // --- extras ---
+        QuickRow::HdmiOutput,
     ];
 
     pub const CONTROL_PAGES: [QuickRow; 4] = [
@@ -517,7 +523,8 @@ impl QuickRow {
             | QuickRow::ShowFavorites
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
-            | QuickRow::BatteryBadge => &QuickRow::GENERAL,
+            | QuickRow::BatteryBadge
+            | QuickRow::HdmiOutput => &QuickRow::GENERAL,
             QuickRow::ControlsShelf
             | QuickRow::Shortcuts
             | QuickRow::ControlsInGame
@@ -693,6 +700,7 @@ impl QuickRow {
             QuickRow::BtDevices => "Devices",
             QuickRow::SshPower => "SSH & SFTP",
             QuickRow::SshPassword => "Password",
+            QuickRow::HdmiOutput => "HDMI Output",
             QuickRow::TimeSync => "Time Sync",
             QuickRow::Cheevos => "RetroAchievements",
             QuickRow::CheevosAccount => "Account",
@@ -823,6 +831,7 @@ impl QuickRow {
             QuickRow::BtDevices => "Pair, connect or disconnect Bluetooth devices.",
             QuickRow::SshPower => "Secure shell and SFTP file transfer.",
             QuickRow::SshPassword => "Password for root login over SSH and SFTP.",
+            QuickRow::HdmiOutput => "Output video and audio to TV when connected.",
             QuickRow::TimeSync => "Set the clock from the internet when online.",
             QuickRow::Cheevos => "Earn achievements, softcore, while you play.",
             QuickRow::CheevosAccount => "Sign in to RetroAchievements.",

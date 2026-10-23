@@ -453,6 +453,35 @@ Then, on build 5135f74:
 - Automatic (extras `game_art_auto`, default on): with the internet up and scraper idle, finds
   games with no label not yet asked for since boot.
 
+## Phase 16: HDMI Out (2026-10-24)
+
+- Shell driver (`card/System/slothdmi.sh`, `card/test-slothdmi.sh`): controls Sunxi `disp2` output routing
+  via BaseOS `/sys/kernel/debug/dispdbg` (`disp0 switch1`), monitors physical cable hotplug via
+  `/sys/class/extcon/hdmi/state`, controls backlight brightness via `/sys/class/backlight`, and provides
+  an emergency rescue verb (`rescue`) that resets `hdmi_mode=off` in `extras.state`, switches `disp0` back
+  to `lcd0`, and restores internal panel brightness. Tested in `test:card`.
+- Backend actor (`crates/slot/src/hdmi.rs`): `HdmiMode` (`Auto`, `720p`, `1080p`, `Off`), `HdmiController` trait,
+  `DeviceHdmi`, and `SimHdmi`. Hardware detection (`hdmi::present()`) hides HDMI settings on devices without an
+  HDMI port (e.g. RG28XX).
+- Audio route integration: when HDMI output is active, ALSA output dynamically routes to `plughw:CARD=ahubhdmi,DEV=0`
+  via `slot::audio::set_route(Some(...))`, sending game and menu sound to the TV speakers; reverts to built-in speaker
+  when disconnected.
+- Seamless Dock/Undock & Crash Prevention:
+  - Boot with HDMI connected: activates 720p/1080p output, turns internal LCD backlight off, opens surface in native
+    16:9 landscape (`PanelTurn::None`).
+  - Hotplug while running: runtime loop checks `extcon/hdmi/state` every 500ms. On cable insertion/removal, saves all
+    in-progress game state and settings (`settle_saves()`), switches display and audio routing, and cleanly re-execs
+    the frontend process in ~100ms via `CommandExt::exec`, avoiding Mali GPU driver EGL surface reallocation panics.
+  - Shutdown while connected, unplug, turn on: checks physical cable presence on every boot. If cable is disconnected,
+    always boots to internal LCD with backlight active, completely avoiding the infamous muOS black screen trap.
+  - Emergency hardware rescue shortcut: holding `Menu + Volume Up` for 1.5 seconds triggers rescue directly from
+    hardware input, resetting HDMI to `Off`, switching `disp0` back to `lcd0`, setting backlight to 100%, and re-execing.
+- QuickMenu & UI:
+  - Added `QuickRow::HdmiOutput` in General settings (`Auto`, `720p`, `1080p`, `Off`), persisted in `Config/extras.state`
+    under `hdmi_mode`.
+- Tests: unit test suite in `hdmi.rs` (3 tests) and integration test suite in `tests/hdmi.rs` (4 tests) covering
+  default Auto mode, resolution cycling, state persistence, simulation actor, and rescue script behavior.
+
 ## Phase 15: SSH & SFTP (2026-10-24)
 
 - Driver script (`card/System/slotssh.sh`, `card/test-slotssh.sh`): controls BaseOS's Dropbear daemon

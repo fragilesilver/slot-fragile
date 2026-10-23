@@ -213,6 +213,9 @@ impl App {
 
     /// A menu value that is text slot only knows at run time, for the frontend to draw.
     pub fn named_value(&self, row: QuickRow) -> Option<String> {
+        if row == QuickRow::HdmiOutput {
+            return Some(self.hdmi_mode().text().to_string());
+        }
         if let Some(text) = self.network_text(row) {
             return Some(text);
         }

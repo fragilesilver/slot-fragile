@@ -141,6 +141,24 @@ impl App {
         self.extras.flag(FF_PITCH, false)
     }
 
+    pub fn hdmi_mode(&self) -> crate::hdmi::HdmiMode {
+        self.extras
+            .get(crate::hdmi::EXTRAS_KEY)
+            .and_then(crate::hdmi::HdmiMode::parse)
+            .unwrap_or_default()
+    }
+
+    pub fn set_hdmi_mode(&mut self, mode: crate::hdmi::HdmiMode) {
+        self.extras.set(crate::hdmi::EXTRAS_KEY, Some(mode.key()));
+        self.save_extras();
+    }
+
+    pub fn step_hdmi_mode(&mut self, right: bool) {
+        let current = self.hdmi_mode();
+        let next = current.step(right);
+        self.set_hdmi_mode(next);
+    }
+
     /// The extras rows the carousel menu hides: a clamshell shows Lid Power Off and anything
     /// else Sleep Power Off. Neither is on an in-game page.
     pub(super) fn extras_hidden(&self) -> Vec<QuickRow> {
@@ -149,6 +167,9 @@ impl App {
             false => QuickRow::LidOff,
         }];
         hidden.extend(self.network_hidden());
+        if !crate::hdmi::present() {
+            hidden.push(QuickRow::HdmiOutput);
+        }
         hidden
     }
 
@@ -232,6 +253,7 @@ impl App {
                 true => QuickValue::Hour12,
                 false => QuickValue::Hour24,
             })),
+            QuickRow::HdmiOutput => Some(None),
             _ if self.network_value(row).is_some() => self.network_value(row),
             _ => self.screen_value(row),
         }
@@ -250,6 +272,7 @@ impl App {
                 self.restock_favorites();
             }
             QuickRow::BatteryBadge => self.toggle_battery_badge(),
+            QuickRow::HdmiOutput => self.step_hdmi_mode(right),
             QuickRow::FastForwardPitch => {
                 let on = !self.ff_pitch();
                 self.extras.set_flag(FF_PITCH, on);

@@ -2,10 +2,83 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use slot::frontend::Frontend;
+use slot::hdmi::{DeviceHdmi, HdmiController, HDMI_ALSA_DEVICE};
 use slot::input::DeviceInput;
 use slot::panel_turn::{panel_turn, PanelTurn};
 use slot_gfx::{Compositor, FbdevSurface, Surface};
 use slot_power::{trace_first_frame, DevicePlatform};
+
+struct RescueInput<I> {
+    inner: I,
+    menu_held: bool,
+    vol_up_held: bool,
+    held_since: Option<Instant>,
+    rescue_triggered: bool,
+}
+
+impl<I: slot_input::InputSource> RescueInput<I> {
+    fn new(inner: I) -> Self {
+        RescueInput {
+            inner,
+            menu_held: false,
+            vol_up_held: false,
+            held_since: None,
+            rescue_triggered: false,
+        }
+    }
+
+    fn check_rescue(&mut self) -> bool {
+        if self.rescue_triggered {
+            return false;
+        }
+        if self.menu_held && self.vol_up_held {
+            let start = self.held_since.get_or_insert_with(Instant::now);
+            if start.elapsed() >= Duration::from_millis(1500) {
+                self.rescue_triggered = true;
+                return true;
+            }
+        } else {
+            self.held_since = None;
+        }
+        false
+    }
+}
+
+impl RescueInput<DeviceInput> {
+    fn steer_with_stick(&self, on: bool) {
+        self.inner.steer_with_stick(on);
+    }
+}
+
+impl<I: slot_input::InputSource> slot_input::InputSource for RescueInput<I> {
+    fn poll(&mut self, now: slot_input::Millis) -> Vec<slot_input::RawEvent> {
+        let events = self.inner.poll(now);
+        for ev in &events {
+            match ev {
+                slot_input::RawEvent::Down(slot_input::Btn::Menu) => self.menu_held = true,
+                slot_input::RawEvent::Up(slot_input::Btn::Menu) => self.menu_held = false,
+                slot_input::RawEvent::Down(slot_input::Btn::VolUp) => self.vol_up_held = true,
+                slot_input::RawEvent::Up(slot_input::Btn::VolUp) => self.vol_up_held = false,
+                _ => {}
+            }
+        }
+        events
+    }
+}
+
+fn re_exec() -> ! {
+    eprintln!("slot: re-executing frontend process for display change...");
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("/bin/slot"));
+        let mut cmd = std::process::Command::new(exe);
+        cmd.args(std::env::args_os().skip(1));
+        let err = cmd.exec();
+        eprintln!("slot: re-exec failed: {err}");
+    }
+    std::process::exit(0);
+}
 
 const CARD: &str = "/mnt/sdcard";
 
@@ -75,6 +148,17 @@ pub fn run() {
     let root = std::env::var_os("SLOT_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(CARD));
+    let mut hdmi = DeviceHdmi::new(&root);
+    let hdmi_mode = slot::hdmi::read_hdmi_mode(Some(&root));
+    let mut hdmi_connected = hdmi.is_connected();
+    let mut hdmi_active = false;
+    if hdmi_mode.is_enabled() && hdmi_connected {
+        eprintln!("slot: hdmi connected at boot, activating {hdmi_mode:?}");
+        if let Ok(()) = hdmi.switch_on(hdmi_mode) {
+            hdmi_active = true;
+            slot::audio::set_route(Some(HDMI_ALSA_DEVICE.to_string()));
+        }
+    }
     let mut surface = match FbdevSurface::new() {
         Ok(s) => s,
         Err(e) => {
@@ -93,11 +177,15 @@ pub fn run() {
     slot::boot_time::mark("compositor");
     let panel = surface.window_size();
     let env = |key| std::env::var(key).ok();
-    let turn = panel_turn(
-        panel,
-        slot::baseos::var("BASEOS_PANEL_ROTATION_CCW").as_deref(),
-        env("SLOT_ROTATE").as_deref(),
-    );
+    let turn = if hdmi_active {
+        PanelTurn::None
+    } else {
+        panel_turn(
+            panel,
+            slot::baseos::var("BASEOS_PANEL_ROTATION_CCW").as_deref(),
+            env("SLOT_ROTATE").as_deref(),
+        )
+    };
     let turned = turn != PanelTurn::None;
     let window = if turned { (panel.1, panel.0) } else { panel };
     eprintln!(
@@ -134,7 +222,7 @@ pub fn run() {
     slot::boot_time::mark("faces");
     frontend.upload_bezel(&mut compositor, window);
     slot::boot_time::mark("bezel");
-    let mut input = DeviceInput::open(&root);
+    let mut input = RescueInput::new(DeviceInput::open(&root));
     slot::boot_time::mark("input");
     let card = root.clone();
     let _ = std::thread::Builder::new()
@@ -144,11 +232,45 @@ pub fn run() {
     frontend.drive_emulator();
     let mut pacer = Pacer::new();
     let (mut frames, mut missed, mut early) = (0u32, 0u32, 0u32);
+    let mut last_hdmi_check = Instant::now();
+    let mut last_hdmi_mode = frontend.app().hdmi_mode();
     loop {
         pacer.wait();
         let began = Instant::now();
         input.steer_with_stick(frontend.app().left_stick_dpad());
         frontend.advance(&mut input);
+
+        if input.check_rescue() {
+            eprintln!("slot: hdmi rescue triggered via hardware shortcut (Menu + VolUp)");
+            let _ = hdmi.rescue();
+            slot::audio::set_route(None);
+            frontend.app_mut().settle_saves();
+            re_exec();
+        }
+
+        if last_hdmi_check.elapsed() >= Duration::from_millis(500) {
+            last_hdmi_check = Instant::now();
+            let connected_now = hdmi.is_connected();
+            let current_mode = frontend.app().hdmi_mode();
+            let mode_changed = current_mode != last_hdmi_mode;
+            last_hdmi_mode = current_mode;
+
+            if connected_now != hdmi_connected || (connected_now && mode_changed) {
+                eprintln!(
+                    "slot: hdmi transition (connected: {hdmi_connected} -> {connected_now}, mode: {current_mode:?})"
+                );
+                hdmi_connected = connected_now;
+                if connected_now && current_mode.is_enabled() {
+                    let _ = hdmi.switch_on(current_mode);
+                    slot::audio::set_route(Some(HDMI_ALSA_DEVICE.to_string()));
+                } else {
+                    let _ = hdmi.switch_off();
+                    slot::audio::set_route(None);
+                }
+                frontend.app_mut().settle_saves();
+                re_exec();
+            }
+        }
         if frontend.restarting() {
             frontend.restart();
         }

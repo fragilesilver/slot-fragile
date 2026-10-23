@@ -114,6 +114,7 @@ tasks:
       - sh card/test-slotwifi.sh
       - sh card/test-slotbt.sh
       - sh card/test-slotssh.sh
+      - sh card/test-slothdmi.sh
 
   core:
     desc: >-
