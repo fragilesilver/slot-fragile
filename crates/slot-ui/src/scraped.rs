@@ -1,4 +1,4 @@
-// Ported from cloudwithax/unslot@6339c18, crates/slot-ui/src/scraped.rs, unchanged.
+// Ported from cloudwithax/unslot@6339c18, crates/slot-ui/src/scraped.rs. Fragile adds `box_label`.
 
 //! Labels made from art found online: a game's clear logo on a two-stop gradient coloured from
 //! its box art, or the box art itself when there is no logo to be had.
@@ -232,6 +232,26 @@ pub fn hue_of(rgb: [u8; 3]) -> u16 {
     rgb_to_hsv(rgb[0], rgb[1], rgb[2]).0 as u16
 }
 
+/// How far down a box a label wider than it is cut from: a cover's title sits near its top.
+const BOX_TOP_OF: f32 = 0.08;
+
+/// Fragile: a box (or disc) cover as a `w` by `h` label PNG. A label wider than the cover takes
+/// a band near its top, where the title is, rather than its middle; a narrower one its middle.
+pub fn box_label(png: &[u8], w: u32, h: u32) -> Option<Vec<u8>> {
+    let (px, sw, sh) = decode_png_bytes(png)?;
+    if sw == 0 || sh == 0 || w == 0 || h == 0 {
+        return None;
+    }
+    let band = ((sw as u64 * h as u64) / w as u64) as u32;
+    if band >= sh {
+        return encode(&crate::art::cover_rgba(&px, sw, sh, w, h)?, w, h);
+    }
+    let top = ((sh - band) as f32 * BOX_TOP_OF).round() as u32;
+    let start = (top * sw * 4) as usize;
+    let cut = &px[start..start + (band * sw * 4) as usize];
+    encode(&crate::art::cover_rgba(cut, sw, band, w, h)?, w, h)
+}
+
 fn encode(rgba: &[u8], w: u32, h: u32) -> Option<Vec<u8>> {
     let mut out = Vec::new();
     {
@@ -304,6 +324,19 @@ mod tests {
         assert_eq!(at(&label, 32, 16), [10, 200, 40, 255]);
         let (_, w, h) = decode_png_bytes(&label).unwrap();
         assert_eq!((w, h), (64, 32));
+    }
+
+    #[test]
+    fn a_wide_label_cuts_a_box_near_its_top_and_a_narrow_one_from_its_middle() {
+        // A square box, red in its top tenth and blue below.
+        let boxart = png(100, 100, |_, y| match y {
+            0..=9 => [255, 0, 0, 255],
+            _ => [0, 0, 255, 255],
+        });
+        let wide = box_label(&boxart, 200, 100).unwrap();
+        assert_eq!(at(&wide, 100, 2)[0], 255, "the top of the box was cut off");
+        let tall = box_label(&boxart, 50, 100).unwrap();
+        assert_eq!(at(&tall, 25, 2), [255, 0, 0, 255]);
     }
 
     #[test]

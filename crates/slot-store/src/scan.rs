@@ -75,11 +75,16 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
         };
         let labels_dir = root.join("Labels").join(platform.dir_name());
         let labels = listing(&labels_dir);
+        // Fragile: Game Art's label, where the player has none of their own.
+        let scraped_dir = root.join(crate::SCRAPED_LABELS).join(platform.dir_name());
+        let scraped = listing(&scraped_dir);
         let make = |rom: PathBuf| {
             let stem = rom.file_stem().and_then(|s| s.to_str())?.to_string();
+            let png = format!("{stem}.png").to_lowercase();
             let label = labels
-                .get(&format!("{stem}.png").to_lowercase())
-                .map(|name| labels_dir.join(name));
+                .get(&png)
+                .map(|name| labels_dir.join(name))
+                .or_else(|| scraped.get(&png).map(|name| scraped_dir.join(name)));
             Some(Cart {
                 platform,
                 shell: shells.get(&crate::cart_shell::key(&stem)).copied(),

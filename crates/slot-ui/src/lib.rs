@@ -23,7 +23,7 @@ mod plate;
 mod polaroids;
 // Fragile: Game Art's labels (Phase 13).
 mod scraped;
-pub use scraped::{box_hue, hue_of, scraped_label};
+pub use scraped::{box_hue, box_label, hue_of, scraped_label};
 mod power_menu;
 mod quick_menu;
 mod quick_menu_extras;

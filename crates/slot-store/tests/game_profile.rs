@@ -168,3 +168,26 @@ fn clearing_a_game_puts_it_back_on_the_defaults() {
     assert_eq!(p.get(Platform::Gba, "Mother 3"), GameProfile::default());
     assert_eq!(p.get(Platform::Gba, "Golden Sun").ff_speed, Some(6));
 }
+
+/// Fragile: a game's label style is kept, and a disc refuses one it cannot take.
+#[test]
+fn a_label_style_round_trips_and_a_disc_has_no_cart_label() {
+    use slot_store::LabelStyle;
+    let mut p = GameProfiles::default();
+    assert!(p.set(
+        Platform::Gba,
+        "Fusion",
+        ProfileField::Label(LabelStyle::Logo)
+    ));
+    let back = GameProfiles::parse(&p.to_text());
+    assert_eq!(
+        back.get(Platform::Gba, "Fusion").label,
+        Some(LabelStyle::Logo)
+    );
+    let disc = GameProfiles::parse("PS/Tactics.label = label\nPS/Vagrant.label = logo\n");
+    assert_eq!(disc.get(Platform::PlayStation, "Tactics").label, None);
+    assert_eq!(
+        disc.get(Platform::PlayStation, "Vagrant").label,
+        Some(LabelStyle::Logo)
+    );
+}

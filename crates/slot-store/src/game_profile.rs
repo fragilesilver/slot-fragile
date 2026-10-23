@@ -12,6 +12,7 @@
 //! GBA/Mother 3 (Japan).colour = on
 //! GBA/Mother 3 (Japan).ff = 3
 //! GBA/Mother 3 (Japan).ffsound = off
+//! GBA/Mother 3 (Japan).label = logo
 //! ```
 //!
 //! A setting with no line falls back to the global default in `Config/slot.state`, which the
@@ -22,6 +23,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use crate::label_style::LabelStyle;
 use crate::platform::Platform;
 use crate::slot_state::{Shader, SlotState, FF_SPEEDS};
 
@@ -38,6 +40,8 @@ pub struct GameProfile {
     pub colour: Option<bool>,
     pub ff_speed: Option<u8>,
     pub ff_sound: Option<bool>,
+    /// Fragile: how Game Art draws its label (Phase 13).
+    pub label: Option<LabelStyle>,
 }
 
 /// One change to a game's profile.
@@ -47,6 +51,7 @@ pub enum ProfileField {
     Colour(bool),
     FfSpeed(u8),
     FfSound(bool),
+    Label(LabelStyle),
 }
 
 /// The settings a game actually runs with: its own where it has them, the defaults elsewhere.
@@ -69,6 +74,7 @@ impl GameProfile {
             ProfileField::Colour(on) => self.colour = Some(on),
             ProfileField::FfSpeed(f) => self.ff_speed = Some(f),
             ProfileField::FfSound(on) => self.ff_sound = Some(on),
+            ProfileField::Label(style) => self.label = Some(style),
         }
     }
 
@@ -172,6 +178,9 @@ impl GameProfiles {
                     .filter(|f| FF_SPEEDS.contains(f))
                     .map(ProfileField::FfSpeed),
                 "ffsound" => flag(&value).map(ProfileField::FfSound),
+                "label" => LabelStyle::parse(&value)
+                    .filter(|s| LabelStyle::of(platform).contains(s))
+                    .map(ProfileField::Label),
                 _ => None,
             };
             if let Some(field) = field {
@@ -230,6 +239,9 @@ impl GameProfiles {
             }
             if let Some(on) = p.ff_sound {
                 out.push_str(&format!("{game}.ffsound = {}\n", flag_str(on)));
+            }
+            if let Some(style) = p.label {
+                out.push_str(&format!("{game}.label = {}\n", style.key()));
             }
         }
         out

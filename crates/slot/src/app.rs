@@ -1144,6 +1144,7 @@ impl App {
             | QuickRow::ThisColour
             | QuickRow::ThisFfSpeed
             | QuickRow::ThisFfSound
+            | QuickRow::ThisLabel
             | QuickRow::ThisDefaults
             | QuickRow::IntegerGba
             | QuickRow::IntegerGb
@@ -2764,6 +2765,7 @@ impl App {
             | QuickRow::ThisColour
             | QuickRow::ThisFfSpeed
             | QuickRow::ThisFfSound
+            | QuickRow::ThisLabel
             | QuickRow::ThisDefaults
             | QuickRow::IntegerGba
             | QuickRow::IntegerGb
@@ -2980,6 +2982,7 @@ impl App {
             | QuickRow::ThisColour
             | QuickRow::ThisFfSpeed
             | QuickRow::ThisFfSound
+            | QuickRow::ThisLabel
             | QuickRow::ThisDefaults
             | QuickRow::IntegerGba
             | QuickRow::IntegerGb

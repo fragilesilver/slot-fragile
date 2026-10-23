@@ -139,10 +139,11 @@ pub enum QuickRow {
     GameL2,
     GameR2,
     GameArt,
+    ThisLabel,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 127] = [
+    pub const ALL: [QuickRow; 128] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -271,6 +272,7 @@ impl QuickRow {
         QuickRow::GameL2,
         QuickRow::GameR2,
         QuickRow::GameArt,
+        QuickRow::ThisLabel,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -524,6 +526,7 @@ impl QuickRow {
             | QuickRow::ThisColour
             | QuickRow::ThisFfSpeed
             | QuickRow::ThisFfSound
+            | QuickRow::ThisLabel
             | QuickRow::ThisDefaults => &QuickRow::THIS_GAME,
             r if r.game_button().is_some() => &QuickRow::CONTROLS,
             r if r.shortcut().is_some() => &QuickRow::SHORTCUTS,
@@ -680,6 +683,7 @@ impl QuickRow {
             QuickRow::ThisColour => "Color Correction",
             QuickRow::ThisFfSpeed => "Fast Forward",
             QuickRow::ThisFfSound => "Fast Forward Sound",
+            QuickRow::ThisLabel => "Label",
             QuickRow::ThisDefaults => "Use Defaults",
             QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => "Integer Scale",
             QuickRow::CardShaderGba | QuickRow::CardShaderGb | QuickRow::CardShaderGbc => {
@@ -808,6 +812,7 @@ impl QuickRow {
             QuickRow::ThisColour => "Color correction for this game only.",
             QuickRow::ThisFfSpeed => "Fast forward speed for this game only.",
             QuickRow::ThisFfSound => "Fast forward sound for this game only.",
+            QuickRow::ThisLabel => "How Game Art draws this game's label.",
             QuickRow::ThisDefaults => "On: this game follows the settings menu.",
             QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => {
                 "Whole pixels on 4:3 screens, with a border."

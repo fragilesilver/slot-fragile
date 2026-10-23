@@ -42,7 +42,7 @@ impl App {
             .and(self.game_profile().colour)
     }
 
-    fn set_own(&mut self, field: ProfileField) {
+    pub(super) fn set_own(&mut self, field: ProfileField) {
         let Some((platform, stem)) = self.seated_game() else {
             return;
         };
@@ -114,6 +114,7 @@ impl App {
                 if self.profiles.clear(platform, &stem) {
                     self.save_profiles();
                     self.colour_pending = Some(self.colour_correction());
+                    self.own_label_cleared();
                 }
             }
             r if self.edits_shader(r) && (this || own.shader.is_some()) => {
@@ -127,6 +128,7 @@ impl App {
             QuickRow::ThisFfSpeed => self.step_own_ff(right),
             QuickRow::FastForward if own.ff_speed.is_some() => self.step_own_ff(right),
             QuickRow::ThisFfSound => self.toggle_own_ff_sound(),
+            QuickRow::ThisLabel => self.step_own_label(right),
             QuickRow::FastForwardSound if own.ff_sound.is_some() => self.toggle_own_ff_sound(),
             _ => return false,
         }

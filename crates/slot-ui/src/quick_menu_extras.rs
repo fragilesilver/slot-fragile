@@ -22,11 +22,12 @@ pub fn network_legend_faces(ink: [u8; 3]) -> [UndoFace; 2] {
 
 impl QuickRow {
     /// In game, Settings → This Game: the settings this one game keeps for itself.
-    pub const THIS_GAME: [QuickRow; 5] = [
+    pub const THIS_GAME: [QuickRow; 6] = [
         QuickRow::ThisShader,
         QuickRow::ThisColour,
         QuickRow::ThisFfSpeed,
         QuickRow::ThisFfSound,
+        QuickRow::ThisLabel,
         QuickRow::ThisDefaults,
     ];
 

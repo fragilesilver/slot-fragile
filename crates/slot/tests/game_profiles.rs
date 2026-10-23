@@ -157,3 +157,24 @@ fn this_games_colour_row_is_its_own_and_reaches_the_core() {
     assert_eq!(a.take_colour_correction(), Some(!menu));
     assert_eq!(read_slot_state(d.path()).colour_correction_gba, menu);
 }
+
+/// Fragile: This Game → Label keeps the game's own label style, and Defaults gives it back.
+#[test]
+fn this_game_keeps_its_own_label_style() {
+    let d = card();
+    let mut a = app_playing_in(d.path(), "Emerald");
+    go_to(&mut a, QuickRow::ThisLabel);
+    assert_eq!(
+        a.named_value(QuickRow::ThisLabel).as_deref(),
+        Some("Default")
+    );
+    press(&mut a, Btn::Left);
+    assert_eq!(a.named_value(QuickRow::ThisLabel).as_deref(), Some("Logo"));
+    assert_eq!(own(&d, "Emerald").label, Some(slot_store::LabelStyle::Logo));
+    assert_eq!(own(&d, "Fusion").label, None, "Fusion took Emerald's style");
+    while a.in_game_menu() != Some(QuickRow::ThisDefaults) {
+        press(&mut a, Btn::Down);
+    }
+    press(&mut a, Btn::Right);
+    assert_eq!(own(&d, "Emerald").label, None);
+}

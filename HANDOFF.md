@@ -448,6 +448,22 @@ Then, on build 5135f74:
   `System/Cache/Scraper`.
 - Not run on the device yet. A multi-disc `.m3u` named unlike the database (e.g. "FF IX ATB")
   finds nothing.
+- Label styles (the user's call: Fragile is its carts and discs, so the default is the game's
+  own art). `slot_store::LabelStyle` Art / Label / Logo: Art is the box on a cart and the disc
+  scan on a PS1 disc, Label the printed cart label (ScreenScraper `support-texture`, then
+  `support-2D`), Logo the old look; each falls back to the box, then the logo. Global in extras
+  `label_style` (Game Art → Label Style), per game in `game_profiles.txt` `.label` (in-game
+  This Game → Label; Defaults clears it). A wide label cuts the box near its top
+  (`slot_ui::box_label`), so a GBA cart shows the title.
+- Game Art's labels go to `System/Cache/Scraper/Labels/<sys>/`, which `scan` reads when
+  `Labels/` has none: the player's own always win and are never redrawn. Each game's
+  downloads stay in `System/Cache/Scraper/Art/<sys>/<stem>.{logo,box,scan}.png` with a
+  `.looked` marker, so a new style redraws offline and a game is fetched once.
+- Automatic (extras `game_art_auto`, default on): with the internet up and the scraper idle,
+  the games with no label not yet asked for since boot. Only with a live scraper (the device,
+  or `SLOT_SCRAPE_LIVE=1`); tests hand in `SimFetch` through `App::use_scraper`.
+- Live on the PC: Golden Sun, Link's Awakening and FF Tactics as box art in 12 s, then drawn
+  again from the cache with no fetch.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

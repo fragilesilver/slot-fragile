@@ -13,6 +13,7 @@ pub mod gb;
 mod gb_palette;
 mod gba;
 pub mod ini;
+mod label_style;
 mod platform;
 pub mod platform_settings;
 mod ring;
@@ -39,6 +40,7 @@ pub use game_profile::{
 };
 pub use gb_palette::GbPalette;
 pub use gba::{header_clean, header_code, header_title, header_title_code};
+pub use label_style::{LabelStyle, SCRAPED_LABELS};
 pub use platform::Platform;
 pub use ring::{StateEntry, StateRing, RING_MAX};
 pub use scan::{initial, is_hidden, listing, scan, sort_key, Cart, StoreError};

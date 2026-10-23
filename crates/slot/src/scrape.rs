@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
-use slot_store::{Cart, Platform};
+use slot_store::{Cart, LabelStyle, Platform, SCRAPED_LABELS};
 
 use crate::json;
 
@@ -372,9 +372,18 @@ pub struct ScrapeView {
     pub error: Option<String>,
 }
 
+/// Fragile: whether this build asks the real servers: the device does, and anywhere else
+/// does with `SLOT_SCRAPE_LIVE=1`.
+pub fn live() -> bool {
+    cfg!(feature = "device") || std::env::var_os("SLOT_SCRAPE_LIVE").is_some()
+}
+
+/// Fragile: a game to label, and how.
+pub type Job = (Cart, LabelStyle);
+
 /// The handle the app keeps.
 pub struct Scraper {
-    jobs: Sender<Vec<Cart>>,
+    jobs: Sender<Vec<Job>>,
     view: Arc<Mutex<ScrapeView>>,
 }
 
@@ -395,17 +404,16 @@ impl Scraper {
 
     /// The scraper for this build: the internet on the device, pretend art anywhere else.
     pub fn for_card(root: &Path) -> Scraper {
-        // Fragile: `SLOT_SCRAPE_LIVE=1` asks the real servers off the device too.
-        let live = cfg!(feature = "device") || std::env::var_os("SLOT_SCRAPE_LIVE").is_some();
-        let fetch: Box<dyn Fetch> = match live {
+        let fetch: Box<dyn Fetch> = match live() {
             true => Box::new(Http::new()),
             false => Box::new(SimFetch),
         };
         Scraper::spawn(fetch, root)
     }
 
-    /// Finds labels for `carts`.
-    pub fn fetch(&self, carts: Vec<Cart>) {
+    /// Finds labels for `carts`, each drawn its way. A game looked for before is drawn again
+    /// from the art kept on the card, without the internet.
+    pub fn fetch(&self, carts: Vec<Job>) {
         let _ = self.jobs.send(carts);
     }
 
@@ -417,7 +425,7 @@ impl Scraper {
 fn work(
     mut fetch: Box<dyn Fetch>,
     root: PathBuf,
-    jobs: Receiver<Vec<Cart>>,
+    jobs: Receiver<Vec<Job>>,
     view: Arc<Mutex<ScrapeView>>,
 ) {
     // Finding art goes on while a game plays, so it gives way to the game for the CPU. Linux
@@ -439,11 +447,13 @@ fn work(
             v.total = total;
             v.error = None;
         });
-        for cart in carts {
+        for (cart, style) in carts {
             set(&mut |v| v.current = Some(cart.stem.clone()));
-            match label_for(&mut *fetch, &root, &mut dats, login.as_ref(), &cart) {
+            let art = art_for(&mut *fetch, &root, &mut dats, login.as_ref(), &cart);
+            match art.map(|art| draw(&cart, style, &art)) {
                 Ok(Some(png)) => {
-                    let dir = root.join("Labels").join(cart.platform.dir_name());
+                    // Fragile: beside the player's own labels, never over them.
+                    let dir = root.join(SCRAPED_LABELS).join(cart.platform.dir_name());
                     let path = dir.join(format!("{}.png", cart.stem));
                     let written =
                         std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&path, png));
@@ -468,18 +478,65 @@ fn work(
     }
 }
 
-/// A label for one game, or None when no art for it turned up.
-fn label_for(
+/// Fragile: what was found for a game, kept on the card so a new style draws without the
+/// internet: its logo, its box, and a scan of its cart label or disc (ScreenScraper's alone).
+#[derive(Default, Debug)]
+pub struct Art {
+    pub logo: Option<Vec<u8>>,
+    pub boxart: Option<Vec<u8>>,
+    pub scan: Option<Vec<u8>>,
+}
+
+/// Where a game's art is kept, under the scraper's cache.
+pub const ART: &str = "System/Cache/Scraper/Art";
+
+fn art_path(root: &Path, cart: &Cart, kind: &str) -> PathBuf {
+    root.join(ART)
+        .join(cart.platform.dir_name())
+        .join(format!("{}.{kind}", cart.stem))
+}
+
+/// Says a game was looked for, whatever was found, so it is not asked for again.
+const LOOKED: &str = "looked";
+
+/// A game's art, from the card when it was looked for before, else from the internet.
+fn art_for(
     fetch: &mut dyn Fetch,
     root: &Path,
     dats: &mut HashMap<&'static str, Dat>,
     login: Option<&SsLogin>,
     cart: &Cart,
-) -> Result<Option<Vec<u8>>, String> {
+) -> Result<Art, String> {
+    let kinds = ["logo.png", "box.png", "scan.png"];
+    if art_path(root, cart, LOOKED).exists() {
+        let [logo, boxart, scan] = kinds.map(|k| std::fs::read(art_path(root, cart, k)).ok());
+        return Ok(Art { logo, boxart, scan });
+    }
+    let art = find_art(fetch, root, dats, login, cart)?;
+    if let Some(dir) = art_path(root, cart, LOOKED).parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    for (kind, bytes) in kinds.iter().zip([&art.logo, &art.boxart, &art.scan]) {
+        if let Some(bytes) = bytes {
+            let _ = std::fs::write(art_path(root, cart, kind), bytes);
+        }
+    }
+    let _ = std::fs::write(art_path(root, cart, LOOKED), b"");
+    Ok(art)
+}
+
+/// A game's art from ScreenScraper, when there is a developer id, then libretro.
+fn find_art(
+    fetch: &mut dyn Fetch,
+    root: &Path,
+    dats: &mut HashMap<&'static str, Dat>,
+    login: Option<&SsLogin>,
+    cart: &Cart,
+) -> Result<Art, String> {
     let (sets, system) = source(cart.platform);
     let crc = (!is_disc(&cart.rom)).then(|| crc_of(&cart.rom)).flatten();
     let png = |bytes: Option<Vec<u8>>| bytes.filter(|b| b.starts_with(b"\x89PNG"));
-    let (mut logo, mut boxart) = (None, None);
+    let mut art = Art::default();
 
     if let Some(login) = login {
         let size = std::fs::metadata(&cart.rom).map(|m| m.len()).unwrap_or(0);
@@ -491,16 +548,27 @@ fn label_for(
         if let Some(answer) = fetch.get(&ss_url(login, system, crc, size, file))? {
             let answer = String::from_utf8_lossy(&answer);
             if let Some(url) = ss_media(&answer, "wheel") {
-                logo = png(fetch.get(&url)?);
+                art.logo = png(fetch.get(&url)?);
             }
             if let Some(url) = ss_media(&answer, "box-2D") {
-                boxart = png(fetch.get(&url)?);
+                art.boxart = png(fetch.get(&url)?);
+            }
+            // A cart's label as printed, flat, before a photo of the cart or disc itself.
+            let scans: &[&str] = match cart.platform.spec().discs {
+                true => &["support-2D"],
+                false => &["support-texture", "support-2D"],
+            };
+            for kind in scans {
+                if let Some(url) = ss_media(&answer, kind) {
+                    art.scan = png(fetch.get(&url)?);
+                    break;
+                }
             }
         }
     }
 
     for set in sets {
-        if logo.is_some() {
+        if art.logo.is_some() && art.boxart.is_some() {
             break;
         }
         let dat = load_dat(fetch, root, dats, set)?;
@@ -510,25 +578,38 @@ fn label_for(
             names.push(stem.to_string());
         }
         for name in names.iter().take(NAMES + 2) {
-            logo = png(fetch.get(&thumb_url(set, "Named_Logos", name))?);
-            if boxart.is_none() {
-                boxart = png(fetch.get(&thumb_url(set, "Named_Boxarts", name))?);
+            if art.boxart.is_none() {
+                art.boxart = png(fetch.get(&thumb_url(set, "Named_Boxarts", name))?);
             }
-            if logo.is_some() {
+            if art.logo.is_none() {
+                art.logo = png(fetch.get(&thumb_url(set, "Named_Logos", name))?);
+            }
+            if art.logo.is_some() && art.boxart.is_some() {
                 break;
             }
         }
     }
+    Ok(art)
+}
 
+/// Fragile: a game's label in `style`, from what was found for it, at twice the label's size;
+/// None when nothing was. A style with no art of its own takes the next: a scan, the box, then
+/// the logo.
+pub fn draw(cart: &Cart, style: LabelStyle, art: &Art) -> Option<Vec<u8>> {
     let (w, h) = slot_ui::label_size(cart);
+    let (w, h) = (w * 2, h * 2);
     let hue = slot_ui::hue_of(slot_ui::label_colour(&slot_ui::label_text(cart)));
-    Ok(slot_ui::scraped_label(
-        logo.as_deref(),
-        boxart.as_deref(),
-        hue,
-        w * 2,
-        h * 2,
-    ))
+    let cover =
+        |bytes: &Option<Vec<u8>>| bytes.as_deref().and_then(|b| slot_ui::box_label(b, w, h));
+    let logo = || slot_ui::scraped_label(art.logo.as_deref(), art.boxart.as_deref(), hue, w, h);
+    let disc = cart.platform.spec().discs;
+    match style {
+        LabelStyle::Art if !disc => cover(&art.boxart).or_else(logo),
+        LabelStyle::Art | LabelStyle::Label => cover(&art.scan)
+            .or_else(|| cover(&art.boxart))
+            .or_else(logo),
+        LabelStyle::Logo => logo(),
+    }
 }
 
 /// A set's database, from memory, the card, or libretro, in that order.
@@ -843,7 +924,7 @@ game (
         std::fs::write(games.join("unknown.gba"), [1u8; 8]).unwrap();
         let carts = slot_store::scan(d.path()).unwrap();
         let s = Scraper::spawn(Box::new(SimFetch), d.path());
-        s.fetch(carts);
+        s.fetch(carts.into_iter().map(|c| (c, LabelStyle::Art)).collect());
         let start = std::time::Instant::now();
         let v = loop {
             let v = s.view();
@@ -854,7 +935,7 @@ game (
         };
         assert_eq!(v.made, [(Platform::Gba, "whatever".to_string())]);
         assert_eq!(v.missed, 1);
-        let label = d.path().join("Labels/GBA/whatever.png");
+        let label = d.path().join(SCRAPED_LABELS).join("GBA/whatever.png");
         assert!(std::fs::read(&label).unwrap().starts_with(b"\x89PNG"));
         assert!(
             d.path()

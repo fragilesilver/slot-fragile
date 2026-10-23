@@ -157,3 +157,26 @@ fn the_same_stem_on_two_platforms_is_two_carts_with_two_labels() {
         "the GBA cart borrowed the Game Boy label"
     );
 }
+
+/// Fragile: Game Art's label shows where the player has none of their own, and theirs wins.
+#[test]
+fn a_scraped_label_stands_in_until_the_player_has_their_own() {
+    let d = tempfile::tempdir().unwrap();
+    for (dir, file) in [
+        ("Games/GBA", "Fusion.gba"),
+        ("Games/GBA", "Zero.gba"),
+        ("System/Cache/Scraper/Labels/GBA", "Fusion.png"),
+        ("System/Cache/Scraper/Labels/GBA", "Zero.png"),
+        ("Labels/GBA", "Zero.png"),
+    ] {
+        std::fs::create_dir_all(d.path().join(dir)).unwrap();
+        std::fs::write(d.path().join(dir).join(file), b"x").unwrap();
+    }
+    let carts = scan(d.path()).unwrap();
+    let label = |stem: &str| {
+        let c = carts.iter().find(|c| c.stem == stem).unwrap();
+        c.label.clone().unwrap()
+    };
+    assert!(label("Fusion").starts_with(d.path().join(slot_store::SCRAPED_LABELS)));
+    assert_eq!(label("Zero"), d.path().join("Labels/GBA/Zero.png"));
+}

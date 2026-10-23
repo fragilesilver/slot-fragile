@@ -12,6 +12,9 @@ use slot::app::App;
 use slot_input::{Action, Btn};
 use slot_ui::{Key, QuickRow};
 
+/// The pretend servers' box is all this red; their logo is white.
+const BOX_RED: [u8; 3] = [200, 40, 40];
+
 fn press(a: &mut App, btn: Btn) {
     a.apply(Action::GbaDown(btn));
     a.apply(Action::GbaUp(btn));
@@ -64,6 +67,12 @@ fn card(games: &[(&str, &str, &[u8])]) -> tempfile::TempDir {
 }
 
 fn label(root: &Path, dir: &str, stem: &str) -> std::path::PathBuf {
+    root.join(slot_store::SCRAPED_LABELS)
+        .join(dir)
+        .join(format!("{stem}.png"))
+}
+
+fn own_label(root: &Path, dir: &str, stem: &str) -> std::path::PathBuf {
     root.join("Labels").join(dir).join(format!("{stem}.png"))
 }
 
@@ -86,6 +95,8 @@ fn the_page_counts_each_systems_labels_and_finds_the_missing_ones() {
             ("All systems".into(), Some("0 of 3".into())),
             ("Game Boy Advance".into(), Some("0 of 2".into())),
             ("Game Boy".into(), Some("0 of 1".into())),
+            ("Label Style".into(), Some("Box Art".into())),
+            ("Automatic".into(), Some("On".into())),
             ("ScreenScraper".into(), Some("Sign in".into())),
         ]
     );
@@ -127,7 +138,7 @@ fn a_system_with_every_label_says_so() {
     ]);
     std::fs::create_dir_all(d.path().join("Labels/GBA")).unwrap();
     for stem in ["whatever", "other"] {
-        std::fs::write(label(d.path(), "GBA", stem), b"").unwrap();
+        std::fs::write(own_label(d.path(), "GBA", stem), b"").unwrap();
     }
     let mut a = boot(d.path());
     game_art(&mut a);
@@ -201,4 +212,105 @@ fn screenscraper_signs_in_on_the_keyboard_and_out_with_no_name() {
     press(&mut a, Btn::Start);
     let conf = std::fs::read_to_string(d.path().join("Config/screenscraper.conf")).unwrap();
     assert!(!conf.contains("ssid"), "signing out kept the login: {conf}");
+}
+
+fn pixel(png: &Path) -> [u8; 3] {
+    let decoder = png::Decoder::new(std::fs::File::open(png).unwrap());
+    let mut reader = decoder.read_info().unwrap();
+    let mut buf = vec![0; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut buf).unwrap();
+    let at = ((info.height / 2 * info.width + 2) * 4) as usize;
+    [buf[at], buf[at + 1], buf[at + 2]]
+}
+
+fn value(a: &App, label: &str) -> Option<String> {
+    rows(a).into_iter().find(|r| r.0 == label).and_then(|r| r.1)
+}
+
+fn to_row(a: &mut App, label: &str) {
+    for _ in 0..12 {
+        if a.overlay_page()
+            .and_then(|p| p.selected())
+            .map(|r| r.label.as_str())
+            == Some(label)
+        {
+            return;
+        }
+        press(a, Btn::Down);
+    }
+    panic!("no {label} in {:?}", rows(a));
+}
+
+fn idle(a: &mut App, what: &str) {
+    until(a, what, |a| {
+        !a.scrape_view().running && a.scrape_view().total > 0
+    });
+}
+
+/// Fragile: a label is the box by default, Label Style draws every one Game Art made again as
+/// the logo from the art kept on the card, and the player's own label is never touched.
+#[test]
+fn label_style_draws_game_arts_labels_again_and_leaves_the_players_own() {
+    let d = card(&[
+        ("GBA", "whatever.gba", &[0; 8]),
+        ("GBA", "unknown.gba", &[1; 8]),
+    ]);
+    let mut a = boot(d.path());
+    game_art(&mut a);
+    press(&mut a, Btn::A);
+    press(&mut a, Btn::A);
+    idle(&mut a, "the first look");
+    let made = label(d.path(), "GBA", "whatever");
+    assert_eq!(pixel(&made), BOX_RED, "the label is not the box");
+    std::fs::create_dir_all(d.path().join("Labels/GBA")).unwrap();
+    std::fs::write(own_label(d.path(), "GBA", "unknown"), b"mine").unwrap();
+
+    to_row(&mut a, "Label Style");
+    let looked = a.scrape_view().made.len();
+    press(&mut a, Btn::Right);
+    assert_eq!(value(&a, "Label Style").as_deref(), Some("Cart Label"));
+    press(&mut a, Btn::Right);
+    assert_eq!(value(&a, "Label Style").as_deref(), Some("Logo"));
+    until(&mut a, "the redraw", |a| {
+        a.scrape_view().made.len() >= looked + 2
+    });
+    idle(&mut a, "the redraw");
+    assert_ne!(
+        pixel(&made),
+        BOX_RED,
+        "the label was not drawn again as the logo"
+    );
+    assert_eq!(
+        std::fs::read(own_label(d.path(), "GBA", "unknown")).unwrap(),
+        b"mine"
+    );
+    assert_eq!(
+        slot_store::read_extras(d.path()).get("label_style"),
+        Some("logo")
+    );
+}
+
+/// Fragile: Automatic finds what is missing on its own, once a game, while the internet is up.
+#[test]
+fn automatic_finds_missing_art_once_a_game() {
+    let d = card(&[
+        ("GBA", "whatever.gba", &[0; 8]),
+        ("GBA", "unknown.gba", &[1; 8]),
+    ]);
+    let mut a = boot(d.path());
+    let scraper = slot::scrape::Scraper::spawn(Box::new(slot::scrape::SimFetch), d.path());
+    a.use_scraper(scraper, true);
+    until(&mut a, "Automatic", |a| {
+        !a.scrape_view().running && a.scrape_view().done == 2
+    });
+    assert!(label(d.path(), "GBA", "whatever").exists());
+    for _ in 0..20 {
+        a.update(0.016);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(
+        a.scrape_view().total,
+        2,
+        "the game with no art was asked for again"
+    );
 }
