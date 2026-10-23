@@ -168,7 +168,12 @@ fn this_game_keeps_its_own_label_style() {
         a.named_value(QuickRow::ThisLabel).as_deref(),
         Some("Default")
     );
-    press(&mut a, Btn::Left);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        a.named_value(QuickRow::ThisLabel).as_deref(),
+        Some("Box Art")
+    );
+    press(&mut a, Btn::Right);
     assert_eq!(a.named_value(QuickRow::ThisLabel).as_deref(), Some("Logo"));
     assert_eq!(own(&d, "Emerald").label, Some(slot_store::LabelStyle::Logo));
     assert_eq!(own(&d, "Fusion").label, None, "Fusion took Emerald's style");

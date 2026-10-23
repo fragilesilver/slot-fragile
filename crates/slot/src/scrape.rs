@@ -448,6 +448,17 @@ fn work(
             v.error = None;
         });
         for (cart, style) in carts {
+            // Fragile: a label already drawn in its style is left as it is.
+            let label = root
+                .join(SCRAPED_LABELS)
+                .join(cart.platform.dir_name())
+                .join(format!("{}.png", cart.stem));
+            let drawn = std::fs::read_to_string(art_path(&root, &cart, STYLE)).ok();
+            let fresh = !look_again(&root, &cart, login.as_ref());
+            if label.exists() && drawn.as_deref() == Some(style.key()) && fresh {
+                set(&mut |v| v.done += 1);
+                continue;
+            }
             set(&mut |v| v.current = Some(cart.stem.clone()));
             let art = art_for(&mut *fetch, &root, &mut dats, login.as_ref(), &cart);
             match art.map(|art| draw(&cart, style, &art)) {
@@ -458,7 +469,10 @@ fn work(
                     let written =
                         std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&path, png));
                     match written {
-                        Ok(()) => set(&mut |v| v.made.push((cart.platform, cart.stem.clone()))),
+                        Ok(()) => {
+                            let _ = std::fs::write(art_path(&root, &cart, STYLE), style.key());
+                            set(&mut |v| v.made.push((cart.platform, cart.stem.clone())))
+                        }
                         Err(e) => set(&mut |v| v.error = Some(format!("{}: {e}", path.display()))),
                     }
                 }
@@ -498,6 +512,19 @@ fn art_path(root: &Path, cart: &Cart, kind: &str) -> PathBuf {
 
 /// Says a game was looked for, whatever was found, so it is not asked for again.
 const LOOKED: &str = "looked";
+/// The style a game's label was last drawn in.
+const STYLE: &str = "style";
+/// What a `looked` marker says when ScreenScraper was asked too.
+const ASKED_SS: &str = "screenscraper";
+
+/// Fragile: whether a game is looked for online: never looked for, or looked for before
+/// ScreenScraper could be asked and it can be now, for the scans only it has.
+fn look_again(root: &Path, cart: &Cart, login: Option<&SsLogin>) -> bool {
+    match std::fs::read_to_string(art_path(root, cart, LOOKED)) {
+        Err(_) => true,
+        Ok(said) => login.is_some() && said != ASKED_SS,
+    }
+}
 
 /// A game's art, from the card when it was looked for before, else from the internet.
 fn art_for(
@@ -508,11 +535,20 @@ fn art_for(
     cart: &Cart,
 ) -> Result<Art, String> {
     let kinds = ["logo.png", "box.png", "scan.png"];
-    if art_path(root, cart, LOOKED).exists() {
+    if !look_again(root, cart, login) {
         let [logo, boxart, scan] = kinds.map(|k| std::fs::read(art_path(root, cart, k)).ok());
         return Ok(Art { logo, boxart, scan });
     }
-    let art = find_art(fetch, root, dats, login, cart)?;
+    let mut art = find_art(fetch, root, dats, login, cart)?;
+    // What libretro gave before stays where ScreenScraper has nothing better.
+    for (kind, found) in kinds
+        .iter()
+        .zip([&mut art.logo, &mut art.boxart, &mut art.scan])
+    {
+        if found.is_none() {
+            *found = std::fs::read(art_path(root, cart, kind)).ok();
+        }
+    }
     if let Some(dir) = art_path(root, cart, LOOKED).parent() {
         let _ = std::fs::create_dir_all(dir);
     }
@@ -521,7 +557,8 @@ fn art_for(
             let _ = std::fs::write(art_path(root, cart, kind), bytes);
         }
     }
-    let _ = std::fs::write(art_path(root, cart, LOOKED), b"");
+    let asked = if login.is_some() { ASKED_SS } else { "" };
+    let _ = std::fs::write(art_path(root, cart, LOOKED), asked);
     Ok(art)
 }
 
@@ -553,10 +590,11 @@ fn find_art(
             if let Some(url) = ss_media(&answer, "box-2D") {
                 art.boxart = png(fetch.get(&url)?);
             }
-            // A cart's label as printed, flat, before a photo of the cart or disc itself.
+            // A cart's label as printed, flat: its `support-2D` is the whole cart drawn round
+            // it, which is no label (as omega-zero's label_sync has it). A disc's face is either.
             let scans: &[&str] = match cart.platform.spec().discs {
-                true => &["support-2D"],
-                false => &["support-texture", "support-2D"],
+                true => &["support-texture", "support-2D"],
+                false => &["support-texture"],
             };
             for kind in scans {
                 if let Some(url) = ss_media(&answer, kind) {
@@ -593,8 +631,8 @@ fn find_art(
 }
 
 /// Fragile: a game's label in `style`, from what was found for it, at twice the label's size;
-/// None when nothing was. A style with no art of its own takes the next: a scan, the box, then
-/// the logo.
+/// None when nothing was. A cart with no scan of its label takes its logo, which is laid out for
+/// a label, before its box, which is not; a disc takes its box, which fits its face.
 pub fn draw(cart: &Cart, style: LabelStyle, art: &Art) -> Option<Vec<u8>> {
     let (w, h) = slot_ui::label_size(cart);
     let (w, h) = (w * 2, h * 2);
@@ -604,10 +642,11 @@ pub fn draw(cart: &Cart, style: LabelStyle, art: &Art) -> Option<Vec<u8>> {
     let logo = || slot_ui::scraped_label(art.logo.as_deref(), art.boxart.as_deref(), hue, w, h);
     let disc = cart.platform.spec().discs;
     match style {
-        LabelStyle::Art if !disc => cover(&art.boxart).or_else(logo),
-        LabelStyle::Art | LabelStyle::Label => cover(&art.scan)
+        LabelStyle::Art | LabelStyle::Label if disc => cover(&art.scan)
             .or_else(|| cover(&art.boxart))
             .or_else(logo),
+        LabelStyle::Label => cover(&art.scan).or_else(logo),
+        LabelStyle::Art => cover(&art.boxart).or_else(logo),
         LabelStyle::Logo => logo(),
     }
 }

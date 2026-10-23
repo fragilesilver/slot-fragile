@@ -20,14 +20,16 @@ system) asks at once. Each shows on its cart as soon as it is found. Game
 Art keeps its labels in System/Cache/Scraper/Labels, so a label of your own
 here always wins and is never touched.
 
-Label Style draws them as Box Art (a disc's art on a PlayStation disc), Cart
-Label (the cart's own label as printed) or Logo. A game can keep its own on
-the in-game Settings > This Game > Label. A new style is drawn from the art
-kept in System/Cache/Scraper/Art, without the internet.
+Label Style draws them as Cart Label (the cart's own label as printed, the
+default; a PlayStation game's disc), Box Art (its box cover, cut to the
+label's shape) or Logo (its logo on a ground coloured from its box). A game
+can keep its own on the in-game Settings > This Game > Label. A new style is
+drawn from the art kept in System/Cache/Scraper/Art, without the internet.
 
-Disc art and printed cart labels come from ScreenScraper alone, asked first
+Printed cart labels and disc art come from ScreenScraper alone, asked first
 when Config/screenscraper.conf has a developer ID (devid=, devpassword=).
-Without one, those styles draw the box. Sign in on Game Art's ScreenScraper
+Without one, or for a game it has no scan of, a cart shows its logo and a
+disc its box. Sign in on Game Art's ScreenScraper
 row to add your own account (ssid=, sspassword=) for a bigger daily quota.
 
 

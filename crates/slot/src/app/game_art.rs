@@ -37,6 +37,8 @@ pub struct GameArt {
     note: Option<String>,
     /// The games Automatic has asked for since boot, so one with no art is asked for once.
     asked: HashSet<(Platform, String)>,
+    /// Whether the labels drawn before boot have been checked against their styles.
+    checked: bool,
 }
 
 /// The page's rows after the systems: Label Style, Automatic, then ScreenScraper.
@@ -270,8 +272,24 @@ impl App {
             self.overlay.game_art.view = view;
             self.show_scraped();
         }
+        self.check_styles();
         self.find_automatically();
         self.refresh_game_art();
+    }
+
+    /// Once, after boot: every label Game Art drew, so one drawn in another style than its game
+    /// now takes (a default changed, or a setting changed on another device) is drawn again from
+    /// the art kept on the card. The worker leaves the rest as they are.
+    fn check_styles(&mut self) {
+        if std::mem::replace(&mut self.overlay.game_art.checked, true) {
+            return;
+        }
+        let drawn: Vec<Cart> = self
+            .art_carts(None)
+            .into_iter()
+            .filter(|c| self.scraped(c))
+            .collect();
+        self.redraw(drawn);
     }
 
     /// With Automatic on and the internet up, the games with no label that have not been asked
@@ -435,6 +453,10 @@ impl App {
         let saved = crate::scrape::save_ss_login(&root, user, password);
         let art = &mut self.overlay.game_art;
         art.ss = Some(crate::scrape::ss_state(&root));
+        // Fragile: with ScreenScraper to ask now, its label and disc scans are looked for.
+        if matches!(art.ss, Some(SsState::On(_))) {
+            art.checked = false;
+        }
         art.note = saved
             .err()
             .map(|e| format!("Could not save the login: {e}"));

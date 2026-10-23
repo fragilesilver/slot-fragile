@@ -449,9 +449,12 @@ Then, on build 5135f74:
 - Not run on the device yet. A multi-disc `.m3u` named unlike the database (e.g. "FF IX ATB")
   finds nothing.
 - Label styles (the user's call: Fragile is its carts and discs, so the default is the game's
-  own art). `slot_store::LabelStyle` Art / Label / Logo: Art is the box on a cart and the disc
-  scan on a PS1 disc, Label the printed cart label (ScreenScraper `support-texture`, then
-  `support-2D`), Logo the old look; each falls back to the box, then the logo. Global in extras
+  own label). `slot_store::LabelStyle` Label (default) / Art / Logo: Label is the printed cart
+  label (ScreenScraper `support-texture` only: its `support-2D` is the whole cart drawn round
+  the label, as omega-zero's label_sync notes), falling back to the logo, which is laid out
+  for a label; Art is the box cut to the label; on a PS1 disc Label and Art are the disc scan
+  (`support-texture`, then `support-2D`), then the box. The user first took "cart label" for
+  box art; box art on a 2:1 GBA label is a crop. Global in extras
   `label_style` (Game Art → Label Style), per game in `game_profiles.txt` `.label` (in-game
   This Game → Label; Defaults clears it). A wide label cuts the box near its top
   (`slot_ui::box_label`), so a GBA cart shows the title.
@@ -464,6 +467,12 @@ Then, on build 5135f74:
   or `SLOT_SCRAPE_LIVE=1`); tests hand in `SimFetch` through `App::use_scraper`.
 - Live on the PC: Golden Sun, Link's Awakening and FF Tactics as box art in 12 s, then drawn
   again from the cache with no fetch.
+- Each label's style is kept as `<stem>.style` beside its art; once after boot every Game Art
+  label goes to the worker, which draws again only those whose style differs (the labels the
+  Pro drew as box art before the default changed).
+- A `.looked` marker says `screenscraper` when ScreenScraper was asked; a game looked for
+  without it is looked for again once there is a developer ID (at boot, or on signing in), its
+  libretro art kept where ScreenScraper has nothing.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 

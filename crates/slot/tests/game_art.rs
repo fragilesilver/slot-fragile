@@ -95,7 +95,7 @@ fn the_page_counts_each_systems_labels_and_finds_the_missing_ones() {
             ("All systems".into(), Some("0 of 3".into())),
             ("Game Boy Advance".into(), Some("0 of 2".into())),
             ("Game Boy".into(), Some("0 of 1".into())),
-            ("Label Style".into(), Some("Box Art".into())),
+            ("Label Style".into(), Some("Cart Label".into())),
             ("Automatic".into(), Some("On".into())),
             ("ScreenScraper".into(), Some("Sign in".into())),
         ]
@@ -247,8 +247,9 @@ fn idle(a: &mut App, what: &str) {
     });
 }
 
-/// Fragile: a label is the box by default, Label Style draws every one Game Art made again as
-/// the logo from the art kept on the card, and the player's own label is never touched.
+/// Fragile: a label is the cart's own by default, the logo with no scan of it; Label Style draws
+/// every one Game Art made again as the box from the art kept on the card, and the player's own
+/// label is never touched.
 #[test]
 fn label_style_draws_game_arts_labels_again_and_leaves_the_players_own() {
     let d = card(&[
@@ -261,24 +262,27 @@ fn label_style_draws_game_arts_labels_again_and_leaves_the_players_own() {
     press(&mut a, Btn::A);
     idle(&mut a, "the first look");
     let made = label(d.path(), "GBA", "whatever");
-    assert_eq!(pixel(&made), BOX_RED, "the label is not the box");
+    assert_ne!(
+        pixel(&made),
+        BOX_RED,
+        "with no label scan the label is the box, not the logo"
+    );
     std::fs::create_dir_all(d.path().join("Labels/GBA")).unwrap();
     std::fs::write(own_label(d.path(), "GBA", "unknown"), b"mine").unwrap();
 
     to_row(&mut a, "Label Style");
     let looked = a.scrape_view().made.len();
-    press(&mut a, Btn::Right);
     assert_eq!(value(&a, "Label Style").as_deref(), Some("Cart Label"));
     press(&mut a, Btn::Right);
-    assert_eq!(value(&a, "Label Style").as_deref(), Some("Logo"));
+    assert_eq!(value(&a, "Label Style").as_deref(), Some("Box Art"));
     until(&mut a, "the redraw", |a| {
-        a.scrape_view().made.len() >= looked + 2
+        a.scrape_view().made.len() > looked
     });
     idle(&mut a, "the redraw");
-    assert_ne!(
+    assert_eq!(
         pixel(&made),
         BOX_RED,
-        "the label was not drawn again as the logo"
+        "the label was not drawn again as the box"
     );
     assert_eq!(
         std::fs::read(own_label(d.path(), "GBA", "unknown")).unwrap(),
@@ -286,7 +290,7 @@ fn label_style_draws_game_arts_labels_again_and_leaves_the_players_own() {
     );
     assert_eq!(
         slot_store::read_extras(d.path()).get("label_style"),
-        Some("logo")
+        Some("art")
     );
 }
 
@@ -312,5 +316,78 @@ fn automatic_finds_missing_art_once_a_game() {
         a.scrape_view().total,
         2,
         "the game with no art was asked for again"
+    );
+}
+
+/// Fragile: after boot a label drawn in another style than its game now takes is drawn again
+/// from the kept art, and one already in its style is left as it is.
+#[test]
+fn a_label_drawn_in_an_old_style_is_drawn_again_after_boot() {
+    let d = card(&[
+        ("GBA", "whatever.gba", &[0; 8]),
+        ("GBA", "other.gba", &[1; 8]),
+    ]);
+    let art = d.path().join(slot::scrape::ART).join("GBA");
+    std::fs::create_dir_all(&art).unwrap();
+    std::fs::create_dir_all(d.path().join(slot_store::SCRAPED_LABELS).join("GBA")).unwrap();
+    for (stem, style) in [("whatever", "art"), ("other", "label")] {
+        std::fs::write(art.join(format!("{stem}.looked")), b"").unwrap();
+        std::fs::write(art.join(format!("{stem}.style")), style).unwrap();
+        std::fs::write(label(d.path(), "GBA", stem), b"old").unwrap();
+    }
+    std::fs::write(
+        art.join("whatever.logo.png"),
+        slot::scrape::SimFetch::logo(),
+    )
+    .unwrap();
+    let mut a = boot(d.path());
+    until(&mut a, "the check", |a| {
+        !a.scrape_view().running && a.scrape_view().done == 2
+    });
+    assert!(
+        std::fs::read(label(d.path(), "GBA", "whatever"))
+            .unwrap()
+            .starts_with(b"\x89PNG"),
+        "the old style's label was not drawn again"
+    );
+    assert_eq!(
+        std::fs::read_to_string(art.join("whatever.style")).unwrap(),
+        "label"
+    );
+    assert_eq!(
+        std::fs::read(label(d.path(), "GBA", "other")).unwrap(),
+        b"old"
+    );
+    assert_eq!(a.scrape_view().made.len(), 1);
+}
+
+/// Fragile: a game looked for before ScreenScraper could be asked is looked for again once it
+/// can be, for the label and disc scans only it has.
+#[test]
+fn a_developer_id_added_later_looks_each_game_up_again() {
+    let d = card(&[
+        ("GBA", "whatever.gba", &[0; 8]),
+        ("GBA", "other.gba", &[1; 8]),
+    ]);
+    let mut a = boot(d.path());
+    game_art(&mut a);
+    press(&mut a, Btn::A);
+    press(&mut a, Btn::A);
+    idle(&mut a, "the first look");
+    let looked = d.path().join(slot::scrape::ART).join("GBA/whatever.looked");
+    assert_eq!(std::fs::read_to_string(&looked).unwrap(), "");
+
+    std::fs::write(
+        d.path().join("Config/screenscraper.conf"),
+        "devid=d\ndevpassword=p\n",
+    )
+    .unwrap();
+    let mut a = boot(d.path());
+    until(&mut a, "the second look", |_| {
+        std::fs::read_to_string(&looked).unwrap() == "screenscraper"
+    });
+    assert!(
+        label(d.path(), "GBA", "whatever").exists(),
+        "the libretro art was lost"
     );
 }

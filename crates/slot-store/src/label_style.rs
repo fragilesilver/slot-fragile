@@ -1,5 +1,5 @@
 //! Fragile: how Game Art draws a game's label (Phase 13). Fragile is its carts and discs, so a
-//! label is the game's own art by default: its box on a cart, its disc on a PlayStation disc.
+//! label is the game's own by default: the cart's label as printed, a PlayStation game's disc.
 
 use crate::platform::Platform;
 
@@ -9,16 +9,16 @@ pub const SCRAPED_LABELS: &str = "System/Cache/Scraper/Labels";
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub enum LabelStyle {
     /// The box, or a PlayStation game's disc.
-    #[default]
     Art,
     /// The cart's own label as printed, or a PlayStation game's disc.
+    #[default]
     Label,
     /// The game's logo on a ground coloured from its box.
     Logo,
 }
 
 impl LabelStyle {
-    pub const ALL: [LabelStyle; 3] = [LabelStyle::Art, LabelStyle::Label, LabelStyle::Logo];
+    pub const ALL: [LabelStyle; 3] = [LabelStyle::Label, LabelStyle::Art, LabelStyle::Logo];
 
     pub fn key(self) -> &'static str {
         match self {
@@ -85,7 +85,8 @@ mod tests {
             LabelStyle::Logo.step(Some(Platform::PlayStation), true),
             LabelStyle::Art
         );
-        assert_eq!(LabelStyle::Art.step(None, false), LabelStyle::Logo);
+        assert_eq!(LabelStyle::Label.step(None, false), LabelStyle::Logo);
+        assert_eq!(LabelStyle::default(), LabelStyle::Label);
         for s in LabelStyle::ALL {
             assert_eq!(LabelStyle::parse(s.key()), Some(s));
         }
