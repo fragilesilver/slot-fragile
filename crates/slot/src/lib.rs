@@ -28,7 +28,6 @@ pub mod frames;
 pub mod frontend;
 pub mod gambatte;
 pub mod input;
-pub mod json;
 pub mod label_cache;
 pub mod latency;
 pub mod link_art_builder;

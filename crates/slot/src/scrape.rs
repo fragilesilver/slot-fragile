@@ -1,17 +1,19 @@
 // Ported from cloudwithax/unslot@6339c18, crates/slot/src/scrape.rs. Changed: Fragile's six
 // systems, the internet through ureq (as RetroAchievements has it) rather than BaseOS's curl, a
-// game looked for by its file name (Fragile has no arcade sets), and Fragile's own name and
-// developer id secrets.
+// game looked for by its file name (Fragile has no arcade sets), the art kept to draw again in
+// another style, LaunchBox cart front indexing and cropping (ported from pvaibhav/slot), and
+// offline Artwork.pack support.
 
-//! Labels for the card's games, found online and drawn into `Labels/<system>/<game>.png`, where
-//! the shelf already looks for them.
+//! Labels for the card's games, found online and drawn into `System/Cache/Scraper/Labels`, which
+//! the shelf reads where `Labels/` has none of the player's own.
 //!
 //! A game is known by its CRC32 and by its file name, both, for coverage: the CRC finds a dump
 //! however it is named, the name finds one the database does not list. libretro's databases give
 //! the names, and libretro-thumbnails the logos and box art, for every system and with no account.
-//! ScreenScraper is asked first when the card has `Config/screenscraper.conf`, the way ES-DE asks
-//! it: the CRC, size and file name together, so it can match on any of them. It needs a developer
-//! id, so it is off until `Config/screenscraper.conf` has one or the build was given one.
+
+pub mod catalog;
+pub mod crop;
+pub mod pack;
 
 use std::collections::HashMap;
 use std::io::Read;
@@ -21,29 +23,24 @@ use std::sync::{Arc, Mutex};
 
 use slot_store::{Cart, LabelStyle, Platform, SCRAPED_LABELS};
 
-use crate::json;
-
 /// The databases fetched once and kept, under the card's System folder with the label cache.
 pub const CACHE: &str = "System/Cache/Scraper";
-pub const SS_CONF: &str = "Config/screenscraper.conf";
 const DATS: &str = "https://raw.githubusercontent.com/libretro/libretro-database/master";
 const THUMBS: &str = "https://thumbnails.libretro.com";
-const SS_API: &str = "https://www.screenscraper.fr/api2/jeuInfos.php";
 /// Bigger than any cartridge; a disc is matched by name instead of read whole.
 const CRC_MAX: u64 = 64 << 20;
 /// How many names a game is looked for under before it is given up on.
 const NAMES: usize = 4;
 
-/// libretro's sets for a system's games, the one to try first first, and ScreenScraper's id for
-/// it, as Taizi has them.
-pub fn source(platform: Platform) -> (Vec<&'static str>, u32) {
+/// libretro's sets for a system's games, the one to try first first.
+pub fn source(platform: Platform) -> Vec<&'static str> {
     match platform {
-        Platform::Gba => (vec!["Nintendo - Game Boy Advance"], 12),
-        Platform::Gb => (vec!["Nintendo - Game Boy", "Nintendo - Game Boy Color"], 9),
-        Platform::Gbc => (vec!["Nintendo - Game Boy Color", "Nintendo - Game Boy"], 10),
-        Platform::Nes => (vec!["Nintendo - Nintendo Entertainment System"], 3),
-        Platform::Snes => (vec!["Nintendo - Super Nintendo Entertainment System"], 4),
-        Platform::PlayStation => (vec!["Sony - PlayStation"], 57),
+        Platform::Gba => vec!["Nintendo - Game Boy Advance"],
+        Platform::Gb => vec!["Nintendo - Game Boy", "Nintendo - Game Boy Color"],
+        Platform::Gbc => vec!["Nintendo - Game Boy Color", "Nintendo - Game Boy"],
+        Platform::Nes => vec!["Nintendo - Nintendo Entertainment System"],
+        Platform::Snes => vec!["Nintendo - Super Nintendo Entertainment System"],
+        Platform::PlayStation => vec!["Sony - PlayStation"],
     }
 }
 
@@ -206,152 +203,6 @@ fn is_disc(rom: &Path) -> bool {
         .any(|d| ext.eq_ignore_ascii_case(d))
 }
 
-/// A ScreenScraper login: a developer id, which every call needs, and optionally the
-/// player's own account, which raises their quota.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct SsLogin {
-    pub devid: String,
-    pub devpassword: String,
-    pub softname: String,
-    pub ssid: Option<String>,
-    pub sspassword: Option<String>,
-}
-
-/// A ScreenScraper developer id built in when a release is made with one, from the
-/// `FRAGILE_SS_DEVID` and `FRAGILE_SS_DEVPASSWORD` secrets. Never written in the source.
-const BUILT_DEVID: Option<&str> = option_env!("FRAGILE_SS_DEVID");
-const BUILT_DEVPASSWORD: Option<&str> = option_env!("FRAGILE_SS_DEVPASSWORD");
-
-fn built_dev() -> Option<(&'static str, &'static str)> {
-    BUILT_DEVID
-        .zip(BUILT_DEVPASSWORD)
-        .filter(|(id, pw)| !id.is_empty() && !pw.is_empty())
-}
-
-/// A `key=value` line's value in `Config/screenscraper.conf`.
-fn conf_get(text: &str, key: &str) -> Option<String> {
-    text.lines()
-        .filter(|l| !l.trim_start().starts_with('#'))
-        .find_map(|l| l.split_once('=').filter(|(k, _)| k.trim() == key))
-        .map(|(_, v)| v.trim().to_string())
-        .filter(|v| !v.is_empty())
-}
-
-fn ss_conf(root: &Path) -> String {
-    std::fs::read_to_string(root.join(SS_CONF)).unwrap_or_default()
-}
-
-/// The login ScreenScraper is asked with: a developer id from `Config/screenscraper.conf`, else
-/// the one built in, and the player's own account from the file. None with no developer id.
-pub fn read_ss_conf(root: &Path) -> Option<SsLogin> {
-    read_ss_conf_with(root, built_dev())
-}
-
-fn read_ss_conf_with(root: &Path, built: Option<(&str, &str)>) -> Option<SsLogin> {
-    let text = ss_conf(root);
-    let (devid, devpassword) = match (conf_get(&text, "devid"), conf_get(&text, "devpassword")) {
-        (Some(id), Some(pw)) => (id, pw),
-        _ => built.map(|(id, pw)| (id.to_string(), pw.to_string()))?,
-    };
-    Some(SsLogin {
-        devid,
-        devpassword,
-        softname: conf_get(&text, "softname").unwrap_or_else(|| "fragile".into()),
-        ssid: conf_get(&text, "ssid"),
-        sspassword: conf_get(&text, "sspassword"),
-    })
-}
-
-/// Whether Game Art can ask ScreenScraper, and as whom.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum SsState {
-    /// No developer id and no login.
-    Off,
-    /// The player has signed in, but there is no developer id to call with.
-    NoDevId(String),
-    /// Asked first, as the player when they have signed in.
-    On(Option<String>),
-}
-
-pub fn ss_state(root: &Path) -> SsState {
-    let user = conf_get(&ss_conf(root), "ssid");
-    match (read_ss_conf(root), user) {
-        (Some(_), user) => SsState::On(user),
-        (None, Some(user)) => SsState::NoDevId(user),
-        (None, None) => SsState::Off,
-    }
-}
-
-/// Saves the player's ScreenScraper login, keeping whatever else the file says. An empty user
-/// signs them out.
-pub fn save_ss_login(root: &Path, user: &str, password: &str) -> std::io::Result<()> {
-    let text = ss_conf(root);
-    let mut lines: Vec<String> = text
-        .lines()
-        .filter(|l| {
-            !l.split_once('=')
-                .is_some_and(|(k, _)| matches!(k.trim(), "ssid" | "sspassword"))
-        })
-        .map(str::to_string)
-        .collect();
-    if !user.is_empty() {
-        lines.push(format!("ssid={user}"));
-        lines.push(format!("sspassword={password}"));
-    }
-    let mut out = lines.join("\n");
-    out.push('\n');
-    std::fs::create_dir_all(root.join("Config"))?;
-    slot_store::atomic_write(&root.join(SS_CONF), out.as_bytes())
-}
-
-/// The `jeuInfos` call ES-DE makes: the CRC, size and file name together, so ScreenScraper can
-/// match on whichever it knows.
-pub fn ss_url(login: &SsLogin, system: u32, crc: Option<u32>, size: u64, file: &str) -> String {
-    let mut q = vec![
-        ("devid", login.devid.clone()),
-        ("devpassword", login.devpassword.clone()),
-        ("softname", login.softname.clone()),
-        ("output", "json".into()),
-        ("systemeid", system.to_string()),
-        ("romtype", "rom".into()),
-        ("romnom", file.to_string()),
-        ("romtaille", size.to_string()),
-    ];
-    if let Some(crc) = crc {
-        q.push(("crc", format!("{crc:08X}")));
-    }
-    if let (Some(id), Some(pw)) = (&login.ssid, &login.sspassword) {
-        q.push(("ssid", id.clone()));
-        q.push(("sspassword", pw.clone()));
-    }
-    let query: Vec<String> = q
-        .iter()
-        .map(|(k, v)| format!("{k}={}", encode(v)))
-        .collect();
-    format!("{SS_API}?{}", query.join("&"))
-}
-
-/// The URL of a game's media of `kind` (`wheel` for its logo, `box-2D` for its box) in a
-/// `jeuInfos` answer, the world's or the common regions' first.
-pub fn ss_media(text: &str, kind: &str) -> Option<String> {
-    let medias = &text[text.find("\"medias\"")?..];
-    let found: Vec<(String, String)> = medias
-        .split('}')
-        .filter(|m| json::string(m, "type").as_deref() == Some(kind))
-        .filter_map(|m| {
-            Some((
-                json::string(m, "region").unwrap_or_default(),
-                json::string(m, "url")?,
-            ))
-        })
-        .collect();
-    ["wor", "us", "eu", "ss", "jp", ""]
-        .iter()
-        .find_map(|r| found.iter().find(|(region, _)| region == r))
-        .or(found.first())
-        .map(|(_, url)| url.clone())
-}
-
 /// Fetching, as the worker does it.
 pub trait Fetch: Send {
     /// What is at `url`: `Ok(None)` when there is nothing there, `Err` when the network failed.
@@ -438,8 +289,6 @@ fn work(
         |f: &mut dyn FnMut(&mut ScrapeView)| f(&mut view.lock().unwrap_or_else(|e| e.into_inner()));
     let mut dats: HashMap<&'static str, Dat> = HashMap::new();
     while let Ok(carts) = jobs.recv() {
-        // Read afresh each time, so a login typed in since is used.
-        let login = read_ss_conf(&root);
         let total = carts.len();
         set(&mut |v| {
             v.running = true;
@@ -454,13 +303,12 @@ fn work(
                 .join(cart.platform.dir_name())
                 .join(format!("{}.png", cart.stem));
             let drawn = std::fs::read_to_string(art_path(&root, &cart, STYLE)).ok();
-            let fresh = !look_again(&root, &cart, login.as_ref());
-            if label.exists() && drawn.as_deref() == Some(style.key()) && fresh {
+            if label.exists() && drawn.as_deref() == Some(style.key()) {
                 set(&mut |v| v.done += 1);
                 continue;
             }
             set(&mut |v| v.current = Some(cart.stem.clone()));
-            let art = art_for(&mut *fetch, &root, &mut dats, login.as_ref(), &cart);
+            let art = art_for(&mut *fetch, &root, &mut dats, &cart);
             match art.map(|art| draw(&cart, style, &art)) {
                 Ok(Some(png)) => {
                     // Fragile: beside the player's own labels, never over them.
@@ -493,12 +341,12 @@ fn work(
 }
 
 /// Fragile: what was found for a game, kept on the card so a new style draws without the
-/// internet: its logo, its box, and a scan of its cart label or disc (ScreenScraper's alone).
+/// internet: its logo and its box.
 #[derive(Default, Debug)]
 pub struct Art {
     pub logo: Option<Vec<u8>>,
     pub boxart: Option<Vec<u8>>,
-    pub scan: Option<Vec<u8>>,
+    pub cart: Option<Vec<u8>>,
 }
 
 /// Where a game's art is kept, under the scraper's cache.
@@ -514,98 +362,66 @@ fn art_path(root: &Path, cart: &Cart, kind: &str) -> PathBuf {
 const LOOKED: &str = "looked";
 /// The style a game's label was last drawn in.
 const STYLE: &str = "style";
-/// What a `looked` marker says when ScreenScraper was asked too.
-const ASKED_SS: &str = "screenscraper";
-
-/// Fragile: whether a game is looked for online: never looked for, or looked for before
-/// ScreenScraper could be asked and it can be now, for the scans only it has.
-fn look_again(root: &Path, cart: &Cart, login: Option<&SsLogin>) -> bool {
-    match std::fs::read_to_string(art_path(root, cart, LOOKED)) {
-        Err(_) => true,
-        Ok(said) => login.is_some() && said != ASKED_SS,
-    }
-}
 
 /// A game's art, from the card when it was looked for before, else from the internet.
 fn art_for(
     fetch: &mut dyn Fetch,
     root: &Path,
     dats: &mut HashMap<&'static str, Dat>,
-    login: Option<&SsLogin>,
     cart: &Cart,
 ) -> Result<Art, String> {
-    let kinds = ["logo.png", "box.png", "scan.png"];
-    if !look_again(root, cart, login) {
-        let [logo, boxart, scan] = kinds.map(|k| std::fs::read(art_path(root, cart, k)).ok());
-        return Ok(Art { logo, boxart, scan });
+    let kinds = ["logo.png", "box.png", "cart.png"];
+    if art_path(root, cart, LOOKED).exists() {
+        let [logo, boxart, cart] = kinds.map(|k| std::fs::read(art_path(root, cart, k)).ok());
+        return Ok(Art { logo, boxart, cart });
     }
-    let mut art = find_art(fetch, root, dats, login, cart)?;
-    // What libretro gave before stays where ScreenScraper has nothing better.
-    for (kind, found) in kinds
-        .iter()
-        .zip([&mut art.logo, &mut art.boxart, &mut art.scan])
-    {
-        if found.is_none() {
-            *found = std::fs::read(art_path(root, cart, kind)).ok();
-        }
-    }
+    let art = find_art(fetch, root, dats, cart)?;
     if let Some(dir) = art_path(root, cart, LOOKED).parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    for (kind, bytes) in kinds.iter().zip([&art.logo, &art.boxart, &art.scan]) {
+    for (kind, bytes) in kinds.iter().zip([&art.logo, &art.boxart, &art.cart]) {
         if let Some(bytes) = bytes {
             let _ = std::fs::write(art_path(root, cart, kind), bytes);
         }
     }
-    let asked = if login.is_some() { ASKED_SS } else { "" };
-    let _ = std::fs::write(art_path(root, cart, LOOKED), asked);
+    let _ = std::fs::write(art_path(root, cart, LOOKED), b"");
     Ok(art)
 }
 
-/// A game's art from ScreenScraper, when there is a developer id, then libretro.
+/// A game's art from offline packs, LaunchBox CDN, and libretro-thumbnails.
 fn find_art(
     fetch: &mut dyn Fetch,
     root: &Path,
     dats: &mut HashMap<&'static str, Dat>,
-    login: Option<&SsLogin>,
     cart: &Cart,
 ) -> Result<Art, String> {
-    let (sets, system) = source(cart.platform);
     let crc = (!is_disc(&cart.rom)).then(|| crc_of(&cart.rom)).flatten();
     let png = |bytes: Option<Vec<u8>>| bytes.filter(|b| b.starts_with(b"\x89PNG"));
     let mut art = Art::default();
 
-    if let Some(login) = login {
-        let size = std::fs::metadata(&cart.rom).map(|m| m.len()).unwrap_or(0);
-        let file = cart
-            .rom
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or(&cart.stem);
-        if let Some(answer) = fetch.get(&ss_url(login, system, crc, size, file))? {
-            let answer = String::from_utf8_lossy(&answer);
-            if let Some(url) = ss_media(&answer, "wheel") {
-                art.logo = png(fetch.get(&url)?);
-            }
-            if let Some(url) = ss_media(&answer, "box-2D") {
-                art.boxart = png(fetch.get(&url)?);
-            }
-            // A cart's label as printed, flat: its `support-2D` is the whole cart drawn round
-            // it, which is no label (as omega-zero's label_sync has it). A disc's face is either.
-            let scans: &[&str] = match cart.platform.spec().discs {
-                true => &["support-texture", "support-2D"],
-                false => &["support-texture"],
-            };
-            for kind in scans {
-                if let Some(url) = ss_media(&answer, kind) {
-                    art.scan = png(fetch.get(&url)?);
-                    break;
+    // 1. Check offline pack first (Labels/Artwork.pack)
+    if let Some(c) = crc {
+        if let Some(pack_label) = pack::find_in_pack(root, c, cart.platform) {
+            art.cart = Some(pack_label);
+        }
+    }
+
+    // 2. Check LaunchBox CDN for cart front (for cartridge systems)
+    if art.cart.is_none() && !cart.platform.spec().discs {
+        if let Some(c) = crc {
+            for url in catalog::lookup_launchbox(c) {
+                if let Ok(Some(bytes)) = fetch.get(&url) {
+                    if let Some(label_png) = crop::prepare_cart_label(&bytes, cart.platform, 2) {
+                        art.cart = Some(label_png);
+                        break;
+                    }
                 }
             }
         }
     }
 
-    for set in sets {
+    // 3. Libretro thumbnails for logo and boxart
+    for set in source(cart.platform) {
         if art.logo.is_some() && art.boxart.is_some() {
             break;
         }
@@ -631,8 +447,8 @@ fn find_art(
 }
 
 /// Fragile: a game's label in `style`, from what was found for it, at twice the label's size;
-/// None when nothing was. A cart with no scan of its label takes its logo, which is laid out for
-/// a label, before its box, which is not; a disc takes its box, which fits its face.
+/// None when nothing was. A style with no art of its own takes the next: the cart's printed
+/// label, the box, then the logo.
 pub fn draw(cart: &Cart, style: LabelStyle, art: &Art) -> Option<Vec<u8>> {
     let (w, h) = slot_ui::label_size(cart);
     let (w, h) = (w * 2, h * 2);
@@ -642,10 +458,10 @@ pub fn draw(cart: &Cart, style: LabelStyle, art: &Art) -> Option<Vec<u8>> {
     let logo = || slot_ui::scraped_label(art.logo.as_deref(), art.boxart.as_deref(), hue, w, h);
     let disc = cart.platform.spec().discs;
     match style {
-        LabelStyle::Art | LabelStyle::Label if disc => cover(&art.scan)
+        LabelStyle::Art | LabelStyle::Label if disc => cover(&art.cart)
             .or_else(|| cover(&art.boxart))
             .or_else(logo),
-        LabelStyle::Label => cover(&art.scan).or_else(logo),
+        LabelStyle::Label => cover(&art.cart).or_else(logo),
         LabelStyle::Art => cover(&art.boxart).or_else(logo),
         LabelStyle::Logo => logo(),
     }
@@ -827,131 +643,12 @@ game (
     #[test]
     fn each_system_looks_in_its_own_set_and_a_game_boy_game_in_the_colour_one_too() {
         assert_eq!(
-            source(Platform::Gb).0,
+            source(Platform::Gb),
             ["Nintendo - Game Boy", "Nintendo - Game Boy Color"]
         );
-        assert_eq!(source(Platform::Gbc).1, 10);
-        assert_eq!(source(Platform::PlayStation).1, 57);
+        assert_eq!(source(Platform::PlayStation), ["Sony - PlayStation"]);
         assert!(dat_url("Sony - PlayStation").contains("/redump/Sony%20-%20PlayStation.dat"));
         assert!(dat_url("Nintendo - Game Boy Advance").contains("/no-intro/"));
-    }
-
-    #[test]
-    fn screenscraper_is_asked_the_way_es_de_asks() {
-        let login = SsLogin {
-            devid: "dev".into(),
-            devpassword: "pw".into(),
-            softname: "fragile".into(),
-            ssid: Some("me".into()),
-            sspassword: Some("s3cret&".into()),
-        };
-        let url = ss_url(&login, 12, Some(0x1F1C_08FB), 16777216, "Emerald (USA).gba");
-        assert!(url.starts_with(SS_API));
-        for part in [
-            "systemeid=12",
-            "crc=1F1C08FB",
-            "romtaille=16777216",
-            "romnom=Emerald%20%28USA%29.gba",
-            "romtype=rom",
-            "ssid=me",
-            "sspassword=s3cret%26",
-            "softname=fragile",
-        ] {
-            assert!(url.contains(part), "{part} missing from {url}");
-        }
-    }
-
-    #[test]
-    fn screenscraper_media_prefers_the_worlds_then_the_usas() {
-        let answer = r#"{"response":{"jeu":{"medias":[
-            {"type":"box-2D","parent":"jeu","url":"https:\/\/ss\/box-jp.png","region":"jp","format":"png"},
-            {"type":"wheel","parent":"jeu","url":"https:\/\/ss\/wheel-us.png","region":"us","format":"png"},
-            {"type":"wheel","parent":"jeu","url":"https:\/\/ss\/wheel-wor.png","region":"wor","format":"png"}
-        ]}}}"#;
-        assert_eq!(
-            ss_media(answer, "wheel").as_deref(),
-            Some("https://ss/wheel-wor.png")
-        );
-        assert_eq!(
-            ss_media(answer, "box-2D").as_deref(),
-            Some("https://ss/box-jp.png")
-        );
-        assert_eq!(ss_media(answer, "screenmarquee"), None);
-    }
-
-    #[test]
-    fn a_built_in_developer_id_serves_when_the_card_has_none() {
-        let d = tempfile::tempdir().unwrap();
-        assert_eq!(read_ss_conf_with(d.path(), None), None);
-        let login = read_ss_conf_with(d.path(), Some(("fragile", "secret"))).unwrap();
-        assert_eq!((login.devid.as_str(), login.ssid), ("fragile", None));
-        std::fs::create_dir_all(d.path().join("Config")).unwrap();
-        std::fs::write(d.path().join(SS_CONF), "devid=mine\ndevpassword=p\n").unwrap();
-        let login = read_ss_conf_with(d.path(), Some(("fragile", "secret"))).unwrap();
-        assert_eq!(
-            login.devid, "mine",
-            "the card's own developer id did not win"
-        );
-    }
-
-    #[test]
-    fn a_login_saved_on_the_device_keeps_the_rest_of_the_file() {
-        let d = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(d.path().join("Config")).unwrap();
-        std::fs::write(
-            d.path().join(SS_CONF),
-            "# mine\ndevid=d\ndevpassword=p\nssid=old\nsspassword=x\n",
-        )
-        .unwrap();
-        save_ss_login(d.path(), "me", "pa=ss word").unwrap();
-        let login = read_ss_conf(d.path()).unwrap();
-        assert_eq!(login.devid, "d");
-        assert_eq!(login.ssid.as_deref(), Some("me"));
-        assert_eq!(login.sspassword.as_deref(), Some("pa=ss word"));
-        assert_eq!(ss_state(d.path()), SsState::On(Some("me".into())));
-        save_ss_login(d.path(), "", "").unwrap();
-        assert_eq!(
-            ss_state(d.path()),
-            SsState::On(None),
-            "signing out kept the login"
-        );
-        let text = std::fs::read_to_string(d.path().join(SS_CONF)).unwrap();
-        assert!(
-            text.contains("# mine") && text.contains("devid=d"),
-            "{text}"
-        );
-    }
-
-    #[test]
-    fn a_login_with_no_developer_id_says_so() {
-        let d = tempfile::tempdir().unwrap();
-        save_ss_login(d.path(), "me", "pw").unwrap();
-        if built_dev().is_none() {
-            assert_eq!(ss_state(d.path()), SsState::NoDevId("me".into()));
-        }
-    }
-
-    #[test]
-    fn screenscraper_stays_off_without_a_developer_id() {
-        let d = tempfile::tempdir().unwrap();
-        assert_eq!(read_ss_conf_with(d.path(), None), None);
-        std::fs::create_dir_all(d.path().join("Config")).unwrap();
-        std::fs::write(d.path().join(SS_CONF), "# mine\nssid=me\nsspassword=pw\n").unwrap();
-        assert_eq!(
-            read_ss_conf_with(d.path(), None),
-            None,
-            "a player login alone is not enough"
-        );
-        std::fs::write(
-            d.path().join(SS_CONF),
-            "devid=d\ndevpassword=p\nssid=me\nsspassword=pw\n",
-        )
-        .unwrap();
-        let login = read_ss_conf(d.path()).unwrap();
-        assert_eq!(
-            (login.softname.as_str(), login.ssid.as_deref()),
-            ("fragile", Some("me"))
-        );
     }
 
     #[test]

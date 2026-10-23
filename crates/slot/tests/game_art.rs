@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use common::boot;
 use slot::app::App;
 use slot_input::{Action, Btn};
-use slot_ui::{Key, QuickRow};
+use slot_ui::QuickRow;
 
 /// The pretend servers' box is all this red; their logo is white.
 const BOX_RED: [u8; 3] = [200, 40, 40];
@@ -97,7 +97,6 @@ fn the_page_counts_each_systems_labels_and_finds_the_missing_ones() {
             ("Game Boy".into(), Some("0 of 1".into())),
             ("Label Style".into(), Some("Cart Label".into())),
             ("Automatic".into(), Some("On".into())),
-            ("ScreenScraper".into(), Some("Sign in".into())),
         ]
     );
     assert_eq!(
@@ -154,66 +153,6 @@ fn a_system_with_every_label_says_so() {
     );
 }
 
-fn hit(a: &mut App, want: Key) {
-    for _ in 0..5 {
-        for _ in 0..10 {
-            if a.network_keyboard_key() == Some(want) {
-                return press(a, Btn::A);
-            }
-            press(a, Btn::Right);
-        }
-        press(a, Btn::Down);
-    }
-    panic!("no {want:?} on the keyboard");
-}
-
-fn type_in(a: &mut App, text: &str) {
-    for c in text.chars() {
-        hit(a, Key::Char(c));
-    }
-}
-
-#[test]
-fn screenscraper_signs_in_on_the_keyboard_and_out_with_no_name() {
-    let d = card(&[
-        ("GBA", "whatever.gba", &[0; 8]),
-        ("GBA", "other.gba", &[1; 8]),
-    ]);
-    let mut a = boot(d.path());
-    game_art(&mut a);
-    press(&mut a, Btn::A);
-    let last = rows(&a).len() - 1;
-    for _ in 1..last {
-        press(&mut a, Btn::Down);
-    }
-    press(&mut a, Btn::A);
-    assert!(
-        a.network_keyboard_key().is_some(),
-        "no keyboard for the username"
-    );
-    type_in(&mut a, "ME");
-    press(&mut a, Btn::Start);
-    type_in(&mut a, "pw");
-    press(&mut a, Btn::Start);
-    assert!(a.network_keyboard_key().is_none(), "the keyboard stayed up");
-    let conf = std::fs::read_to_string(d.path().join("Config/screenscraper.conf")).unwrap();
-    assert!(
-        conf.contains("ssid=ME") && conf.contains("sspassword=pw"),
-        "{conf}"
-    );
-    until(&mut a, "the row", |a| {
-        rows(a).last() == Some(&("ScreenScraper".into(), Some("ME".into())))
-    });
-
-    press(&mut a, Btn::A);
-    for _ in 0..2 {
-        press(&mut a, Btn::B);
-    }
-    press(&mut a, Btn::Start);
-    let conf = std::fs::read_to_string(d.path().join("Config/screenscraper.conf")).unwrap();
-    assert!(!conf.contains("ssid"), "signing out kept the login: {conf}");
-}
-
 fn pixel(png: &Path) -> [u8; 3] {
     let decoder = png::Decoder::new(std::fs::File::open(png).unwrap());
     let mut reader = decoder.read_info().unwrap();
@@ -247,9 +186,9 @@ fn idle(a: &mut App, what: &str) {
     });
 }
 
-/// Fragile: a label is the cart's own by default, the logo with no scan of it; Label Style draws
-/// every one Game Art made again as the box from the art kept on the card, and the player's own
-/// label is never touched.
+/// Fragile: a label is the logo by default, as unslot draws it; Label Style draws every one Game
+/// Art made again as the box from the art kept on the card, and the player's own label is never
+/// touched.
 #[test]
 fn label_style_draws_game_arts_labels_again_and_leaves_the_players_own() {
     let d = card(&[
@@ -262,11 +201,7 @@ fn label_style_draws_game_arts_labels_again_and_leaves_the_players_own() {
     press(&mut a, Btn::A);
     idle(&mut a, "the first look");
     let made = label(d.path(), "GBA", "whatever");
-    assert_ne!(
-        pixel(&made),
-        BOX_RED,
-        "with no label scan the label is the box, not the logo"
-    );
+    assert_ne!(pixel(&made), BOX_RED, "the label is the box, not the logo");
     std::fs::create_dir_all(d.path().join("Labels/GBA")).unwrap();
     std::fs::write(own_label(d.path(), "GBA", "unknown"), b"mine").unwrap();
 
@@ -359,35 +294,4 @@ fn a_label_drawn_in_an_old_style_is_drawn_again_after_boot() {
         b"old"
     );
     assert_eq!(a.scrape_view().made.len(), 1);
-}
-
-/// Fragile: a game looked for before ScreenScraper could be asked is looked for again once it
-/// can be, for the label and disc scans only it has.
-#[test]
-fn a_developer_id_added_later_looks_each_game_up_again() {
-    let d = card(&[
-        ("GBA", "whatever.gba", &[0; 8]),
-        ("GBA", "other.gba", &[1; 8]),
-    ]);
-    let mut a = boot(d.path());
-    game_art(&mut a);
-    press(&mut a, Btn::A);
-    press(&mut a, Btn::A);
-    idle(&mut a, "the first look");
-    let looked = d.path().join(slot::scrape::ART).join("GBA/whatever.looked");
-    assert_eq!(std::fs::read_to_string(&looked).unwrap(), "");
-
-    std::fs::write(
-        d.path().join("Config/screenscraper.conf"),
-        "devid=d\ndevpassword=p\n",
-    )
-    .unwrap();
-    let mut a = boot(d.path());
-    until(&mut a, "the second look", |_| {
-        std::fs::read_to_string(&looked).unwrap() == "screenscraper"
-    });
-    assert!(
-        label(d.path(), "GBA", "whatever").exists(),
-        "the libretro art was lost"
-    );
 }

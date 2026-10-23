@@ -26,10 +26,11 @@ libloading = { workspace = true }
 libc = { workspace = true }
 lz4_flex = { workspace = true }
 png = { workspace = true }
-# Fragile: Game Art (Phase 13): the CRC its databases list, and the internet, through the same
-# ureq RetroAchievements uses.
+# Fragile: Game Art (Phase 13): the CRC its databases list, LaunchBox / libretro art,
+# and the internet, through the same ureq RetroAchievements uses.
 crc32fast = "1"
 ureq = { version = "2", default-features = false, features = ["tls"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 
 [dev-dependencies]
 slot-gfx = { path = "../slot-gfx", default-features = false, features = ["test-support"] }

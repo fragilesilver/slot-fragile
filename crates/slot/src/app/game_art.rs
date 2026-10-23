@@ -1,10 +1,9 @@
 //! Main menu → Network → Game Art: labels for the card's games found online, by `crate::scrape`
 //! (unslot's). The page lists every system, then each one, with how many of its games have a
-//! label; A finds the missing ones. Label Style draws every label as box art (a disc's art on a
-//! PlayStation disc), the cart's own label, or the logo, and a game can keep its own on the
-//! in-game This Game page. Automatic finds what is missing whenever the Wi-Fi is up. The
-//! ScreenScraper row signs in on the keyboard. Each label goes on its cart as soon as it is
-//! found, on every shelf the game is on. The page and its rules are Fragile's (Phase 13), from
+//! label; A finds the missing ones. Label Style draws every label as the logo (unslot's look)
+//! or the box, and a game can keep its own on the in-game This Game page. Automatic finds what
+//! is missing whenever the Wi-Fi is up. Each label goes on its cart as soon as it is found, on
+//! every shelf the game is on. The page and its rules are Fragile's (Phase 13), from
 //! cloudwithax/unslot@6339c18's Game Art.
 
 use std::collections::HashSet;
@@ -16,7 +15,7 @@ use slot_ui::{ListPage, ListRow, QuickRow};
 
 use super::overlay::Overlay;
 use super::{App, Rack};
-use crate::scrape::{Job, ScrapeView, Scraper, SsState};
+use crate::scrape::{Job, ScrapeView, Scraper};
 
 /// extras.state: the style every game's label follows, and whether missing art is found alone.
 const LABEL_STYLE: &str = "label_style";
@@ -32,7 +31,6 @@ pub struct GameArt {
     labelled: usize,
     /// Carts given a label since their face was built, for the face builder.
     relabelled: Vec<(usize, usize)>,
-    ss: Option<SsState>,
     /// What A last said, until the cursor moves.
     note: Option<String>,
     /// The games Automatic has asked for since boot, so one with no art is asked for once.
@@ -41,7 +39,7 @@ pub struct GameArt {
     checked: bool,
 }
 
-/// The page's rows after the systems: Label Style, Automatic, then ScreenScraper.
+/// The page's rows: the status, All systems, each system, Label Style and Automatic.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Row {
     Status,
@@ -49,7 +47,6 @@ enum Row {
     System(Platform),
     Style,
     Automatic,
-    ScreenScraper,
 }
 
 impl App {
@@ -62,11 +59,9 @@ impl App {
     /// The scraper Game Art asks, and whether it reaches the real servers. Tests hand it the
     /// pretend one as if it were live, to see Automatic run.
     pub fn use_scraper(&mut self, scraper: Scraper, live: bool) {
-        let ss = self.root.as_deref().map(crate::scrape::ss_state);
         let art = &mut self.overlay.game_art;
         art.scraper = Some(scraper);
         art.live = live;
-        art.ss = ss;
     }
 
     pub fn scrape_view(&self) -> &ScrapeView {
@@ -204,7 +199,7 @@ impl App {
         [Row::Status, Row::All]
             .into_iter()
             .chain(self.art_platforms().into_iter().map(Row::System))
-            .chain([Row::Style, Row::Automatic, Row::ScreenScraper])
+            .chain([Row::Style, Row::Automatic])
             .collect()
     }
 
@@ -225,19 +220,11 @@ impl App {
             _ if made > 0 => format!("Added {made} label{} to the shelves", s(made)),
             _ if v.missed > 0 => format!("No art found for {} game{}", v.missed, s(v.missed)),
             _ if !crate::wifi::online() => "Join a Wi-Fi network first".into(),
-            _ => match art.ss {
-                Some(SsState::On(_)) => "Art from ScreenScraper and libretro".into(),
-                Some(SsState::NoDevId(_)) => "ScreenScraper needs a developer ID".into(),
-                _ => "Art from libretro-thumbnails".into(),
-            },
+            _ => "Art from libretro-thumbnails".into(),
         }
     }
 
     fn game_art_rows(&self) -> Vec<ListRow> {
-        let user = match &self.overlay.game_art.ss {
-            Some(SsState::NoDevId(user) | SsState::On(Some(user))) => user.clone(),
-            _ => "Sign in".into(),
-        };
         self.rows_in_order()
             .into_iter()
             .map(|row| match row {
@@ -249,7 +236,6 @@ impl App {
                     true => "On",
                     false => "Off",
                 }),
-                Row::ScreenScraper => ListRow::new("ScreenScraper").with_value(user.clone()),
             })
             .collect()
     }
@@ -374,7 +360,7 @@ impl App {
     }
 
     /// A on a system finds its games' missing art; A, Left or Right turn Label Style and
-    /// Automatic; A on ScreenScraper signs in. Says whether it took the action.
+    /// Automatic. Says whether it took the action.
     pub(super) fn game_art_input(&mut self, action: Action) -> bool {
         let Some(Overlay::GameArt(page)) = &self.overlay.open else {
             return false;
@@ -405,10 +391,6 @@ impl App {
                 self.extras.set_flag(AUTOMATIC, on);
                 self.save_extras();
             }
-            (Action::GbaDown(Btn::A), Some(Row::ScreenScraper)) => {
-                self.start_ss_sign_in();
-                return true;
-            }
             (Action::GbaDown(Btn::A), Some(Row::All)) => self.find_missing_art(None),
             (Action::GbaDown(Btn::A), Some(Row::System(p))) => self.find_missing_art(Some(p)),
             (Action::GbaDown(Btn::A), _) => {}
@@ -435,30 +417,5 @@ impl App {
                 None
             }
         };
-    }
-
-    fn start_ss_sign_in(&mut self) {
-        let user = match &self.overlay.game_art.ss {
-            Some(SsState::NoDevId(user) | SsState::On(Some(user))) => user.clone(),
-            _ => String::new(),
-        };
-        self.type_ss_user(&user);
-    }
-
-    /// Saves a ScreenScraper login typed in on the device, or signs out for an empty user.
-    pub(super) fn save_ss_login(&mut self, user: &str, password: &str) {
-        let Some(root) = self.root.clone() else {
-            return;
-        };
-        let saved = crate::scrape::save_ss_login(&root, user, password);
-        let art = &mut self.overlay.game_art;
-        art.ss = Some(crate::scrape::ss_state(&root));
-        // Fragile: with ScreenScraper to ask now, its label and disc scans are looked for.
-        if matches!(art.ss, Some(SsState::On(_))) {
-            art.checked = false;
-        }
-        art.note = saved
-            .err()
-            .map(|e| format!("Could not save the login: {e}"));
     }
 }

@@ -804,8 +804,8 @@ fn a_saved_network_plugs_the_slot_under_its_forget_legend() {
     );
 }
 
-/// Fragile: Main menu → Network → Game Art (Phase 13) draws its status, its systems and the
-/// ScreenScraper row, the pointer on All systems.
+/// Fragile: Main menu → Network → Game Art (Phase 13) draws its status and its systems, the
+/// pointer on All systems.
 #[test]
 fn the_game_art_page_renders() {
     let Ok(surface) = HeadlessSurface::new() else {

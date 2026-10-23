@@ -261,6 +261,19 @@ pub fn label_size(cart: &Cart) -> (u32, u32) {
     (lw, lh)
 }
 
+pub fn label_size_for(platform: Platform) -> (u32, u32) {
+    if let Some(m) = Media::of(platform) {
+        let (_, _, lw, lh) = m.label();
+        return (lw, lh);
+    }
+    match platform {
+        Platform::Gba => (LABEL_W, LABEL_H),
+        Platform::Gb => (GB_LABEL_W, GB_LABEL_H),
+        Platform::Gbc => (GBC_LABEL_W, GBC_LABEL_H),
+        _ => (LABEL_W, LABEL_H),
+    }
+}
+
 pub fn cart_face_with(cart: &Cart, art: Option<Vec<u8>>) -> CartFace {
     if let Some(m) = Media::of(cart.platform) {
         return media_face(cart, m, art);

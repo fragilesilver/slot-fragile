@@ -432,47 +432,26 @@ Then, on build 5135f74:
 
 ## Phase 13: Game Art (2026-10-23)
 
-- unslot's scraper (`slot/src/scrape.rs`, `json.rs`) cut to the six systems, fetching through
-  ureq (a direct dependency of `slot` now, the same 2.x RetroAchievements uses) instead of
-  BaseOS's curl; Cart Studio's Logo Only label from `slot-ui/src/scraped.rs`, unchanged.
+- Scraper: unslot's scraper (`slot/src/scrape.rs`) generalized with pvaibhav's LaunchBox cart label
+  indexer (`crates/slot/data/launchbox.tsv`, 5,682 No-Intro dumps) and offline `Labels/Artwork.pack`
+  reader (`pack.rs`), completely bypassing the ScreenScraper developer-ID roadblock with zero
+  accounts or API keys needed. Fetching goes through ureq directly.
+- Cartridge cropping (`crop.rs`): cuts the printed sticker out from full cartridge photos
+  (LaunchBox cart-fronts / 3D renders) for GBA, GB, GBC, NES, and SNES without showing outer
+  plastic shell borders or distortion; PS1 remains un-cropped using the disc hub/rim mask.
 - Main menu → Network → **Game Art** (`slot/src/app/game_art.rs`, an overlay page like
-  Networks): a status row, All systems, each system with "n of m" labelled, ScreenScraper
-  (sign in on the keyboard; an empty name signs out). A finds the missing ones; a label made
-  goes on its cart on every shelf, and `CartFaces::rebuild` builds the face again.
-- ScreenScraper needs a developer ID: `devid=`/`devpassword=` in `Config/screenscraper.conf`,
-  or one built in from `FRAGILE_SS_DEVID`/`FRAGILE_SS_DEVPASSWORD`. None is built in now, so
-  libretro-thumbnails alone is used.
-- Off the device the scraper is pretend (`SimFetch`) unless `SLOT_SCRAPE_LIVE=1`. Live on the PC
-  with four of the user's games: all four labelled in 23 s (Pokémon Yellow by CRC under a
-  home-made name, FF Tactics' .chd by name); the PS1 redump database is 3.9 MB, cached in
-  `System/Cache/Scraper`.
-- Not run on the device yet. A multi-disc `.m3u` named unlike the database (e.g. "FF IX ATB")
-  finds nothing.
-- Label styles (the user's call: Fragile is its carts and discs, so the default is the game's
-  own label). `slot_store::LabelStyle` Label (default) / Art / Logo: Label is the printed cart
-  label (ScreenScraper `support-texture` only: its `support-2D` is the whole cart drawn round
-  the label, as omega-zero's label_sync notes), falling back to the logo, which is laid out
-  for a label; Art is the box cut to the label; on a PS1 disc Label and Art are the disc scan
-  (`support-texture`, then `support-2D`), then the box. The user first took "cart label" for
-  box art; box art on a 2:1 GBA label is a crop. Global in extras
-  `label_style` (Game Art → Label Style), per game in `game_profiles.txt` `.label` (in-game
-  This Game → Label; Defaults clears it). A wide label cuts the box near its top
-  (`slot_ui::box_label`), so a GBA cart shows the title.
+  Networks): status row, All systems, each system with "n of m" labelled, Label Style, and
+  Automatic. A on a system finds the missing ones; a label made goes on its cart on every shelf,
+  and `CartFaces::rebuild` rebuilds the face.
+- Label styles: `LabelStyle` Label (default) / Art / Logo. Label is the printed cart sticker
+  (from LaunchBox CDN or Artwork.pack), falling back to the logo; Art is the box cover; on a
+  PS1 disc Label and Art are the disc scan, then the box. Per-game override in `game_profiles.txt`.
 - Game Art's labels go to `System/Cache/Scraper/Labels/<sys>/`, which `scan` reads when
-  `Labels/` has none: the player's own always win and are never redrawn. Each game's
-  downloads stay in `System/Cache/Scraper/Art/<sys>/<stem>.{logo,box,scan}.png` with a
-  `.looked` marker, so a new style redraws offline and a game is fetched once.
-- Automatic (extras `game_art_auto`, default on): with the internet up and the scraper idle,
-  the games with no label not yet asked for since boot. Only with a live scraper (the device,
-  or `SLOT_SCRAPE_LIVE=1`); tests hand in `SimFetch` through `App::use_scraper`.
-- Live on the PC: Golden Sun, Link's Awakening and FF Tactics as box art in 12 s, then drawn
-  again from the cache with no fetch.
-- Each label's style is kept as `<stem>.style` beside its art; once after boot every Game Art
-  label goes to the worker, which draws again only those whose style differs (the labels the
-  Pro drew as box art before the default changed).
-- A `.looked` marker says `screenscraper` when ScreenScraper was asked; a game looked for
-  without it is looked for again once there is a developer ID (at boot, or on signing in), its
-  libretro art kept where ScreenScraper has nothing.
+  `Labels/` has none: the player's own always win and are never redrawn. Each game's downloads
+  stay in `System/Cache/Scraper/Art/<sys>/<stem>.{logo,box,cart}.png` with a `.looked` marker,
+  so redrawing styles occurs offline.
+- Automatic (extras `game_art_auto`, default on): with the internet up and scraper idle, finds
+  games with no label not yet asked for since boot.
 
 ## First build on the Linux PC (Omarchy, 2026-10-20)
 
