@@ -1128,3 +1128,79 @@ fn a_native_picture_is_letterboxed_to_its_shape_and_the_texture_follows_its_size
         "a Game Boy frame after it kept the native size"
     );
 }
+
+#[test]
+fn sharp_fit_draws_every_game_pixel_the_same_width_with_blended_seams() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    c.fit((640, 480));
+    c.set_screen_effect(ScreenEffect::None);
+    c.set_screen_power(1.0);
+    c.set_sharp_bilinear(true);
+
+    // Vertical striped pattern: 1 game pixel black, 1 game pixel white (240x160)
+    let stripes: Vec<u8> = (0..SRC_W * SRC_H)
+        .flat_map(|i| {
+            let x = i % SRC_W;
+            let val = if x.is_multiple_of(2) { 0u8 } else { 255u8 };
+            [val, val, val, 255]
+        })
+        .collect();
+
+    c.begin_frame();
+    c.upload_game(&stripes);
+    c.draw_game();
+    let frame = c.read_frame();
+
+    // Check row in middle of the game rect (y = 240)
+    // At 640x480 with GBA (240x160), scale is 2.667x.
+    let y = 240;
+    let mut solid_black_widths = Vec::new();
+    let mut solid_white_widths = Vec::new();
+    let mut current_color = None;
+    let mut current_len = 0;
+
+    for x in 0..640 {
+        let p = px(&frame, x, y);
+        let b = p[0];
+        let color = if b < 20 {
+            Some(0)
+        } else if b > 235 {
+            Some(1)
+        } else {
+            None // blended seam
+        };
+
+        if color == current_color {
+            if color.is_some() {
+                current_len += 1;
+            }
+        } else {
+            if let Some(col) = current_color {
+                if col == 0 {
+                    solid_black_widths.push(current_len);
+                } else {
+                    solid_white_widths.push(current_len);
+                }
+            }
+            current_color = color;
+            current_len = if color.is_some() { 1 } else { 0 };
+        }
+    }
+
+    assert!(solid_black_widths.len() > 10);
+    assert!(solid_white_widths.len() > 10);
+
+    let solid_black = &solid_black_widths[1..solid_black_widths.len() - 1];
+    let solid_white = &solid_white_widths[1..solid_white_widths.len() - 1];
+
+    for &w in solid_black {
+        assert_eq!(w, 2, "black stripe width was not uniform: {solid_black:?}");
+    }
+    for &w in solid_white {
+        assert_eq!(w, 2, "white stripe width was not uniform: {solid_white:?}");
+    }
+
+    c.set_sharp_bilinear(false);
+}

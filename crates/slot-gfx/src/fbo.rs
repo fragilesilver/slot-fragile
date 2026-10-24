@@ -238,6 +238,14 @@ impl Compositor {
             .set_integer(picture.filter(|_| crate::bezel::framed(self.window)));
     }
 
+    pub fn set_sharp_bilinear(&mut self, on: bool) {
+        self.game.set_sharp_bilinear(on);
+    }
+
+    pub fn sharp_bilinear(&self) -> bool {
+        self.game.sharp_bilinear()
+    }
+
     /// The game's viewport, bottom-up, when it is drawn at a whole multiple.
     fn integer_viewport(&self) -> Option<(i32, i32, i32, i32)> {
         let pic = self.integer.filter(|_| self.native())?;

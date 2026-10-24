@@ -130,7 +130,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Shader",
             "Color Correction",
             "Bezel",
-            "Integer Scale",
+            "Scaling",
             "Card Shader",
             "Motion Blur"
         ]
@@ -141,7 +141,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Shader",
             "Color Correction",
             "Bezel",
-            "Integer Scale",
+            "Scaling",
             "Card Shader",
             "Motion Blur"
         ]
@@ -153,7 +153,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Color Correction",
             "Palettes",
             "Bezel",
-            "Integer Scale",
+            "Scaling",
             "Card Shader",
             "Motion Blur"
         ]

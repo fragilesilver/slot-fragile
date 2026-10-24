@@ -4,7 +4,7 @@ use common::{app_playing_in, boot, tmp_root_with_carts, write_gb_cart};
 use slot::app::App;
 use slot_input::{Action, Btn};
 use slot_store::{read_extras, write_extras, BezelPick, Platform};
-use slot_ui::{QuickRow, QuickValue};
+use slot_ui::QuickRow;
 use tempfile::TempDir;
 
 fn card() -> TempDir {
@@ -105,9 +105,14 @@ fn the_row_on_each_consoles_screen_page_flips_and_saves() {
     a.apply(Action::GbaDown(Btn::A));
     walk(&mut a, QuickRow::IntegerGb);
     assert_eq!(a.quick_menu(), Some(QuickRow::IntegerGb));
-    assert_eq!(a.quick_value(QuickRow::IntegerGb), Some(QuickValue::Off));
+    assert_eq!(a.named_value(QuickRow::IntegerGb), Some("Fit".into()));
     a.apply(Action::GbaDown(Btn::Right));
+    assert_eq!(a.named_value(QuickRow::IntegerGb), Some("Sharp Fit".into()));
+    assert_eq!(a.scaling(Platform::Gb), slot_store::Scaling::SharpFit);
+    assert!(!a.integer_scale(Platform::Gb));
+    a.apply(Action::GbaDown(Btn::Right));
+    assert_eq!(a.named_value(QuickRow::IntegerGb), Some("Integer".into()));
     assert!(a.integer_scale(Platform::Gb));
     assert!(!a.integer_scale(Platform::Gbc), "GBC followed GB");
-    assert_eq!(read_extras(d.path()).get("integer_gb"), Some("1"));
+    assert_eq!(read_extras(d.path()).get("scaling_gb"), Some("integer"));
 }

@@ -4,7 +4,7 @@
 //! each console's Screen page, shown on every panel so upstream's page layouts hold; on a 3:2
 //! panel the setting changes nothing.
 
-use slot_store::{platform_settings, BezelPick, Platform, Shader};
+use slot_store::{platform_settings, BezelPick, Platform, Scaling, Shader};
 use slot_ui::{QuickRow, QuickValue, Toast};
 
 use super::{App, VideoMode};
@@ -48,10 +48,6 @@ fn shader_row_platform(row: QuickRow) -> Option<Platform> {
     }
 }
 
-fn integer_key(platform: Platform) -> String {
-    format!("integer_{}", platform.key())
-}
-
 impl App {
     /// The buttons the playing system's pad has.
     pub fn game_pad(&self) -> &'static [slot_store::GameButton] {
@@ -86,8 +82,23 @@ impl App {
         }
     }
 
+    pub fn scaling(&self, platform: Platform) -> Scaling {
+        slot_store::get_scaling(&self.extras, platform)
+    }
+
+    pub fn set_scaling(&mut self, platform: Platform, scaling: Scaling) {
+        slot_store::set_scaling(&mut self.extras, platform, scaling);
+        self.save_extras();
+    }
+
     pub fn integer_scale(&self, platform: Platform) -> bool {
-        self.extras.flag(&integer_key(platform), false)
+        self.scaling(platform) == Scaling::Integer
+    }
+
+    /// Whether sharp-bilinear integer-snap filtering should be applied to the game picture.
+    pub fn sharp_bilinear(&self) -> bool {
+        let platform = self.playing_platform();
+        self.scaling(platform) == Scaling::SharpFit && self.video_mode == VideoMode::Actual
     }
 
     /// The picture size the compositor draws at a whole multiple, while Integer Scale is on for
@@ -126,8 +137,9 @@ impl App {
         if card_shader_row_platform(row).is_some()
             || row == QuickRow::CardShader
             || row == QuickRow::ShaderSettings
+            || Self::integer_row_platform(row).is_some()
         {
-            // Drawn from `named_value`, since a file name has no ready-made face.
+            // Drawn from `named_value`, since a file name or scaling has no ready-made face.
             return Some(None);
         }
         if let Some(platform) = motion_blur_row_platform(row) {
@@ -180,8 +192,8 @@ impl App {
         let Some(platform) = Self::integer_row_platform(row) else {
             return false;
         };
-        let on = !self.integer_scale(platform);
-        self.extras.set_flag(&integer_key(platform), on);
+        let to = self.scaling(platform).step(right);
+        self.set_scaling(platform, to);
         true
     }
 
@@ -234,6 +246,9 @@ impl App {
         }
         if row == QuickRow::CardShader {
             return Some(self.card_shader().unwrap_or_else(|| "Off".into()));
+        }
+        if let Some(platform) = Self::integer_row_platform(row) {
+            return Some(self.scaling(platform).text().to_string());
         }
         let platform = card_shader_row_platform(row)?;
         Some(

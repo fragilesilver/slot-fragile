@@ -63,6 +63,7 @@ uniform vec2 u_origin;
 uniform vec4 u_rect;
 uniform vec2 u_fbo;
 uniform vec4 u_pic;
+uniform float u_sharp;
 varying vec2 v_uv;
 const vec3 offsets = vec3(3.141592654) * vec3(1.0 / 2.0, 1.0 / 2.0 - 2.0 / 3.0, 1.0 / 2.0 - 4.0 / 3.0);
 const vec3 luma_coeff = vec3(0.2126, 0.7152, 0.0722);
@@ -75,7 +76,14 @@ float dot_weight(vec2 f, vec2 o, float bloom) {
 void main() {
     vec2 uv = u_uv.xy + v_uv * u_uv.zw;
     vec2 f = fract(uv * u_src);
-    vec3 c = texture2D(u_game, uv).rgb;
+    vec2 px = max((u_rect.zw * u_fbo) / max(u_uv.zw * u_src, vec2(1.0)), vec2(1.0));
+    vec2 texel = uv * u_src;
+    vec2 from_centre = fract(texel) - 0.5;
+    vec2 region = 0.5 - 0.5 / px;
+    vec2 snap = (from_centre - clamp(from_centre, -region, region)) * px + 0.5;
+    vec2 sharp_uv = (floor(texel) + snap) / u_src;
+    vec2 sample_uv = mix(uv, sharp_uv, u_sharp);
+    vec3 c = texture2D(u_game, sample_uv).rgb;
     bool inside = all(greaterThanEqual(uv, u_pic.xy)) && all(lessThan(uv, u_pic.zw));
     if (!inside) {
     } else if (u_mode > 3.5) {

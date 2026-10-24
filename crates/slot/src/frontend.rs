@@ -598,6 +598,7 @@ impl Frontend {
         compositor.set_integer_scale(self.session.app().integer_picture());
         // Fragile: whole, square pixels for a system drawn at its own size.
         compositor.set_native_whole(self.session.app().integer_native());
+        compositor.set_sharp_bilinear(self.session.app().sharp_bilinear());
         sync_core_picker(
             self.session.app_mut(),
             compositor,

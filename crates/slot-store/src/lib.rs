@@ -17,6 +17,7 @@ mod label_style;
 mod platform;
 pub mod platform_settings;
 mod ring;
+pub mod scaling;
 mod scan;
 mod shaders;
 mod slot_state;
@@ -43,6 +44,7 @@ pub use gba::{header_clean, header_code, header_title, header_title_code};
 pub use label_style::{LabelStyle, SCRAPED_LABELS};
 pub use platform::Platform;
 pub use ring::{StateEntry, StateRing, RING_MAX};
+pub use scaling::{get_scaling, scaling_key, set_scaling, Scaling};
 pub use scan::{initial, is_hidden, listing, scan, sort_key, Cart, StoreError};
 pub use shaders::{
     list_shaders, load_shader_params, save_shader_params, shader_config_path, shader_path,

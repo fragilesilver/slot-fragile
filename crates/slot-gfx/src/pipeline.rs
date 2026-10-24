@@ -41,6 +41,8 @@ pub struct GamePass {
     /// The frame before this one, for card shaders that blend with it (`PrevTexture`).
     prev: gl::types::GLuint,
     frames: u32,
+    u_sharp: gl::types::GLint,
+    sharp_bilinear: bool,
     // --- extras ---
     /// The game texture's size: the Game Boy family's 240x160 canvas, or a native system's
     /// picture as its core draws it.
@@ -86,6 +88,7 @@ impl GamePass {
             u_pic = crate::gl::uniform_location(prog, "u_pic");
             u_origin = crate::gl::uniform_location(prog, "u_origin");
         }
+        let u_sharp = crate::gl::uniform_location(prog, "u_sharp");
         Ok(GamePass {
             prog,
             game,
@@ -111,6 +114,8 @@ impl GamePass {
             card: None,
             prev,
             frames: 0,
+            u_sharp,
+            sharp_bilinear: false,
             size: (SRC_W, SRC_H),
             u_src,
             aspect: None,
@@ -225,6 +230,14 @@ impl GamePass {
             let (w, h) = (w.min(SRC_W) as f32, h.min(SRC_H) as f32);
             [(sw - w) / 2.0 / sw, (sh - h) / 2.0 / sh, w / sw, h / sh]
         });
+    }
+
+    pub fn set_sharp_bilinear(&mut self, on: bool) {
+        self.sharp_bilinear = on;
+    }
+
+    pub fn sharp_bilinear(&self) -> bool {
+        self.sharp_bilinear
     }
 
     pub fn set_card_shader(&mut self, shader: Option<RetroShader>) {
@@ -347,12 +360,36 @@ impl GamePass {
             gl::Uniform2f(self.u_fbo, self.fbo_scale[0], self.fbo_scale[1]);
             gl::Uniform2f(self.u_origin, self.origin[0], self.origin[1]);
             gl::Uniform4f(self.u_pic, pic[0], pic[1], pic[2], pic[3]);
+            let sharp = if self.sharp_bilinear && self.integer.is_none() {
+                1.0
+            } else {
+                0.0
+            };
+            gl::Uniform1f(self.u_sharp, sharp);
             gl::ActiveTexture(gl::TEXTURE1);
             gl::BindTexture(gl::TEXTURE_2D, self.paper);
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, tex);
+            if sharp > 0.5 {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            } else {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            }
         }
         quad.draw();
+        let sharp = if self.sharp_bilinear && self.integer.is_none() {
+            1.0
+        } else {
+            0.0
+        };
+        if sharp > 0.5 {
+            unsafe {
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            }
+        }
     }
 }
 

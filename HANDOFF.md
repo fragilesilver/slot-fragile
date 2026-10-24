@@ -453,6 +453,37 @@ Then, on build 5135f74:
 - Automatic (extras `game_art_auto`, default on): with the internet up and scraper idle, finds
   games with no label not yet asked for since boot.
 
+## Phase 19: Scaling (Fit, Sharp Fit, Integer) (2026-10-24)
+
+- Sharp-Bilinear integer-snap filtering:
+  - In `crates/slot-gfx/src/shaders.rs` (`GAME_FRAG`): Implemented sharp-bilinear sampling:
+    `px = (u_rect.zw * u_fbo) / max(u_uv.zw * u_src, vec2(1.0))`, `region = 0.5 - 0.5 / px`,
+    `snap = (from_centre - clamp(from_centre, -region, region)) * px + 0.5`. Each texel renders as
+    a crisp solid block, with only the 1-device-pixel boundary seam smoothly blended by hardware linear filtering.
+  - In `crates/slot-gfx/src/pipeline.rs`: Added `u_sharp` uniform and `sharp_bilinear` control. When active
+    under aspect fit, texture min/mag filter is set to `gl::LINEAR` for drawing and reverted to `gl::NEAREST`.
+    Eliminates all scrolling pixel shimmer on GBA ($2.67\times$ on $640\times 480$).
+  - In `crates/slot-gfx/src/fbo.rs`: Exposed `set_sharp_bilinear` and `sharp_bilinear` on `Compositor`.
+- Tri-state Scaling Configuration & Migration:
+  - In `crates/slot-store/src/scaling.rs`: Created `Scaling` enum (`Fit`, `SharpFit`, `Integer`), with
+    `key()`, `text()`, `parse()`, `step()`, and `default_for(platform)`.
+  - Default for GBA is `SharpFit` ($240\times 160$ on $640\times 480$); defaults for GB, GBC, NES, SNES, PS1 are `Fit`.
+  - Seamless migration: Legacy `integer_<platform> = 1` reads as `Scaling::Integer`.
+  - Settings persisted in `Config/extras.state` under `scaling_<platform>`.
+- QuickMenu & UI Integration:
+  - In `crates/slot-ui/src/quick_menu.rs`: Renamed row labels from `"Integer Scale"` to `"Scaling"` across all 6
+    systems (`SCREEN_GBA`, `SCREEN_GB`, `SCREEN_GBC`, `SCREEN_NES`, `SCREEN_SNES`, `SCREEN_PS`).
+  - Help text updated to `"Fit (fill screen), Sharp Fit (crisp) or Integer."`.
+  - In `crates/slot/src/app/screen.rs`: Wired to dynamic `named_value`, displaying `"Fit"`, `"Sharp Fit"`, or `"Integer"`
+    with left/right carets. Stepping Left/Right cycles modes.
+- Tests & Verification:
+  - `crates/slot-gfx/tests/pipeline.rs`: Added `sharp_fit_draws_every_game_pixel_the_same_width_with_blended_seams`
+    verifying uniform 2-pixel stripe widths with blended seams under 2.67x scaling on host GL.
+  - `crates/slot/tests/scaling.rs`: Verified picture rects across $640\times 480$, $720\times 480$, and $720\times 720$,
+    legacy integer flag migration, and QuickMenu stepping.
+  - Updated `crates/slot/tests/integer_scale.rs` and `crates/slot-ui/tests/quick_menu.rs`.
+  - Full workspace test suite passes; clippy zero warnings; cargo fmt clean.
+
 ## Phase 18: Shader Settings (2026-10-24)
 
 - RetroArch `#pragma parameter` parsing & live GL uniform binding:

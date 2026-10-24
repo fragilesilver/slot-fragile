@@ -26,7 +26,8 @@ Add the line
 
   #pragma slot_filter linear
 
-to sample the frame smoothly rather than by nearest pixel. A file that does not compile shows
+to sample the frame smoothly rather than by nearest pixel. Card shaders keep their own sampling
+(#pragma slot_filter linear) and draw at the Fit rect under Sharp Fit scaling. A file that does not compile shows
 "Card shader failed to load", keeps the built-in Shader on, and writes the reason to
 Logs/slot.log.
 

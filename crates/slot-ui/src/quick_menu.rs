@@ -680,7 +680,7 @@ impl QuickRow {
             QuickRow::GbShader => "Shader",
             QuickRow::GbcShader => "Shader",
             QuickRow::NesShader | QuickRow::SnesShader | QuickRow::PsShader => "Shader",
-            QuickRow::IntegerNes | QuickRow::IntegerSnes | QuickRow::IntegerPs => "Integer Scale",
+            QuickRow::IntegerNes | QuickRow::IntegerSnes | QuickRow::IntegerPs => "Scaling",
             QuickRow::CardShaderNes | QuickRow::CardShaderSnes | QuickRow::CardShaderPs => {
                 "Card Shader"
             }
@@ -730,7 +730,7 @@ impl QuickRow {
             QuickRow::ThisFfSound => "Fast Forward Sound",
             QuickRow::ThisLabel => "Label",
             QuickRow::ThisDefaults => "Use Defaults",
-            QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => "Integer Scale",
+            QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => "Scaling",
             QuickRow::CardShader
             | QuickRow::CardShaderGba
             | QuickRow::CardShaderGb
@@ -867,17 +867,17 @@ impl QuickRow {
             QuickRow::ThisFfSound => "Fast forward sound for this game only.",
             QuickRow::ThisLabel => "How Game Art draws this game's label.",
             QuickRow::ThisDefaults => "On: this game follows the settings menu.",
-            QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => {
-                "Whole pixels on 4:3 screens, with a border."
-            }
-            QuickRow::IntegerNes | QuickRow::IntegerSnes | QuickRow::IntegerPs => {
-                "Whole, square pixels, with a border."
-            }
+            QuickRow::IntegerGba
+            | QuickRow::IntegerGb
+            | QuickRow::IntegerGbc
+            | QuickRow::IntegerNes
+            | QuickRow::IntegerSnes
+            | QuickRow::IntegerPs => "Fit (fill screen), Sharp Fit (crisp) or Integer.",
             QuickRow::CardShaderNes | QuickRow::CardShaderSnes | QuickRow::CardShaderPs => {
                 "A .glsl file from Shaders, used instead of Shader."
             }
             QuickRow::NesShader | QuickRow::SnesShader | QuickRow::PsShader => {
-                "Screen effect drawn over the game."
+                "Built-in screen effect drawn over the game."
             }
             QuickRow::CardShader
             | QuickRow::CardShaderGba
@@ -891,7 +891,7 @@ impl QuickRow {
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
             QuickRow::DateTime => "Set the clock.",
             QuickRow::GbaShader | QuickRow::GbShader | QuickRow::GbcShader | QuickRow::Shader => {
-                "Screen effect drawn over the game."
+                "Built-in screen effect drawn over the game."
             }
             QuickRow::GbaColourCorrection
             | QuickRow::GbColourCorrection
