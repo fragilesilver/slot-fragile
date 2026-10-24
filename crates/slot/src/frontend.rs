@@ -759,6 +759,10 @@ impl Frontend {
         self.session.app()
     }
 
+    pub fn app_mut(&mut self) -> &mut crate::app::App {
+        self.session.app_mut()
+    }
+
     pub fn set_left_stick(&mut self, present: bool) {
         self.session.app_mut().set_left_stick(present);
     }

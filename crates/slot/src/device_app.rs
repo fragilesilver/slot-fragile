@@ -150,7 +150,7 @@ pub fn run() {
         .unwrap_or_else(|| PathBuf::from(CARD));
     let mut hdmi = DeviceHdmi::new(&root);
     let hdmi_mode = slot::hdmi::read_hdmi_mode(Some(&root));
-    let mut hdmi_connected = hdmi.is_connected();
+    let hdmi_connected = hdmi.is_connected();
     let mut hdmi_active = false;
     if hdmi_mode.is_enabled() && hdmi_connected {
         eprintln!("slot: hdmi connected at boot, activating {hdmi_mode:?}");
@@ -259,7 +259,6 @@ pub fn run() {
                 eprintln!(
                     "slot: hdmi transition (connected: {hdmi_connected} -> {connected_now}, mode: {current_mode:?})"
                 );
-                hdmi_connected = connected_now;
                 if connected_now && current_mode.is_enabled() {
                     let _ = hdmi.switch_on(current_mode);
                     slot::audio::set_route(Some(HDMI_ALSA_DEVICE.to_string()));
