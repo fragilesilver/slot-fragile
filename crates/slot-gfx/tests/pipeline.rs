@@ -1130,6 +1130,38 @@ fn a_native_picture_is_letterboxed_to_its_shape_and_the_texture_follows_its_size
 }
 
 #[test]
+fn a_native_picture_fills_a_4_by_3_panel_under_fit() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    let (w, h) = (256u32, 224u32);
+    let white: Vec<u8> = std::iter::repeat_n([255u8, 255, 255, 255], (w * h) as usize)
+        .flatten()
+        .collect();
+    c.fit((640, 480));
+    c.begin_frame();
+    c.set_screen_effect(ScreenEffect::None);
+    c.set_screen_power(1.0);
+    c.set_game_fills_frame(true);
+    c.upload_game_sized(&white, (w, h));
+    c.set_game_aspect(Some(4.0 / 3.0));
+    c.draw_game();
+    let frame = c.read_frame();
+    assert_eq!(c.game_texture_size(), (w, h));
+    // Under 4:3 Fit on a 640x480 (4:3) screen, it fills all 640x480 pixels without black bars.
+    assert_eq!(frame.len(), 640 * 480 * 4);
+    let lit = |x: usize, y: usize| {
+        let o = (y * 640 + x) * 4;
+        frame[o] > 200
+    };
+    assert!(lit(0, 240), "the left edge is lit");
+    assert!(lit(639, 240), "the right edge is lit");
+    assert!(lit(320, 0), "the top edge is lit");
+    assert!(lit(320, 479), "the bottom edge is lit");
+    assert!(lit(320, 240), "the centre is lit");
+}
+
+#[test]
 fn sharp_fit_draws_every_game_pixel_the_same_width_with_blended_seams() {
     let Some((_g, _s, mut c)) = compositor() else {
         return;

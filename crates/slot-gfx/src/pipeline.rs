@@ -161,6 +161,10 @@ impl GamePass {
         self.aspect = aspect.filter(|a| a.is_finite() && *a > 0.0);
     }
 
+    pub fn aspect(&self) -> Option<f32> {
+        self.aspect
+    }
+
     pub fn texture_size(&self) -> (u32, u32) {
         self.size
     }

@@ -194,7 +194,7 @@
             <option value="GBC">GBC</option>
             <option value="NES">NES</option>
             <option value="SNES">SNES</option>
-            <option value="PlayStation">PlayStation</option>
+            <option value="PS">PlayStation (PS)</option>
           </select>
           <input type="text" id="labels-search" class="search-input" placeholder="Search games..." oninput="renderLabelsGrid()">
         </div>
@@ -267,7 +267,7 @@
             <option value="GBC">Game Boy Color (GBC/)</option>
             <option value="NES">NES (NES/)</option>
             <option value="SNES">Super Nintendo (SNES/)</option>
-            <option value="PlayStation">Sony PlayStation (PlayStation/)</option>
+            <option value="PS">Sony PlayStation (PS/)</option>
           </select>
         </div>
         <div class="dropzone" id="rom-dropzone" onclick="document.getElementById('rom-file-input').click()">
@@ -369,7 +369,9 @@
       const container = document.getElementById('studio-game-items');
       container.innerHTML = '';
       const filtered = allGames.filter(g => {
-        const matchSys = filter === 'all' || g.platform.toLowerCase() === filter.toLowerCase();
+        const matchSys = filter === 'all'
+          || g.platform.toLowerCase() === filter.toLowerCase()
+          || (g.platform_name && g.platform_name.toLowerCase() === filter.toLowerCase());
         const matchQ = !q || g.stem.toLowerCase().includes(q);
         return matchSys && matchQ;
       });
@@ -504,7 +506,9 @@
       const grid = document.getElementById('labels-grid');
       grid.innerHTML = '';
       const filtered = allGames.filter(g => {
-        const matchSys = filter === 'all' || g.platform.toLowerCase() === filter.toLowerCase();
+        const matchSys = filter === 'all'
+          || g.platform.toLowerCase() === filter.toLowerCase()
+          || (g.platform_name && g.platform_name.toLowerCase() === filter.toLowerCase());
         const matchQ = !q || g.stem.toLowerCase().includes(q);
         return matchSys && matchQ;
       });

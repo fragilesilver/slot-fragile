@@ -180,7 +180,7 @@ fn dashboard_api_upload_label_and_retrieve() {
     assert!(label_file.exists());
     assert_eq!(std::fs::read(&label_file).unwrap(), dummy_png);
 
-    // Retrieve via GET /api/label
+    // Retrieve via GET /api/label with canonical dir
     let (status, headers, body) = request(
         15074,
         "GET",
@@ -194,6 +194,33 @@ fn dashboard_api_upload_label_and_retrieve() {
         Some("image/png")
     );
     assert_eq!(&body, dummy_png);
+
+    // Retrieve via GET /api/label with full platform name ("Game Boy Advance")
+    let (status, _, body2) = request(
+        15074,
+        "GET",
+        "/api/label?platform=Game%20Boy%20Advance&stem=Emerald",
+        Some(("root", "root")),
+        None,
+    );
+    assert_eq!(status, 200);
+    assert_eq!(&body2, dummy_png);
+
+    // Retrieve scraped label from System/Cache/Scraper/Labels
+    let scraped_dir = d.path().join(slot_store::SCRAPED_LABELS).join("GBA");
+    std::fs::create_dir_all(&scraped_dir).unwrap();
+    let scraped_png = b"\x89PNG\r\n\x1a\nscraped label data";
+    std::fs::write(scraped_dir.join("Fusion.png"), scraped_png).unwrap();
+
+    let (status, _, body_scraped) = request(
+        15074,
+        "GET",
+        "/api/label?platform=GBA&stem=Fusion",
+        Some(("root", "root")),
+        None,
+    );
+    assert_eq!(status, 200);
+    assert_eq!(&body_scraped, scraped_png);
 }
 
 #[test]

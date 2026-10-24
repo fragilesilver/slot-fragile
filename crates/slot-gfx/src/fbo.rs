@@ -515,6 +515,7 @@ impl Compositor {
         }
         let (x, y, w, h) = match self.integer_viewport() {
             Some(rect) => rect,
+            None if self.game.aspect().is_some() => (0, 0, self.size.0 as i32, self.size.1 as i32),
             None => {
                 let (x, top, w, h) = crate::bezel::game_rect(self.window, self.sp_frame);
                 (x, self.size.1 as i32 - top - h, w, h)

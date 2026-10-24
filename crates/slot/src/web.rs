@@ -345,6 +345,7 @@ fn handle_api_games(root: &Path) -> String {
     let mut items = Vec::new();
 
     for c in carts {
+        let platform_dir = c.platform.dir_name();
         let platform_name = c.platform.name();
         let stem = &c.stem;
         let is_fav = favorites
@@ -354,7 +355,8 @@ fn handle_api_games(root: &Path) -> String {
         let shell_val = c.shell.map(|s| s.to_value()).unwrap_or_default();
 
         items.push(format!(
-            "{{\"platform\":\"{}\",\"stem\":\"{}\",\"has_label\":{},\"favorite\":{},\"shell\":\"{}\"}}",
+            "{{\"platform\":\"{}\",\"platform_name\":\"{}\",\"stem\":\"{}\",\"has_label\":{},\"favorite\":{},\"shell\":\"{}\"}}",
+            escape_json(platform_dir),
             escape_json(platform_name),
             escape_json(stem),
             has_label,
@@ -364,6 +366,19 @@ fn handle_api_games(root: &Path) -> String {
     }
 
     format!("[{}]", items.join(","))
+}
+
+fn resolve_platform(platform_str: &str) -> (Option<slot_store::Platform>, String) {
+    let plat = slot_store::Platform::ALL.into_iter().find(|p| {
+        p.dir_name().eq_ignore_ascii_case(platform_str)
+            || p.key().eq_ignore_ascii_case(platform_str)
+            || p.name().eq_ignore_ascii_case(platform_str)
+            || p.short_name().eq_ignore_ascii_case(platform_str)
+    });
+    let dir_name = plat
+        .map(|p| p.dir_name().to_string())
+        .unwrap_or_else(|| platform_str.to_string());
+    (plat, dir_name)
 }
 
 fn handle_api_cart_shell(body: &[u8], root: &Path) -> String {
@@ -412,11 +427,12 @@ fn handle_api_cart_shell(body: &[u8], root: &Path) -> String {
     "{\"ok\":true}".into()
 }
 
-fn handle_api_upload_label(platform: &str, stem: &str, body: &[u8], root: &Path) -> String {
-    if platform.is_empty() || stem.is_empty() || body.is_empty() {
+fn handle_api_upload_label(platform_str: &str, stem: &str, body: &[u8], root: &Path) -> String {
+    if platform_str.is_empty() || stem.is_empty() || body.is_empty() {
         return "{\"ok\":false,\"error\":\"Invalid parameters\"}".into();
     }
-    let target_dir = root.join("Labels").join(platform);
+    let (_, dir_name) = resolve_platform(platform_str);
+    let target_dir = root.join("Labels").join(&dir_name);
     let _ = fs::create_dir_all(&target_dir);
     let target_file = target_dir.join(format!("{stem}.png"));
 
@@ -429,12 +445,64 @@ fn handle_api_upload_label(platform: &str, stem: &str, body: &[u8], root: &Path)
     }
 }
 
-fn handle_api_get_label(platform: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
-    let path = root
-        .join("Labels")
-        .join(platform)
-        .join(format!("{stem}.png"));
-    fs::read(path).ok()
+fn handle_api_get_label(platform_str: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
+    let (plat, dir_name) = resolve_platform(platform_str);
+
+    let candidates = [
+        root.join("Labels").join(&dir_name),
+        root.join(slot_store::SCRAPED_LABELS).join(&dir_name),
+    ];
+
+    let target_png = format!("{stem}.png").to_lowercase();
+
+    for dir in &candidates {
+        let direct = dir.join(format!("{stem}.png"));
+        if direct.is_file() {
+            if let Ok(bytes) = fs::read(direct) {
+                return Some(bytes);
+            }
+        }
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                if let Ok(name) = entry.file_name().into_string() {
+                    if name.to_lowercase() == target_png {
+                        if let Ok(bytes) = fs::read(entry.path()) {
+                            return Some(bytes);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if let Ok(carts) = slot_store::scan(root) {
+        if let Some(c) = carts.iter().find(|c| {
+            c.stem.eq_ignore_ascii_case(stem)
+                && plat.map_or_else(
+                    || c.platform.dir_name().eq_ignore_ascii_case(&dir_name),
+                    |p| c.platform == p,
+                )
+        }) {
+            if let Some(label_path) = &c.label {
+                if let Ok(bytes) = fs::read(label_path) {
+                    return Some(bytes);
+                }
+            }
+        }
+    }
+
+    let art_kinds = ["box.png", "cart.png", "logo.png"];
+    let art_dir = root.join("System/Cache/Scraper/Art").join(&dir_name).join(stem);
+    for kind in art_kinds {
+        let p = art_dir.join(kind);
+        if p.is_file() {
+            if let Ok(bytes) = fs::read(p) {
+                return Some(bytes);
+            }
+        }
+    }
+
+    None
 }
 
 fn handle_api_get_lists(root: &Path) -> String {
@@ -545,13 +613,18 @@ fn handle_api_post_favorite(body: &[u8], root: &Path) -> String {
         return "{\"ok\":false,\"error\":\"Missing platform or stem\"}".into();
     }
 
+    let (_, dir_name) = resolve_platform(&platform);
+
     let fav_file = root.join("Config/favorites.txt");
-    let entry = format!("{platform}/{stem}");
+    let entry = format!("{dir_name}/{stem}");
 
     let content = fs::read_to_string(&fav_file).unwrap_or_default();
     let mut lines: Vec<String> = content.lines().map(|s| s.trim().to_string()).collect();
 
-    if let Some(pos) = lines.iter().position(|l| l == &entry) {
+    if let Some(pos) = lines.iter().position(|l| {
+        l.eq_ignore_ascii_case(&entry)
+            || l.eq_ignore_ascii_case(&format!("{dir_name}/{stem}"))
+    }) {
         lines.remove(pos);
     } else {
         lines.push(entry);
@@ -597,23 +670,25 @@ fn handle_api_get_saves(root: &Path) -> String {
     format!("[{}]", out.join(","))
 }
 
-fn handle_api_download_save(platform: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
+fn handle_api_download_save(platform_str: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
+    let (_, dir_name) = resolve_platform(platform_str);
     let p1 = root
         .join("Saves")
-        .join(platform)
+        .join(&dir_name)
         .join(format!("{stem}.sav"));
     let p2 = root
         .join("Saves")
-        .join(platform)
+        .join(&dir_name)
         .join(format!("{stem}.srm"));
     fs::read(&p1).or_else(|_| fs::read(&p2)).ok()
 }
 
-fn handle_api_upload_save(platform: &str, stem: &str, body: &[u8], root: &Path) -> String {
-    if platform.is_empty() || stem.is_empty() || body.is_empty() {
+fn handle_api_upload_save(platform_str: &str, stem: &str, body: &[u8], root: &Path) -> String {
+    if platform_str.is_empty() || stem.is_empty() || body.is_empty() {
         return "{\"ok\":false,\"error\":\"Invalid parameters\"}".into();
     }
-    let target_dir = root.join("Saves").join(platform);
+    let (_, dir_name) = resolve_platform(platform_str);
+    let target_dir = root.join("Saves").join(&dir_name);
     let _ = fs::create_dir_all(&target_dir);
     let target_file = target_dir.join(format!("{stem}.sav"));
 
@@ -626,11 +701,12 @@ fn handle_api_upload_save(platform: &str, stem: &str, body: &[u8], root: &Path) 
     }
 }
 
-fn handle_api_upload_rom(platform: &str, filename: &str, body: &[u8], root: &Path) -> String {
-    if platform.is_empty() || filename.is_empty() || body.is_empty() {
+fn handle_api_upload_rom(platform_str: &str, filename: &str, body: &[u8], root: &Path) -> String {
+    if platform_str.is_empty() || filename.is_empty() || body.is_empty() {
         return "{\"ok\":false,\"error\":\"Invalid parameters\"}".into();
     }
-    let target_dir = root.join(platform);
+    let (_, dir_name) = resolve_platform(platform_str);
+    let target_dir = root.join("Games").join(&dir_name);
     let _ = fs::create_dir_all(&target_dir);
     let target_file = target_dir.join(filename);
 
