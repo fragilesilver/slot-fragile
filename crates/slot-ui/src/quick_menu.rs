@@ -150,10 +150,13 @@ pub enum QuickRow {
     HdmiOutput,
     // --- extras: web ---
     WebDashboard,
+    // --- extras: shader settings ---
+    CardShader,
+    ShaderSettings,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 134] = [
+    pub const ALL: [QuickRow; 136] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -293,6 +296,9 @@ impl QuickRow {
         QuickRow::HdmiOutput,
         // --- extras: web ---
         QuickRow::WebDashboard,
+        // --- extras: shader settings ---
+        QuickRow::CardShader,
+        QuickRow::ShaderSettings,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -461,11 +467,13 @@ impl QuickRow {
         QuickRow::PlayGuide,
     ];
 
-    pub const PLAY_SCREEN: [QuickRow; 4] = [
+    pub const PLAY_SCREEN: [QuickRow; 6] = [
         QuickRow::Shader,
         QuickRow::ColourCorrection,
         QuickRow::Palette,
         QuickRow::Bezel,
+        QuickRow::CardShader,
+        QuickRow::ShaderSettings,
     ];
 
     pub fn index(self) -> usize {
@@ -554,9 +562,12 @@ impl QuickRow {
             r if r.game_button().is_some() => &QuickRow::CONTROLS,
             r if r.shortcut().is_some() => &QuickRow::SHORTCUTS,
             r if r.carousel_action().is_some() => &QuickRow::SHELF_KEYS,
-            QuickRow::Shader | QuickRow::ColourCorrection | QuickRow::Palette | QuickRow::Bezel => {
-                &QuickRow::PLAY_SCREEN
-            }
+            QuickRow::Shader
+            | QuickRow::ColourCorrection
+            | QuickRow::Palette
+            | QuickRow::Bezel
+            | QuickRow::CardShader
+            | QuickRow::ShaderSettings => &QuickRow::PLAY_SCREEN,
             QuickRow::WifiPower
             | QuickRow::WifiNetworks
             | QuickRow::WifiStatus
@@ -720,9 +731,11 @@ impl QuickRow {
             QuickRow::ThisLabel => "Label",
             QuickRow::ThisDefaults => "Use Defaults",
             QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => "Integer Scale",
-            QuickRow::CardShaderGba | QuickRow::CardShaderGb | QuickRow::CardShaderGbc => {
-                "Card Shader"
-            }
+            QuickRow::CardShader
+            | QuickRow::CardShaderGba
+            | QuickRow::CardShaderGb
+            | QuickRow::CardShaderGbc => "Card Shader",
+            QuickRow::ShaderSettings => "Shader Settings",
             QuickRow::MotionBlurGba | QuickRow::MotionBlurGb | QuickRow::MotionBlurGbc => {
                 "Motion Blur"
             }
@@ -866,9 +879,11 @@ impl QuickRow {
             QuickRow::NesShader | QuickRow::SnesShader | QuickRow::PsShader => {
                 "Screen effect drawn over the game."
             }
-            QuickRow::CardShaderGba | QuickRow::CardShaderGb | QuickRow::CardShaderGbc => {
-                "A .glsl file from Shaders, used instead of Shader."
-            }
+            QuickRow::CardShader
+            | QuickRow::CardShaderGba
+            | QuickRow::CardShaderGb
+            | QuickRow::CardShaderGbc => "A .glsl file from Shaders, used instead of Shader.",
+            QuickRow::ShaderSettings => "Tune the current card shader's parameters.",
             QuickRow::MotionBlurGba | QuickRow::MotionBlurGb | QuickRow::MotionBlurGbc => {
                 "Moving pixels fade out slowly, like an old LCD."
             }
@@ -923,6 +938,7 @@ impl QuickRow {
                 | QuickRow::CheevosAccount
                 | QuickRow::GameArt
                 | QuickRow::PlayAchievements
+                | QuickRow::ShaderSettings
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba
                 | QuickRow::ScreenGbc

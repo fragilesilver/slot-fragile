@@ -44,7 +44,10 @@ pub use label_style::{LabelStyle, SCRAPED_LABELS};
 pub use platform::Platform;
 pub use ring::{StateEntry, StateRing, RING_MAX};
 pub use scan::{initial, is_hidden, listing, scan, sort_key, Cart, StoreError};
-pub use shaders::{list_shaders, shader_path, SHADERS_DIR};
+pub use shaders::{
+    list_shaders, load_shader_params, save_shader_params, shader_config_path, shader_path,
+    SHADERS_DIR, SHADER_CONFIG_DIR,
+};
 pub use slot_state::{
     read_slot_state, write_slot_state, Appearance, BezelPick, Recent, Shader, SlotState,
     WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, FF_SPEED_DEFAULT,

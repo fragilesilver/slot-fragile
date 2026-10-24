@@ -3,6 +3,8 @@
 // "Color Mangler" by hunterk, modified by Pokefan531, public domain, as used by Baggio94's
 // slot-konkr presets. https://github.com/libretro/glsl-shaders/tree/master/handheld
 
+#pragma parameter STRENGTH "Color strength" 1.0 0.0 1.0 0.05
+
 #if defined(VERTEX)
 
 #if __VERSION__ >= 130
@@ -51,10 +53,18 @@ uniform vec2 InputSize;
 uniform vec2 OutputSize;
 COMPAT_VARYING vec4 TEX0;
 
+#ifdef PARAMETER_UNIFORM
+uniform float STRENGTH;
+#else
+#define STRENGTH 1.0
+#endif
+
 void main()
 {
-    vec3 c = pow(max(COMPAT_TEXTURE(Texture, TEX0.xy).rgb, vec3(0.0)), vec3(3.2));
+    vec3 orig = COMPAT_TEXTURE(Texture, TEX0.xy).rgb;
+    vec3 c = pow(max(orig, vec3(0.0)), vec3(3.2));
     c = mat3(0.82, 0.125, 0.195, 0.24, 0.665, 0.075, -0.06, 0.21, 0.73) * (c * 0.94);
-    FragColor = vec4(pow(clamp(c, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
+    vec3 corrected = pow(clamp(c, 0.0, 1.0), vec3(1.0 / 2.2));
+    FragColor = vec4(mix(orig, corrected, STRENGTH), 1.0);
 }
 #endif

@@ -99,6 +99,7 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::PlayCheats,
             QuickRow::PlayDisc,
             QuickRow::PlayAchievements,
+            QuickRow::ShaderSettings,
             // Fragile: buttons the GBA's pad does not have.
             QuickRow::GameX,
             QuickRow::GameY,
@@ -115,6 +116,7 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::PlayCheats,
             QuickRow::PlayDisc,
             QuickRow::PlayAchievements,
+            QuickRow::ShaderSettings,
             // Fragile: buttons the GBA's pad does not have.
             QuickRow::GameX,
             QuickRow::GameY,

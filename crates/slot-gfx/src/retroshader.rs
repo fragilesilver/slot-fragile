@@ -77,6 +77,17 @@ impl Uniform {
     }
 }
 
+/// A `#pragma parameter` definition read from a card shader.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShaderParam {
+    pub id: String,
+    pub label: String,
+    pub default: f32,
+    pub min: f32,
+    pub max: f32,
+    pub step: f32,
+}
+
 pub struct RetroShader {
     prog: gl::types::GLuint,
     vbo: gl::types::GLuint,
@@ -94,6 +105,8 @@ pub struct RetroShader {
     texture_size: [Uniform; 2],
     /// The frame's texture size, set again when a native system's picture changes size.
     sized: std::cell::Cell<(u32, u32)>,
+    params: Vec<ShaderParam>,
+    param_locs: HashMap<String, gl::types::GLint>,
 }
 
 /// The file with its `#version` lines taken out and the stage and version put back in front,
@@ -101,7 +114,7 @@ pub struct RetroShader {
 ///
 /// Fragile: `#pragma parameter` lines go too. They hold quoted names, and GLSL has no strings: a
 /// GLES driver that reads a pragma it does not know refuses the `"`, so a shader with parameters
-/// failed to load on the device. Parameters run at their defaults whatever they say.
+/// failed to load on the device. `PARAMETER_UNIFORM` is defined so shaders declare parameter uniforms.
 pub fn stage_source(src: &str, stage: &str, es: bool) -> String {
     let body: Vec<&str> = src
         .lines()
@@ -113,7 +126,10 @@ pub fn stage_source(src: &str, stage: &str, es: bool) -> String {
         .collect();
     let version = if es { "" } else { "#version 330 core\n" };
     // `#line 1` puts the line numbers in the driver's log back on the file's own.
-    format!("{version}#define {stage}\n#line 1\n{}\n", body.join("\n"))
+    format!(
+        "{version}#define {stage}\n#define PARAMETER_UNIFORM\n#line 1\n{}\n",
+        body.join("\n")
+    )
 }
 
 fn is_dropped(line: &str) -> bool {
@@ -125,6 +141,57 @@ fn is_dropped(line: &str) -> bool {
         || directive
             .strip_prefix("pragma")
             .is_some_and(|rest| rest.trim_start().starts_with("parameter"))
+}
+
+/// Parses all `#pragma parameter` definitions in the shader source.
+pub fn parse_parameters(src: &str) -> Vec<ShaderParam> {
+    src.lines().filter_map(parse_parameter_line).collect()
+}
+
+fn parse_parameter_line(line: &str) -> Option<ShaderParam> {
+    let s = line.trim_start();
+    let after_hash = s.strip_prefix('#')?.trim_start();
+    let after_pragma = after_hash.strip_prefix("pragma")?.trim_start();
+    let after_param = after_pragma.strip_prefix("parameter")?.trim_start();
+
+    let id_end = after_param.find(|c: char| c.is_whitespace() || c == '"')?;
+    let id = after_param[..id_end].trim();
+    if id.is_empty() || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return None;
+    }
+
+    let rest = after_param[id_end..].trim_start();
+    let after_quote = rest.strip_prefix('"')?;
+    let quote_end = after_quote.find('"')?;
+    let label = &after_quote[..quote_end];
+
+    let nums_str = after_quote[quote_end + 1..].trim();
+    let nums: Vec<&str> = nums_str.split_whitespace().collect();
+    if nums.len() < 3 {
+        return None;
+    }
+
+    let default = nums[0].parse::<f32>().ok()?;
+    let min = nums[1].parse::<f32>().ok()?;
+    let max = nums[2].parse::<f32>().ok()?;
+    let step = if nums.len() >= 4 {
+        nums[3].parse::<f32>().ok()?
+    } else {
+        0.05
+    };
+
+    if min > max || step <= 0.0 {
+        return None;
+    }
+
+    Some(ShaderParam {
+        id: id.to_string(),
+        label: label.to_string(),
+        default,
+        min,
+        max,
+        step,
+    })
 }
 
 pub fn wants_linear(src: &str) -> bool {
@@ -147,8 +214,17 @@ impl RetroShader {
             },
             None => Uniform::ABSENT,
         };
+        let params = parse_parameters(src);
+        let mut param_locs = HashMap::new();
         let shader = unsafe {
             gl::UseProgram(prog);
+            for p in &params {
+                let loc = crate::gl::uniform_location(prog, &p.id);
+                if loc >= 0 {
+                    gl::Uniform1f(loc, p.default);
+                    param_locs.insert(p.id.clone(), loc);
+                }
+            }
             // The frame and its predecessor never change units, so everything but the geometry,
             // the count and a native picture's size is set once here.
             for (name, unit) in [("Texture", 0), ("OrigTexture", 0), ("PrevTexture", 1)] {
@@ -197,9 +273,26 @@ impl RetroShader {
                 input_size: [uniform("InputSize"), uniform("OrigInputSize")],
                 texture_size: [uniform("TextureSize"), uniform("OrigTextureSize")],
                 sized: std::cell::Cell::new((SRC_W, SRC_H)),
+                params,
+                param_locs,
             }
         };
         Ok(shader)
+    }
+
+    pub fn params(&self) -> &[ShaderParam] {
+        &self.params
+    }
+
+    pub fn set_param(&self, id: &str, val: f32) {
+        if let Some(&loc) = self.param_locs.get(id) {
+            if loc >= 0 {
+                unsafe {
+                    gl::UseProgram(self.prog);
+                    gl::Uniform1f(loc, val);
+                }
+            }
+        }
     }
 
     /// `rect` is where the game layer goes, in offscreen pixels with the origin top left, as
@@ -402,5 +495,44 @@ mod tests {
     fn the_linear_pragma_is_read_and_its_absence_is_nearest() {
         assert!(wants_linear(SHADER));
         assert!(!wants_linear("void main() {}"));
+    }
+
+    #[test]
+    fn parameter_parsing_handles_quotes_spacing_and_skips_bad_lines() {
+        let src = r#"
+            #pragma parameter BLEND "Frame blend" 0.5 0.0 1.0 0.05
+              #  pragma   parameter   GRID   "Grid strength (fine)"   0.25   0.0   2.0   0.1
+            #pragma parameter BAD1 "Missing numbers"
+            #pragma parameter BAD2 MissingQuotes 0.5 0.0 1.0 0.05
+            #pragma parameter BAD3 "Not numbers" abc def ghi
+            #pragma parameter BAD4 "Inverted min max" 1.0 2.0 0.0 0.1
+            #pragma parameter BAD5 "Zero step" 1.0 0.0 2.0 0.0
+            #pragma slot_filter linear
+            void main() {}
+        "#;
+        let params = parse_parameters(src);
+        assert_eq!(params.len(), 2);
+        assert_eq!(
+            params[0],
+            ShaderParam {
+                id: "BLEND".into(),
+                label: "Frame blend".into(),
+                default: 0.5,
+                min: 0.0,
+                max: 1.0,
+                step: 0.05,
+            }
+        );
+        assert_eq!(
+            params[1],
+            ShaderParam {
+                id: "GRID".into(),
+                label: "Grid strength (fine)".into(),
+                default: 0.25,
+                min: 0.0,
+                max: 2.0,
+                step: 0.1,
+            }
+        );
     }
 }

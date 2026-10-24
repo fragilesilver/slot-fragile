@@ -1039,6 +1039,57 @@ fn every_shader_shipped_on_the_card_compiles_and_draws() {
     c.set_card_shader(None).unwrap();
 }
 
+#[test]
+fn card_shader_parameters_are_parsed_and_uniforms_set_on_host_gl() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    let src = r#"
+        #pragma parameter BLEND "Frame blend" 0.5 0.0 1.0 0.05
+        #pragma parameter GRID "Grid strength" 0.25 0.0 1.0 0.05
+        #if defined(VERTEX)
+        attribute vec4 VertexCoord;
+        attribute vec4 TexCoord;
+        varying vec4 TEX0;
+        uniform mat4 MVPMatrix;
+        void main() {
+            gl_Position = MVPMatrix * VertexCoord;
+            TEX0 = TexCoord;
+        }
+        #elif defined(FRAGMENT)
+        uniform sampler2D Texture;
+        varying vec4 TEX0;
+        #ifdef PARAMETER_UNIFORM
+        uniform float BLEND;
+        uniform float GRID;
+        #else
+        #define BLEND 0.5
+        #define GRID 0.25
+        #endif
+        void main() {
+            gl_FragColor = texture2D(Texture, TEX0.xy) * BLEND * (1.0 - GRID);
+        }
+        #endif
+    "#;
+    c.set_card_shader(Some(src)).expect("compiles with params");
+    let params = c.card_shader_params().expect("has params");
+    assert_eq!(params.len(), 2);
+    assert_eq!(params[0].id, "BLEND");
+    assert_eq!(params[1].id, "GRID");
+
+    // Setting uniform live does not panic and draws
+    c.set_card_shader_param("BLEND", 0.8);
+    c.set_card_shader_param("GRID", 0.1);
+
+    let white: Vec<u8> = vec![255; (SRC_W * SRC_H * 4) as usize];
+    c.begin_frame();
+    c.upload_game(&white);
+    c.draw_game();
+    let frame = c.read_frame();
+    assert!(!frame.is_empty());
+    c.set_card_shader(None).unwrap();
+}
+
 // --- extras: a native system's picture ---
 
 #[test]

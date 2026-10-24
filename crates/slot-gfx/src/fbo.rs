@@ -210,6 +210,14 @@ impl Compositor {
         self.game.card_shader()
     }
 
+    pub fn card_shader_params(&self) -> Option<&[crate::retroshader::ShaderParam]> {
+        self.game.card_shader_params()
+    }
+
+    pub fn set_card_shader_param(&mut self, id: &str, val: f32) {
+        self.game.set_card_shader_param(id, val);
+    }
+
     pub fn set_picture(&mut self, rect: [f32; 4]) {
         self.game.set_picture(rect);
     }

@@ -235,6 +235,16 @@ impl GamePass {
         self.card.is_some()
     }
 
+    pub fn card_shader_params(&self) -> Option<&[crate::retroshader::ShaderParam]> {
+        self.card.as_ref().map(|s| s.params())
+    }
+
+    pub fn set_card_shader_param(&self, id: &str, val: f32) {
+        if let Some(card) = &self.card {
+            card.set_param(id, val);
+        }
+    }
+
     pub fn upload(&mut self, xrgb8888: &[u8]) {
         self.upload_sized(xrgb8888, (SRC_W, SRC_H));
     }

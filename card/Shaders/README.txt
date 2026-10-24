@@ -13,7 +13,16 @@ Fragile comes with:
 
 Add your own: any one-pass .glsl in RetroArch's format. A shader is given the frame
 (Texture), the frame before (PrevTexture), TextureSize, InputSize, OutputSize and FrameCount.
-#pragma parameter values run at their defaults. Add the line
+
+Shaders can declare tunable parameters:
+
+  #pragma parameter NAME "Label" default min max step
+
+When a shader has parameters, an in-game "Shader Settings" row appears under Card Shader in
+Settings > Screen. Left and Right tune parameters live over the running game, and Reset restores
+the defaults. Saved values are kept in Config/Shaders/<name>.txt and shared across systems.
+
+Add the line
 
   #pragma slot_filter linear
 

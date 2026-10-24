@@ -523,7 +523,9 @@ fn handle_api_post_lists(body: &[u8], root: &Path) -> String {
             let content = fs::read_to_string(&list_file).unwrap_or_default();
             let lines: Vec<&str> = content
                 .lines()
-                .filter(|l| l.trim() != entry && l.trim() != entry.split('/').next_back().unwrap_or(""))
+                .filter(|l| {
+                    l.trim() != entry && l.trim() != entry.split('/').next_back().unwrap_or("")
+                })
                 .collect();
             let _ = fs::write(&list_file, lines.join("\n") + "\n");
             "{\"ok\":true}".into()

@@ -1210,6 +1210,9 @@ fn sync_card_shader(
 ) {
     let wanted = app.card_shader();
     if shown.as_ref() == Some(&wanted) {
+        for (id, val) in app.drain_shader_param_changes() {
+            compositor.set_card_shader_param(&id, val);
+        }
         return;
     }
     *shown = Some(wanted.clone());
@@ -1228,7 +1231,15 @@ fn sync_card_shader(
         return;
     };
     match compositor.set_card_shader(Some(&src)) {
-        Ok(()) => eprintln!("slot: shader: Shaders/{name}.glsl"),
+        Ok(()) => {
+            eprintln!("slot: shader: Shaders/{name}.glsl");
+            if let Some(root) = app.root() {
+                let saved = slot_store::load_shader_params(root, &name);
+                for (id, val) in saved {
+                    compositor.set_card_shader_param(&id, val);
+                }
+            }
+        }
         Err(e) => {
             eprintln!("slot: shader: Shaders/{name}.glsl: {e}");
             app.card_shader_failed();

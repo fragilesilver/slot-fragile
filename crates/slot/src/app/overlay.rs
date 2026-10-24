@@ -24,6 +24,8 @@ pub enum Overlay {
     Achievements(ListPage),
     /// Main menu → Network → Game Art.
     GameArt(ListPage),
+    /// In-game Screen → Card Shader → Shader Settings.
+    ShaderSettings(ListPage),
 }
 
 /// Which menu a page was opened from, so it closes when that menu does and B goes back to it.
@@ -49,6 +51,8 @@ pub struct Overlays {
     pub(super) network: super::network::NetworkState,
     /// Game Art's scraper and what it has found.
     pub(super) game_art: super::game_art::GameArt,
+    /// In-game Shader Settings state.
+    pub(super) shader_settings: super::shader_settings::ShaderSettingsState,
     /// "A Details" on the About sticker, dark and light.
     details_legend: Option<[(TexId, u32); 2]>,
     /// The About sticker's own size, when it is not upstream's: the RG35XX Pro's is taller.
@@ -79,7 +83,8 @@ impl Overlay {
             | Overlay::Networks(page)
             | Overlay::Bluetooth(page)
             | Overlay::Achievements(page)
-            | Overlay::GameArt(page) => page,
+            | Overlay::GameArt(page)
+            | Overlay::ShaderSettings(page) => page,
         }
     }
 
@@ -92,7 +97,8 @@ impl Overlay {
             | Overlay::Networks(page)
             | Overlay::Bluetooth(page)
             | Overlay::Achievements(page)
-            | Overlay::GameArt(page) => page,
+            | Overlay::GameArt(page)
+            | Overlay::ShaderSettings(page) => page,
         }
     }
 }
@@ -167,6 +173,10 @@ impl App {
                 self.open_game_art();
                 return true;
             }
+            QuickRow::ShaderSettings => {
+                self.open_shader_settings();
+                return true;
+            }
             QuickRow::Network => {
                 let row = QuickRow::NETWORK[0];
                 self.phase = Phase::QuickMenu { row };
@@ -192,6 +202,7 @@ impl App {
             Some(Overlay::Bluetooth(_)) => Some(From::Menu),
             Some(Overlay::GameArt(_)) => Some(From::Menu),
             Some(Overlay::Achievements(_)) => Some(From::InGame),
+            Some(Overlay::ShaderSettings(_)) => Some(From::InGame),
             _ => None,
         }
     }
@@ -225,6 +236,7 @@ impl App {
             Some(Overlay::Bluetooth(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
             Some(Overlay::GameArt(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
             Some(Overlay::Achievements(_)) => self.in_game_menu.is_some(),
+            Some(Overlay::ShaderSettings(_)) => self.in_game_menu.is_some(),
             Some(Overlay::Details(_)) => matches!(self.phase, Phase::About),
         };
         if !alive {
@@ -236,6 +248,7 @@ impl App {
             || self.networks_input(action)
             || self.bluetooth_input(action)
             || self.game_art_input(action)
+            || self.shader_settings_input(action)
         {
             return true;
         }

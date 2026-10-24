@@ -453,6 +453,47 @@ Then, on build 5135f74:
 - Automatic (extras `game_art_auto`, default on): with the internet up and scraper idle, finds
   games with no label not yet asked for since boot.
 
+## Phase 18: Shader Settings (2026-10-24)
+
+- RetroArch `#pragma parameter` parsing & live GL uniform binding:
+  - In `crates/slot-gfx/src/retroshader.rs`: `parse_parameters` extracts parameter specifications
+    (`id`, `label`, `default`, `min`, `max`, `step`) before `stage_source` strips them. Shaders are compiled
+    with `#define PARAMETER_UNIFORM` active, declaring them as GLSL `uniform float <id>;`.
+  - In `RetroShader::new`: uniforms are queried (`glGetUniformLocation`) and initialized to defaults. Dynamic
+    values are pushed live via `set_param(&str, f32)`.
+  - Compositor and pipeline pass-through: `GamePass::card_shader_params()`, `set_card_shader_param()`, and
+    `Compositor::set_card_shader_param()` expose parameter control directly to the host and device frontends.
+- Unified Cross-System Shader Settings Storage:
+  - In `crates/slot-store/src/shaders.rs`: `load_shader_params` and `save_shader_params` store parameter values
+    in `Config/Shaders/<name>.txt` (`SHADER_CONFIG_DIR = "Config/Shaders"`).
+  - Shader parameter settings are shared across all systems (GBA, GB, GBC, NES, SNES, PS1) rather than duplicated
+    per-core.
+- Shipped Shaders Tuned:
+  - `LCD Grid V2.glsl`: Tunable `GRID_DARKNESS` (0.0 to 1.0, step 0.05, default 0.25).
+  - `See-Through LCD.glsl`: Tunable `REFLECT` (0.0 to 1.0), `SHADOW` (0.0 to 1.0), and `GRID` (0.0 to 1.0).
+  - `GBA Color.glsl`: Tunable `STRENGTH` (0.0 to 1.0, step 0.05, default 1.0).
+  - `Blend Grid.glsl`: Shipped with `BLEND` and `GRID` parameters.
+  - Updated `card/Shaders/README.txt` documenting `#pragma parameter` syntax and uniform declarations.
+- In-Game QuickMenu & Overlay Integration:
+  - In `crates/slot-ui/src/quick_menu.rs`: Added `QuickRow::CardShader` and `QuickRow::ShaderSettings` to
+    `QuickRow::ALL` (136 total) and `QuickRow::PLAY_SCREEN` (6 total).
+  - `QuickRow::CardShader` allows choosing any `.glsl` shader from the card's `Shaders/` directory in-game.
+  - `QuickRow::ShaderSettings` appears directly below Card Shader and is conditionally visible only when the
+    current active card shader declares one or more `#pragma parameter` definitions.
+  - Selecting `ShaderSettings` opens an interactive `ListPage` overlay (`Overlay::ShaderSettings` in
+    `crates/slot/src/app/shader_settings.rs`).
+  - Left / Right steps values with floating-point snap by parameter `step`, clamping between `min` and `max`.
+  - Changes immediately update the running compositor uniforms live, providing instant visual feedback.
+  - Includes a dedicated "Reset to Defaults" option at the bottom of the list.
+- Tests:
+  - `crates/slot-gfx/tests/pipeline.rs`: Added `card_shader_parameters_are_parsed_and_uniforms_set_on_host_gl`
+    and updated shipped shaders integration test.
+  - `crates/slot-store/tests/shaders.rs`: 6 unit tests covering parsing, writing, non-existent defaults, and edge cases.
+  - `crates/slot-ui/tests/quick_menu.rs`: Updated quick menu navigation and page tests.
+  - `crates/slot/tests/shader_settings.rs`: 3 integration tests covering conditional visibility of `ShaderSettings`,
+    overlay navigation/stepping/reset, and cross-platform shared persistence across GBA and GB.
+  - `crates/slot/tests/in_game_menu.rs`: Updated expected `in_game_hidden()` lists.
+
 ## Phase 17: Web Dashboard (2026-10-24)
 
 - Embedded LAN Web Server (`crates/slot/src/web.rs`, `crates/slot/src/web/index.html`): pure standard library

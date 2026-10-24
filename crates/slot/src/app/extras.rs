@@ -170,6 +170,12 @@ impl App {
         if !crate::hdmi::present() {
             hidden.push(QuickRow::HdmiOutput);
         }
+        if self.in_game_menu.is_none() {
+            hidden.push(QuickRow::CardShader);
+            hidden.push(QuickRow::ShaderSettings);
+        } else if !self.current_shader_has_params() {
+            hidden.push(QuickRow::ShaderSettings);
+        }
         hidden
     }
 

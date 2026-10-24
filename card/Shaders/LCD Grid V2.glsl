@@ -4,6 +4,8 @@
 // values (gain 1.5, gamma 2.2, colour 0.75), in the form without GLSL 1.30 arrays that
 // Baggio94's slot-konkr wrote for GLES 2.
 
+#pragma parameter GRID_DARKNESS "Grid darkness" 0.75 0.0 1.0 0.05
+
 #if defined(VERTEX)
 
 #if __VERSION__ >= 130
@@ -52,6 +54,12 @@ uniform vec2 InputSize;
 uniform vec2 OutputSize;
 COMPAT_VARYING vec4 TEX0;
 
+#ifdef PARAMETER_UNIFORM
+uniform float GRID_DARKNESS;
+#else
+#define GRID_DARKNESS 0.75
+#endif
+
 float integral(float z, float a, float b, float d, float e, float g)
 {
     float z2 = z * z;
@@ -97,6 +105,6 @@ void main()
     vec2 at = (tli + vec2(0.5)) * pixel;
     vec3 sum = (lit(at) * left + lit(at + vec2(pixel.x, 0.0)) * right) * top
         + (lit(at + vec2(0.0, pixel.y)) * left + lit(at + pixel) * right) * bot;
-    FragColor = vec4(pow(max(sum * 0.75, vec3(0.0)), vec3(1.0 / 2.2)), 1.0);
+    FragColor = vec4(pow(max(sum * GRID_DARKNESS, vec3(0.0)), vec3(1.0 / 2.2)), 1.0);
 }
 #endif

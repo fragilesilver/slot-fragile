@@ -123,7 +123,10 @@ impl App {
     }
 
     pub(super) fn screen_value(&self, row: QuickRow) -> Option<Option<QuickValue>> {
-        if card_shader_row_platform(row).is_some() {
+        if card_shader_row_platform(row).is_some()
+            || row == QuickRow::CardShader
+            || row == QuickRow::ShaderSettings
+        {
             // Drawn from `named_value`, since a file name has no ready-made face.
             return Some(None);
         }
@@ -153,6 +156,10 @@ impl App {
     }
 
     pub(super) fn change_screen(&mut self, row: QuickRow, right: bool) -> bool {
+        if row == QuickRow::CardShader {
+            self.step_card_shader(self.playing_platform(), right);
+            return true;
+        }
         if let Some(platform) = card_shader_row_platform(row) {
             self.step_card_shader(platform, right);
             return true;
@@ -224,6 +231,9 @@ impl App {
         }
         if let Some(text) = self.this_label_text(row) {
             return Some(text);
+        }
+        if row == QuickRow::CardShader {
+            return Some(self.card_shader().unwrap_or_else(|| "Off".into()));
         }
         let platform = card_shader_row_platform(row)?;
         Some(

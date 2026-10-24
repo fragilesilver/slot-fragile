@@ -42,6 +42,7 @@ mod overlay;
 mod pads;
 mod profile;
 mod screen;
+mod shader_settings;
 pub mod shelves;
 pub use extras::StartShelf;
 use slot_store::{
@@ -968,6 +969,9 @@ impl App {
         if self.achievements_hidden() {
             hidden.push(QuickRow::PlayAchievements);
         }
+        if !self.current_shader_has_params() {
+            hidden.push(QuickRow::ShaderSettings);
+        }
         self.system_hidden(&mut hidden);
         hidden
     }
@@ -995,6 +999,12 @@ impl App {
             (QuickRow::Bezel, Platform::Gba) => QuickRow::GbaBezel,
             (QuickRow::Bezel, Platform::Gb) => QuickRow::GbBezel,
             (QuickRow::Bezel, Platform::Gbc) => QuickRow::GbcBezel,
+            (QuickRow::CardShader, Platform::Gba) => QuickRow::CardShaderGba,
+            (QuickRow::CardShader, Platform::Gb) => QuickRow::CardShaderGb,
+            (QuickRow::CardShader, Platform::Gbc) => QuickRow::CardShaderGbc,
+            (QuickRow::CardShader, Platform::Nes) => QuickRow::CardShaderNes,
+            (QuickRow::CardShader, Platform::Snes) => QuickRow::CardShaderSnes,
+            (QuickRow::CardShader, Platform::PlayStation) => QuickRow::CardShaderPs,
             (row, _) => row,
         }
     }
@@ -1094,6 +1104,8 @@ impl App {
             | QuickRow::CardShaderNes
             | QuickRow::CardShaderSnes
             | QuickRow::CardShaderPs
+            | QuickRow::CardShader
+            | QuickRow::ShaderSettings
             | QuickRow::GameX
             | QuickRow::GameY
             | QuickRow::GameL2
@@ -2742,6 +2754,8 @@ impl App {
             | QuickRow::CardShaderNes
             | QuickRow::CardShaderSnes
             | QuickRow::CardShaderPs
+            | QuickRow::CardShader
+            | QuickRow::ShaderSettings
             | QuickRow::GameX
             | QuickRow::GameY
             | QuickRow::GameL2
@@ -2961,6 +2975,8 @@ impl App {
             | QuickRow::CardShaderNes
             | QuickRow::CardShaderSnes
             | QuickRow::CardShaderPs
+            | QuickRow::CardShader
+            | QuickRow::ShaderSettings
             | QuickRow::GameX
             | QuickRow::GameY
             | QuickRow::GameL2
