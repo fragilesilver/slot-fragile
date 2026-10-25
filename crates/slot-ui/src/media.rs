@@ -139,17 +139,58 @@ impl Media {
     }
 
     /// Where on the label box the label may print, for a medium whose print is not the whole box:
-    /// the disc's ring between its hub and rim. Coverage a pixel, row by row over the label box.
+    /// the disc's ring between its hub and rim, or the Nintendo DS card's chamfered label well.
+    /// Coverage a pixel, row by row over the label box.
     pub fn label_mask(self) -> Option<&'static [u8]> {
-        if self != Media::Disc {
-            return None;
+        match self {
+            Media::Disc => {
+                static RING: OnceLock<Vec<u8>> = OnceLock::new();
+                Some(RING.get_or_init(|| {
+                    let (_, _, w, h) = self.label();
+                    ring(w, h, PRINT_INNER, PRINT_OUTER)
+                }))
+            }
+            Media::Nds => {
+                static NDS_LABEL: OnceLock<Vec<u8>> = OnceLock::new();
+                Some(NDS_LABEL.get_or_init(|| {
+                    let (_, _, w, h) = self.label();
+                    nds_label_mask(w, h)
+                }))
+            }
+            _ => None,
         }
-        static RING: OnceLock<Vec<u8>> = OnceLock::new();
-        Some(RING.get_or_init(|| {
-            let (_, _, w, h) = self.label();
-            ring(w, h, PRINT_INNER, PRINT_OUTER)
-        }))
     }
+}
+
+/// An authentic Nintendo DS Game Card label mask (224x216): rounded top-left, top-right,
+/// and bottom-right corners (radius 4px), with a distinctive 45-degree chamfer cutout at
+/// the bottom-left corner (20px cut) matching real NTR-005 game cards.
+fn nds_label_mask(w: u32, h: u32) -> Vec<u8> {
+    let r = 4.0f32;
+    let chamfer = 20.0f32;
+    let mut out = Vec::with_capacity((w * h) as usize);
+    let sqrt2 = std::f32::consts::SQRT_2;
+    for y in 0..h {
+        let py = y as f32 + 0.5;
+        for x in 0..w {
+            let px = x as f32 + 0.5;
+            let mut cov = 1.0f32;
+            if px < r && py < r {
+                cov = cov.min((r - (r - px).hypot(r - py) + 0.5).clamp(0.0, 1.0));
+            } else if px > w as f32 - r && py < r {
+                cov = cov.min((r - (px - (w as f32 - r)).hypot(r - py) + 0.5).clamp(0.0, 1.0));
+            } else if px > w as f32 - r && py > h as f32 - r {
+                cov = cov.min(
+                    (r - (px - (w as f32 - r)).hypot(py - (h as f32 - r)) + 0.5).clamp(0.0, 1.0),
+                );
+            } else if px < chamfer && py > h as f32 - chamfer {
+                let d = (px - (py - (h as f32 - chamfer))) / sqrt2;
+                cov = cov.min((d + 0.5).clamp(0.0, 1.0));
+            }
+            out.push((cov * 255.0 + 0.5).clamp(0.0, 255.0) as u8);
+        }
+    }
+    out
 }
 
 /// A ring's coverage over a w by h box centred on it, the radii as fractions of the half width,
@@ -213,6 +254,24 @@ mod tests {
         assert_eq!(at(w / 2, h / 2), 0, "the hub was printed on");
         assert_eq!(at(w / 2, h / 10), 255, "the print is missing above the hub");
         assert_eq!(at(0, 0), 0, "the corner past the rim was printed on");
+    }
+
+    #[test]
+    fn the_nds_label_mask_cuts_the_bottom_left_corner() {
+        let mask = Media::Nds.label_mask().expect("nds has a label mask");
+        let (_, _, w, h) = Media::Nds.label();
+        let at = |x: u32, y: u32| mask[(y * w + x) as usize];
+        // Center is solid
+        assert_eq!(at(w / 2, h / 2), 255, "label center should be solid");
+        // Rounded corners
+        assert_eq!(at(0, 0), 0, "TL corner should be rounded");
+        assert_eq!(at(w - 1, 0), 0, "TR corner should be rounded");
+        assert_eq!(at(w - 1, h - 1), 0, "BR corner should be rounded");
+        // BL chamfer cut: corner (0, h-1) is cut out
+        assert_eq!(at(0, h - 1), 0, "BL corner should be chamfered");
+        assert_eq!(at(2, h - 3), 0, "inside BL chamfer cut should be 0");
+        // Right along the bottom edge past the chamfer (x > 25) is solid
+        assert_eq!(at(30, h - 1), 255, "bottom edge past chamfer should be solid");
     }
 
     #[test]

@@ -350,39 +350,75 @@ def nes():
 
 
 def nds():
-    """A Nintendo DS Game Card (NTR-005), face on (35.0mm x 33.0mm, scaled to 300x318):
-    square-like silhouette with rounded corners, a 45-degree keying chamfer notch at the
-    top-right, a recessed square label well, a subtle thumb grip groove across the lower
-    section, and an upward insertion arrow centered at the bottom."""
+    """A Nintendo DS Game Card (NTR-005), face on (33.0mm x 35.0mm, scaled to 300x318):
+    square-like silhouette with rounded corners, side keying slots near the bottom,
+    a recessed square label well with a 45-degree chamfer cutout at the bottom-left,
+    a subtle thumb grip groove across the lower chin, and a downward insertion arrow
+    centered below the label."""
     W, H = 300, 318
     s = Shell(W, H, seed=4, face=3.0, deepest=2.5)
 
-    # 1. Base outline: rounded corners, top-right chamfer
-    s.outline(0, 0, W, H, radii=(6, 2, 8, 8))
+    # 1. Base outline: rounded corners all around (top r=7, bottom r=5)
+    s.outline(0, 0, W, H, radii=(7, 7, 5, 5))
 
-    # Top-right 45-degree chamfer notch (16px cut)
-    def in_chamfer(x, y):
-        return x >= W - 16 and y <= 16 and (x - (W - 16)) + (16 - y) >= 16
+    # Side keying notches on left and right edges near bottom
+    s.cut(0, 286, 2, 298)
+    s.cut(W - 2, 294, W, 304)
 
-    for i, c in s.cover(in_chamfer, (W - 18, 0, W, 18)):
-        s.mask[i] *= 1 - c
+    # Top edge bevel / rim (y: 0..8)
+    s.height(0, 0, W, 8, 2.7)
+    s.height(0, 8, W, H, 3.0)
 
-    # Top edge bevel / rim (y: 0..10)
-    s.height(0, 0, W, 10, 2.5)
-    s.height(0, 10, W, H, 3.0)
-
-    # 2. Label well: recessed, almost square (224x216)
+    # 2. Label well: recessed, 224x216, at (38, 30)
     lx0, ly0, lx1, ly1 = 38, 30, 262, 246
-    s.height(lx0 - 1.5, ly0 - 1.5, lx1 + 1.5, ly1 + 1.5, 1.2, radii=(4, 4, 4, 4))
-    s.paint(lx0, ly0, lx1, ly1, LABEL, r=3)
+    chamfer = 20.0
 
-    # 3. Lower thumb grip groove (y: 260..272, x: 54..246)
-    gx0, gy0, gx1, gy1 = 54, 260, 246, 272
-    s.height(gx0, gy0, gx1, gy1, 1.5, r=5)
+    def in_label(x, y):
+        if not (lx0 <= x < lx1 and ly0 <= y < ly1):
+            return False
+        # Top-left, top-right, bottom-right radii (r=4)
+        for rr, cx, cy, left, top in (
+            (4, lx0 + 4, ly0 + 4, True, True),
+            (4, lx1 - 4, ly0 + 4, False, True),
+            (4, lx1 - 4, ly1 - 4, False, False),
+        ):
+            if (x < cx if left else x > cx) and (y < cy if top else y > cy):
+                if (x - cx) ** 2 + (y - cy) ** 2 > rr * rr:
+                    return False
+        # Bottom-left 45-degree chamfer
+        if x < lx0 + chamfer and y > ly1 - chamfer:
+            if (lx0 + chamfer - x) + (y - (ly1 - chamfer)) > chamfer:
+                return False
+        return True
 
-    # 4. Upward insertion arrow centered at bottom (x: 150, y: 286..298)
+    # Well height recess (1.2 height vs 3.0 face)
+    def in_well(x, y):
+        wx0, wy0, wx1, wy1 = lx0 - 1.5, ly0 - 1.5, lx1 + 1.5, ly1 + 1.5
+        wch = chamfer + 1.5
+        if not (wx0 <= x < wx1 and wy0 <= y < wy1):
+            return False
+        for rr, cx, cy, left, top in (
+            (4, wx0 + 4, wy0 + 4, True, True),
+            (4, wx1 - 4, wy0 + 4, False, True),
+            (4, wx1 - 4, wy1 - 4, False, False),
+        ):
+            if (x < cx if left else x > cx) and (y < cy if top else y > cy):
+                if (x - cx) ** 2 + (y - cy) ** 2 > rr * rr:
+                    return False
+        if x < wx0 + wch and y > wy1 - wch:
+            if (wx0 + wch - x) + (y - (wy1 - wch)) > wch:
+                return False
+        return True
+
+    s.height_where(in_well, (lx0 - 2, ly0 - 2, lx1 + 2, ly1 + 2), 1.2)
+    s.paint_where(in_label, (lx0, ly0, lx1, ly1), LABEL)
+
+    # 3. Lower thumb grip groove across the chin: y: 254..266, x: 54..246
+    s.height(54, 254, 246, 266, 2.0, r=6)
+
+    # 4. Downward insertion arrow centered on chin: x: 150, pointing DOWN
     mid = W / 2.0
-    tri = [(mid, 286.0), (mid - 10.0, 298.0), (mid + 10.0, 298.0)]
+    tri = [(mid - 11.0, 274.0), (mid + 11.0, 274.0), (mid, 286.0)]
 
     def in_arrow(x, y):
         (ax, ay), (bx, by), (cx, cy) = tri
@@ -393,7 +429,7 @@ def nds():
         pos = d1 > 0 or d2 > 0 or d3 > 0
         return not (neg and pos)
 
-    s.height_where(in_arrow, (mid - 12, 284, mid + 12, 300), 1.6)
+    s.height_where(in_arrow, (mid - 13, 272, mid + 13, 288), 1.2)
 
     return s, (lx0, ly0, lx1 - lx0, ly1 - ly0), None
 
