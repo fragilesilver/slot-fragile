@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use crate::sha256::{to_hex, Sha256};
 
-pub const DEFAULT_REPO: &str = "fragkicul/fragile";
+pub const DEFAULT_REPO: &str = "fragilesilver/slot-fragile";
 const CHUNK_SIZE: usize = 65536;
 const CONNECT_TIMEOUT_SECS: u64 = 15;
 const READ_TIMEOUT_SECS: u64 = 180;
@@ -747,7 +747,7 @@ mod tests {
                 {
                     "name": "slot",
                     "size": 10450200,
-                    "browser_download_url": "https://github.com/fragkicul/fragile/releases/download/v1.9.0/slot"
+                    "browser_download_url": "https://github.com/fragilesilver/slot-fragile/releases/download/v1.9.0/slot"
                 }
             ],
             "body": "Fragile 1.9.0 release with SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -757,7 +757,7 @@ mod tests {
         assert_eq!(info.version, "1.9.0");
         assert_eq!(
             info.download_url,
-            "https://github.com/fragkicul/fragile/releases/download/v1.9.0/slot"
+            "https://github.com/fragilesilver/slot-fragile/releases/download/v1.9.0/slot"
         );
         assert_eq!(info.size, 10450200);
         assert_eq!(

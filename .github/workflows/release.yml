@@ -56,12 +56,17 @@ jobs:
           out="slot-${GITHUB_REF_NAME}"
           zip="$out-h700.zip"
           zip -qry "$zip" "$out"
+          cp "$out/System/slot" ./slot
+          sha256sum ./slot | cut -d' ' -f1 > ./slot.sha256
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.package.outputs.zip }}
-          path: ${{ steps.package.outputs.zip }}
+          name: release-assets
+          path: |
+            ${{ steps.package.outputs.zip }}
+            slot
+            slot.sha256
           if-no-files-found: error
 
   publish:
@@ -74,7 +79,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.build.outputs.zip }}
+          name: release-assets
 
       - name: Create the release
         env:
@@ -82,10 +87,17 @@ jobs:
           ZIP: ${{ needs.build.outputs.zip }}
         run: |
           set -eu
+          slot_sha="$(cat slot.sha256)"
           cat > notes.md <<NOTES
-          Unzip and copy the contents of \`slot-${GITHUB_REF_NAME}/\` onto SD2.
+          ### Over-The-Air (OTA) & Manual Installation
 
-          Emulation by mGBA (MPL-2.0) and gpSP (GPL-2.0). Their licences, patches and gpSP's source are in \`System/licenses/\`.
+          - **OTA Update**: If your handheld is connected to Wi-Fi, navigate to **Quick Menu > Network > System Update** to download and apply automatically.
+          - **Manual Update**: Unzip and copy the contents of \`slot-${GITHUB_REF_NAME}/\` onto SD2.
+
+          #### Checksums
+          - \`slot\` SHA-256: \`${slot_sha}\`
+
+          Emulation by mGBA (MPL-2.0), gpSP (GPL-2.0), gambatte (GPL-2.0), and other cores. Licences, patches and corresponding sources are in \`System/licenses/\`.
           NOTES
-          gh release create "$GITHUB_REF_NAME" "$ZIP" --repo "$GITHUB_REPOSITORY" \
+          gh release create "$GITHUB_REF_NAME" "$ZIP" "slot" "slot.sha256" --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" --notes-file notes.md
