@@ -36,7 +36,7 @@ pub use config::{move_config, CONFIG_DIR};
 pub use core::{
     core_for, core_for_platform, read_selected_cores, write_selected_core, Core, SELECTED_CORE_FILE,
 };
-pub use extras::{extras_path, read_extras, write_extras, ExtrasState, EXTRAS_FILE};
+pub use extras::{extras_path, read_extras, write_extras, ExtrasState, FfMode, EXTRAS_FILE};
 pub use game_profile::{
     profile_key, GameProfile, GameProfiles, ProfileField, Resolved, GAME_PROFILES_FILE,
 };

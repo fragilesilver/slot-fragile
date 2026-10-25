@@ -940,3 +940,48 @@ fn a_press_seen_during_a_capture_leaves_nothing_behind() {
         "a stale L1 completed the pair"
     );
 }
+
+#[test]
+fn ff_mode_toggle_latches_on_press_and_unlatches_on_second_press() {
+    let mut g = gestures();
+    g.set_ff_mode(slot_input::FfMode::Toggle);
+    assert_eq!(g.ff_mode(), slot_input::FfMode::Toggle);
+
+    // First press starts FF and latches
+    assert_eq!(g.feed(Down(R2), 0), vec![FfStart]);
+    assert!(g.ff_latched());
+    // Release does NOT stop FF
+    assert_eq!(g.feed(Up(R2), 100), vec![]);
+    assert!(g.ff_latched());
+
+    // Second press unlatches and stops FF
+    assert_eq!(g.feed(Down(R2), 300), vec![FfStop]);
+    assert!(!g.ff_latched());
+    // Release after stop is quiet
+    assert_eq!(g.feed(Up(R2), 400), vec![]);
+    assert!(!g.ff_latched());
+}
+
+#[test]
+fn ff_mode_toggle_with_chord_latches_and_persists_past_button_release() {
+    let mut g = paired();
+    g.set_ff_mode(slot_input::FfMode::Toggle);
+
+    // Select + R2 chord in Toggle mode
+    assert_eq!(g.feed(Down(Start), 0), vec![GbaDown(Start)]);
+    assert_eq!(g.feed(Down(A), 40), vec![FfStart]);
+    assert!(g.ff_latched());
+
+    // Releasing chord buttons keeps fast forward active
+    assert_eq!(g.feed(Up(A), 400), vec![]);
+    assert!(g.ff_latched());
+    assert_eq!(g.feed(Up(Start), 500), vec![GbaUp(Start)]);
+    assert!(g.ff_latched());
+
+    // Tapping the chord again toggles it off
+    assert_eq!(g.feed(Down(Start), 1000), vec![GbaDown(Start)]);
+    assert_eq!(g.feed(Down(A), 1040), vec![FfStop]);
+    assert!(!g.ff_latched());
+    assert_eq!(g.feed(Up(A), 1100), vec![]);
+    assert_eq!(g.feed(Up(Start), 1200), vec![GbaUp(Start)]);
+}

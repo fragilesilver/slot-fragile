@@ -1445,3 +1445,31 @@ fn fast_forward_pitch_sits_under_its_sound_and_saves_to_extras() {
     assert!(a.ff_pitch());
     assert_eq!(slot_store::read_extras(d.path()).get("ff_pitch"), Some("1"));
 }
+
+#[test]
+fn fast_forward_mode_sits_under_pitch_and_saves_to_extras() {
+    let (d, mut a, _) = on_carousel();
+    assert_eq!(
+        QuickRow::FastForwardMode.position(&[]),
+        QuickRow::FastForwardPitch.position(&[]) + 1
+    );
+    assert_eq!(a.ff_mode(), slot_store::FfMode::Hold);
+    open_at(&mut a, QuickRow::FastForwardMode);
+    assert_eq!(
+        a.quick_value(QuickRow::FastForwardMode),
+        Some(QuickValue::Hold)
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(a.ff_mode(), slot_store::FfMode::Toggle);
+    assert_eq!(
+        slot_store::read_extras(d.path()).get("ff_mode"),
+        Some("toggle")
+    );
+    assert_eq!(
+        a.quick_value(QuickRow::FastForwardMode),
+        Some(QuickValue::Toggle)
+    );
+    press(&mut a, Btn::Left);
+    assert_eq!(a.ff_mode(), slot_store::FfMode::Hold);
+    assert_eq!(slot_store::read_extras(d.path()).get("ff_mode"), None);
+}

@@ -3,7 +3,7 @@
 //! merge cannot fight over them. Ideas from marghost/slot_modded (startup screen, shelf marks).
 
 use slot_input::Millis;
-use slot_store::{read_extras, write_extras, Platform, Recent, LID_OFF_MIN};
+use slot_store::{read_extras, write_extras, FfMode, Platform, Recent, LID_OFF_MIN};
 use slot_ui::{QuickRow, QuickValue};
 
 use super::{App, Rack};
@@ -203,6 +203,15 @@ impl App {
         self.extras.flag(FF_PITCH, false)
     }
 
+    pub fn ff_mode(&self) -> FfMode {
+        self.extras.ff_mode()
+    }
+
+    pub fn set_ff_mode(&mut self, mode: FfMode) {
+        self.extras.set_ff_mode(mode);
+        self.save_extras();
+    }
+
     pub fn hdmi_mode(&self) -> crate::hdmi::HdmiMode {
         self.extras
             .get(crate::hdmi::EXTRAS_KEY)
@@ -366,6 +375,10 @@ impl App {
             }),
             QuickRow::BatteryBadge => Some(Some(QuickValue::flag(self.battery_badge()))),
             QuickRow::FastForwardPitch => Some(Some(QuickValue::flag(self.ff_pitch()))),
+            QuickRow::FastForwardMode => Some(Some(match self.ff_mode() {
+                FfMode::Hold => QuickValue::Hold,
+                FfMode::Toggle => QuickValue::Toggle,
+            })),
             QuickRow::ClockFormat => Some(Some(match self.twelve_hour() {
                 true => QuickValue::Hour12,
                 false => QuickValue::Hour24,
@@ -394,6 +407,13 @@ impl App {
             QuickRow::FastForwardPitch => {
                 let on = !self.ff_pitch();
                 self.extras.set_flag(FF_PITCH, on);
+            }
+            QuickRow::FastForwardMode => {
+                let to = match self.ff_mode() {
+                    FfMode::Hold => FfMode::Toggle,
+                    FfMode::Toggle => FfMode::Hold,
+                };
+                self.set_ff_mode(to);
             }
             QuickRow::ClockFormat => {
                 let on = !self.twelve_hour();

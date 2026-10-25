@@ -98,6 +98,7 @@ pub enum QuickRow {
     ScreensaverStyle,
     BatteryBadge,
     FastForwardPitch,
+    FastForwardMode,
     PlayThisGame,
     ThisShader,
     ThisColour,
@@ -177,7 +178,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 156] = [
+    pub const ALL: [QuickRow; 157] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -265,6 +266,7 @@ impl QuickRow {
         QuickRow::ScreensaverStyle,
         QuickRow::BatteryBadge,
         QuickRow::FastForwardPitch,
+        QuickRow::FastForwardMode,
         QuickRow::PlayThisGame,
         QuickRow::ThisShader,
         QuickRow::ThisColour,
@@ -490,10 +492,11 @@ impl QuickRow {
         QuickRow::MotionBlurGb,
     ];
 
-    pub const GAME: [QuickRow; 8] = [
+    pub const GAME: [QuickRow; 9] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::FastForwardPitch,
+        QuickRow::FastForwardMode,
         QuickRow::Rewind,
         QuickRow::Turbo,
         QuickRow::Rumble,
@@ -589,7 +592,8 @@ impl QuickRow {
             | QuickRow::Rumble
             | QuickRow::LeftStick
             | QuickRow::EjectSave
-            | QuickRow::FastForwardPitch => &QuickRow::GAME,
+            | QuickRow::FastForwardPitch
+            | QuickRow::FastForwardMode => &QuickRow::GAME,
             QuickRow::Wallpaper
             | QuickRow::WallpaperTint
             | QuickRow::DateTime
@@ -836,6 +840,7 @@ impl QuickRow {
             QuickRow::ScreensaverStyle => "Screensaver Style",
             QuickRow::BatteryBadge => "Battery Badge",
             QuickRow::FastForwardPitch => "Fast Forward Pitch",
+            QuickRow::FastForwardMode => "Fast Forward Mode",
             QuickRow::PlayThisGame => "This Game",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => "Button Guide",
             QuickRow::PlayCheats => "Cheats",
@@ -987,6 +992,7 @@ impl QuickRow {
             QuickRow::ScreensaverStyle => "Style shown when the screensaver starts.",
             QuickRow::BatteryBadge => "Show the battery in a corner while you play.",
             QuickRow::FastForwardPitch => "Fast forward sound keeps its normal pitch.",
+            QuickRow::FastForwardMode => "Hold button or toggle on and off.",
             QuickRow::PlayThisGame => "Settings this game keeps for itself.",
             QuickRow::PlayCheats => "Turn this game's cheats on and off.",
             QuickRow::Network => "Wi-Fi and the time from the internet.",
@@ -1230,10 +1236,12 @@ pub enum QuickValue {
     SnesShelf,
     Ps1Shelf,
     NdsShelf,
+    Hold,
+    Toggle,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 36] = [
+    pub const ALL: [QuickValue; 38] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -1270,6 +1278,8 @@ impl QuickValue {
         QuickValue::SnesShelf,
         QuickValue::Ps1Shelf,
         QuickValue::NdsShelf,
+        QuickValue::Hold,
+        QuickValue::Toggle,
     ];
 
     pub const LID_OFF: [QuickValue; 6] = [
@@ -1323,6 +1333,8 @@ impl QuickValue {
             QuickValue::SnesShelf => "SNES",
             QuickValue::Ps1Shelf => "PS1",
             QuickValue::NdsShelf => "NDS",
+            QuickValue::Hold => "Hold",
+            QuickValue::Toggle => "Toggle",
         }
     }
 

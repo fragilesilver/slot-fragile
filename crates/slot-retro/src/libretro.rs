@@ -421,16 +421,37 @@ unsafe extern "C" fn audio_batch(data: *const i16, frames: usize) -> usize {
 unsafe extern "C" fn input_poll() {}
 
 unsafe extern "C" fn input_state(port: c_uint, device: c_uint, _index: c_uint, id: c_uint) -> i16 {
-    if device != DEVICE_JOYPAD {
-        return 0;
-    }
     with_host(|h| {
         let Some(&input) = h.inputs.get(port as usize) else {
             return 0;
         };
-        match id {
-            JOYPAD_MASK => input as i16,
-            _ if id < 16 => ((input >> id) & 1) as i16,
+        match device {
+            DEVICE_JOYPAD => match id {
+                JOYPAD_MASK => input as i16,
+                _ if id < 16 => ((input >> id) & 1) as i16,
+                _ => 0,
+            },
+            DEVICE_ANALOG => match id {
+                DEVICE_ID_ANALOG_X => {
+                    if (input & ButtonMask::RIGHT) != 0 {
+                        32767
+                    } else if (input & ButtonMask::LEFT) != 0 {
+                        -32767
+                    } else {
+                        0
+                    }
+                }
+                DEVICE_ID_ANALOG_Y => {
+                    if (input & ButtonMask::DOWN) != 0 {
+                        32767
+                    } else if (input & ButtonMask::UP) != 0 {
+                        -32767
+                    } else {
+                        0
+                    }
+                }
+                _ => 0,
+            },
             _ => 0,
         }
     })
@@ -1757,6 +1778,19 @@ mod tests {
         let _active = Active::bind(&mut host);
 
         assert_eq!(unsafe { input_state(2, DEVICE_JOYPAD, 0, JOYPAD_MASK) }, 0);
+    }
+
+    #[test]
+    fn input_state_answers_analog_axes_from_dpad() {
+        let mut host = host_with(HashMap::new(), false);
+        host.inputs = [ButtonMask::RIGHT | ButtonMask::UP, ButtonMask::LEFT | ButtonMask::DOWN];
+        let _active = Active::bind(&mut host);
+
+        let analog = |port, id| unsafe { input_state(port, DEVICE_ANALOG, 0, id) };
+        assert_eq!(analog(0, DEVICE_ID_ANALOG_X), 32767);
+        assert_eq!(analog(0, DEVICE_ID_ANALOG_Y), -32767);
+        assert_eq!(analog(1, DEVICE_ID_ANALOG_X), -32767);
+        assert_eq!(analog(1, DEVICE_ID_ANALOG_Y), 32767);
     }
 
     #[test]

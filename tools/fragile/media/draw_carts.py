@@ -351,32 +351,30 @@ def nes():
 
 def nds():
     """A Nintendo DS Game Card (NTR-005), face on (33.0mm x 35.0mm, scaled to 300x318):
-    square-like silhouette with rounded corners, side keying slots near the bottom,
-    a recessed square label well with a 45-degree chamfer cutout at the bottom-left,
-    a subtle thumb grip groove across the lower chin, and a downward insertion arrow
-    centered below the label."""
+    authentic dark charcoal moulding with solid rounded perimeter (no side cutouts),
+    a recessed well with a 45-degree chamfer cut at the bottom-left, a clean white sticker
+    featuring the official NINTENDO DS logo with dual-screen mark across the top header,
+    an authentic game cover art window below, and a debossed downward insertion arrow
+    centered on the lower chin."""
     W, H = 300, 318
     s = Shell(W, H, seed=4, face=3.0, deepest=2.5)
 
-    # 1. Base outline: rounded corners all around (top r=7, bottom r=5)
+    # 1. Solid outer shell moulding with authentic NTR-005 rounded corners
     s.outline(0, 0, W, H, radii=(7, 7, 5, 5))
 
-    # Side keying notches on left and right edges near bottom
-    s.cut(0, 286, 2, 298)
-    s.cut(W - 2, 294, W, 304)
+    # Top edge rim bevel (y: 0..6)
+    s.height(0, 0, W, 6, 2.7)
+    s.height(0, 6, W, H, 3.0)
 
-    # Top edge bevel / rim (y: 0..8)
-    s.height(0, 0, W, 8, 2.7)
-    s.height(0, 8, W, H, 3.0)
-
-    # 2. Label well: recessed, 224x216, at (38, 30)
-    lx0, ly0, lx1, ly1 = 38, 30, 262, 246
+    # 2. Recessed Sticker Well & White Sticker Paper
+    # Dimensions: x: 26..274 (w=248), y: 16..264 (h=248)
+    lx0, ly0, lx1, ly1 = 26, 16, 274, 264
     chamfer = 20.0
+    art_y0 = 62  # Art area starts under header
 
-    def in_label(x, y):
+    def in_sticker(x, y):
         if not (lx0 <= x < lx1 and ly0 <= y < ly1):
             return False
-        # Top-left, top-right, bottom-right radii (r=4)
         for rr, cx, cy, left, top in (
             (4, lx0 + 4, ly0 + 4, True, True),
             (4, lx1 - 4, ly0 + 4, False, True),
@@ -385,13 +383,12 @@ def nds():
             if (x < cx if left else x > cx) and (y < cy if top else y > cy):
                 if (x - cx) ** 2 + (y - cy) ** 2 > rr * rr:
                     return False
-        # Bottom-left 45-degree chamfer
+        # Bottom-left 45-degree chamfer cut
         if x < lx0 + chamfer and y > ly1 - chamfer:
             if (lx0 + chamfer - x) + (y - (ly1 - chamfer)) > chamfer:
                 return False
         return True
 
-    # Well height recess (1.2 height vs 3.0 face)
     def in_well(x, y):
         wx0, wy0, wx1, wy1 = lx0 - 1.5, ly0 - 1.5, lx1 + 1.5, ly1 + 1.5
         wch = chamfer + 1.5
@@ -410,15 +407,90 @@ def nds():
                 return False
         return True
 
+    # Recess depth: 1.2 height vs 3.0 face
     s.height_where(in_well, (lx0 - 2, ly0 - 2, lx1 + 2, ly1 + 2), 1.2)
-    s.paint_where(in_label, (lx0, ly0, lx1, ly1), LABEL)
 
-    # 3. Lower thumb grip groove across the chin: y: 254..266, x: 54..246
-    s.height(54, 254, 246, 266, 2.0, r=6)
+    # Clean crisp white sticker paper
+    s.paint_where(in_sticker, (lx0, ly0, lx1, ly1), (250, 251, 253))
 
-    # 4. Downward insertion arrow centered on chin: x: 150, pointing DOWN
+    # Subtle hair-line separator below logo header
+    s.paint(lx0, art_y0 - 1, lx1, art_y0, (224, 226, 232))
+
+    # Game artwork placeholder (neutral grey)
+    def in_art(x, y):
+        if not in_sticker(x, y):
+            return False
+        return y >= art_y0
+
+    s.paint_where(in_art, (lx0, art_y0, lx1, ly1), LABEL)
+
+    # --- Authentic "NINTENDO [Twin Screens] DS™" Header Logo ---
+    INK = (18, 18, 20)
+
+    # 1. "NINTENDO" wordmark: y: 34..46 (height 12)
+    # N
+    s.paint(48, 34, 50.5, 46, INK)
+    s.paint(56.5, 34, 59, 46, INK)
+    s.paint_where(lambda x, y: 48 <= x <= 59 and abs((y - 34) / 12 - (x - 48) / 11) <= 0.12, (48, 34, 59, 46), INK)
+    # I
+    s.paint(63, 34, 65.5, 46, INK)
+    # N
+    s.paint(69.5, 34, 72, 46, INK)
+    s.paint(78, 34, 80.5, 46, INK)
+    s.paint_where(lambda x, y: 69.5 <= x <= 80.5 and abs((y - 34) / 12 - (x - 69.5) / 11) <= 0.12, (69.5, 34, 80.5, 46), INK)
+    # T
+    s.paint(84.5, 34, 94.5, 36.5, INK)
+    s.paint(88.2, 36.5, 90.8, 46, INK)
+    # E
+    s.paint(98.5, 34, 101, 46, INK)
+    s.paint(101, 34, 107.5, 36.5, INK)
+    s.paint(101, 38.8, 106.5, 41.2, INK)
+    s.paint(101, 43.5, 107.5, 46, INK)
+    # N
+    s.paint(111.5, 34, 114, 46, INK)
+    s.paint(120, 34, 122.5, 46, INK)
+    s.paint_where(lambda x, y: 111.5 <= x <= 122.5 and abs((y - 34) / 12 - (x - 111.5) / 11) <= 0.12, (111.5, 34, 122.5, 46), INK)
+    # D
+    s.paint(126.5, 34, 129, 46, INK)
+    s.paint(129, 34, 137, 46, INK, radii=(0, 6, 6, 0))
+    s.paint(129, 36.5, 134.5, 43.5, (250, 251, 253), radii=(0, 3.5, 3.5, 0))
+    # O
+    s.paint(141, 34, 153, 46, INK, r=5.5)
+    s.paint(143.5, 36.5, 150.5, 43.5, (250, 251, 253), r=3.5)
+
+    # 2. Twin Screens Icon (centered between NINTENDO and DS): x: 158..172, y: 30..50
+    # Top screen
+    s.paint(158, 30, 172, 39, INK, r=1.5)
+    s.paint(160, 32, 170, 37, (250, 251, 253), r=0.5)
+    # Bottom screen
+    s.paint(158, 41, 172, 50, INK, r=1.5)
+    s.paint(160, 43, 170, 48, (250, 251, 253), r=0.5)
+
+    # 3. "DS" (Large bold geometric, y: 26..53, height 27)
+    # D: x: 177..202
+    s.paint(177, 26, 183, 53, INK)
+    s.paint(183, 26, 202, 53, INK, radii=(0, 13, 13, 0))
+    s.paint(183, 32, 196, 47, (250, 251, 253), radii=(0, 7, 7, 0))
+    # S: x: 206..228
+    s.paint(209, 26, 228, 32, INK, radii=(3, 3, 0, 0))
+    s.paint(206, 26, 212, 40, INK, radii=(3, 0, 0, 0))
+    s.paint(208, 36.5, 226, 42.5, INK, r=3)
+    s.paint(222, 39, 228, 53, INK, radii=(0, 0, 3, 0))
+    s.paint(206, 47, 225, 53, INK, radii=(0, 0, 3, 3))
+
+    # 4. Tiny TM symbol beside bottom of S: x: 232..245, y: 44..52
+    s.paint(232, 44, 237, 45.8, INK)
+    s.paint(234, 45.8, 235.3, 52, INK)
+    s.paint(238.5, 44, 240, 52, INK)
+    s.paint(243.5, 44, 245, 52, INK)
+    s.paint(241.2, 45.5, 242.3, 49, INK)
+
+    # 5. Lower thumb grip groove across the chin: y: 274..282, x: 50..250
+    s.height(50, 274, 250, 282, 2.0, r=4)
+
+    # 6. Downward insertion arrow centered on chin: x: 150, pointing DOWN
     mid = W / 2.0
-    tri = [(mid - 11.0, 274.0), (mid + 11.0, 274.0), (mid, 286.0)]
+    tri = [(mid - 12.0, 288.0), (mid + 12.0, 288.0), (mid, 302.0)]
 
     def in_arrow(x, y):
         (ax, ay), (bx, by), (cx, cy) = tri
@@ -429,9 +501,9 @@ def nds():
         pos = d1 > 0 or d2 > 0 or d3 > 0
         return not (neg and pos)
 
-    s.height_where(in_arrow, (mid - 13, 272, mid + 13, 288), 1.2)
+    s.height_where(in_arrow, (mid - 14, 286, mid + 14, 304), 1.2)
 
-    return s, (lx0, ly0, lx1 - lx0, ly1 - ly0), None
+    return s, (lx0, art_y0, lx1 - lx0, ly1 - art_y0), (lx0, ly0, lx1 - lx0, ly1 - ly0)
 
 
 def main():

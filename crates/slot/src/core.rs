@@ -266,7 +266,7 @@ pub fn apply_core_options(
         core.set_option("dsperate_cpu_engine", "JIT (AArch64)");
         core.set_option("dsperate_swap_button", "L2");
         core.set_option("dsperate_touch_button", "R2");
-        core.set_option("dsperate_stylus_control", "Right Analog");
+        core.set_option("dsperate_stylus_control", "Hold L2 + D-Pad");
         core.set_option("dsperate_mic_button", "L3");
         core.set_option("dsperate_show_cursor", "On");
     }

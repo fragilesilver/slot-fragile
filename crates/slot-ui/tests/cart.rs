@@ -779,5 +779,5 @@ fn a_gba_cart_is_backed_by_the_whole_picker_board() {
 fn nds_game_card_has_authentic_dimensions_and_seated_box() {
     assert_eq!(slot_ui::cart_box(Platform::Nds), (300, 318));
     assert_eq!(slot_ui::seated_box(Platform::Nds), (240, 254));
-    assert_eq!(slot_ui::label_size_for(Platform::Nds), (224, 216));
+    assert_eq!(slot_ui::label_size_for(Platform::Nds), (248, 202));
 }

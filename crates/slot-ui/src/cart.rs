@@ -719,7 +719,12 @@ fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
     let (sx, sy, sw, sh) = m.sticker().unwrap_or((lx, ly, lw, lh));
     for y in 0..h {
         for x in 0..w {
-            let on_label = (sx..sx + sw).contains(&x) && (sy..sy + sh).contains(&y);
+            let on_label = (sx..sx + sw).contains(&x)
+                && (sy..sy + sh).contains(&y)
+                && !(m == Media::Nds
+                    && x < sx + 20
+                    && y >= sy + sh - 20
+                    && (x - sx) + (sy + sh - 1 - y) < 20);
             if on_label && m != Media::Disc {
                 continue;
             }

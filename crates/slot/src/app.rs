@@ -1373,6 +1373,7 @@ impl App {
             | QuickRow::SleepOff
             | QuickRow::BatteryBadge
             | QuickRow::FastForwardPitch
+            | QuickRow::FastForwardMode
             | QuickRow::PlayThisGame
             | QuickRow::ThisShader
             | QuickRow::ThisColour
@@ -3089,6 +3090,7 @@ impl App {
             | QuickRow::SleepOff
             | QuickRow::BatteryBadge
             | QuickRow::FastForwardPitch
+            | QuickRow::FastForwardMode
             | QuickRow::PlayThisGame
             | QuickRow::ThisShader
             | QuickRow::ThisColour
@@ -3332,6 +3334,7 @@ impl App {
             | QuickRow::SleepOff
             | QuickRow::BatteryBadge
             | QuickRow::FastForwardPitch
+            | QuickRow::FastForwardMode
             | QuickRow::PlayThisGame
             | QuickRow::ThisShader
             | QuickRow::ThisColour

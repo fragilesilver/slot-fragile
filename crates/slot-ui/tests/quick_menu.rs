@@ -168,6 +168,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Fast Forward",
             "Fast Forward Sound",
             "Fast Forward Pitch",
+            "Fast Forward Mode",
             "Rewind",
             "Turbo Buttons",
             "Rumble",
@@ -298,6 +299,8 @@ fn the_values_read_as_the_menu_prints_them() {
             "SNES",
             "PS1",
             "NDS",
+            "Hold",
+            "Toggle",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);

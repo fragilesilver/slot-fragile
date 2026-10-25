@@ -45,13 +45,21 @@ enum ScreenLayout {
   LAYOUT_PIP,
 };
 
+enum StylusControl {
+  STYLUS_OFF = 0,
+  STYLUS_RIGHT_ANALOG = 1,
+  STYLUS_LEFT_ANALOG = 2,
+  STYLUS_HOLD_L2_DPAD = 3,
+  STYLUS_DPAD = 4,
+};
+
 int g_layout = LAYOUT_DOMINANT_V;
 int g_screen_gap = 0;
 bool g_swap_screens = false;
 int g_swap_button = RETRO_DEVICE_ID_JOYPAD_L2;
 int g_touch_button = RETRO_DEVICE_ID_JOYPAD_R2;
 int g_mic_button = RETRO_DEVICE_ID_JOYPAD_L3;
-int g_stylus_control = 1; // 0 = off, 1 = right analog, 2 = left analog
+int g_stylus_control = STYLUS_HOLD_L2_DPAD;
 int g_stylus_mode = 0;    // 0 = relative (velocity), 1 = absolute
 float g_stylus_speed = 1.5f;
 bool g_show_cursor = true;
@@ -60,6 +68,7 @@ bool g_show_cursor = true;
 float g_stylus_x = 128.0f;
 float g_stylus_y = 96.0f;
 bool g_prev_swap_btn = false;
+bool g_l2_moved = false;
 
 // Audio buffer: SPU mixes at ~32728.5 Hz. DS frame is ~546 stereo frames.
 std::array<int16_t, 4096 * 2> g_audio_buf{};
@@ -175,9 +184,11 @@ void check_variables(bool first_time = false) {
 
   var.key = "dsperate_stylus_control";
   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
-    if (std::strcmp(var.value, "Right Analog") == 0) g_stylus_control = 1;
-    else if (std::strcmp(var.value, "Left Analog") == 0) g_stylus_control = 2;
-    else g_stylus_control = 0;
+    if (std::strcmp(var.value, "Hold L2 + D-Pad") == 0) g_stylus_control = STYLUS_HOLD_L2_DPAD;
+    else if (std::strcmp(var.value, "D-Pad") == 0) g_stylus_control = STYLUS_DPAD;
+    else if (std::strcmp(var.value, "Right Analog") == 0) g_stylus_control = STYLUS_RIGHT_ANALOG;
+    else if (std::strcmp(var.value, "Left Analog") == 0) g_stylus_control = STYLUS_LEFT_ANALOG;
+    else g_stylus_control = STYLUS_OFF;
   }
 
   var.key = "dsperate_stylus_mode";
@@ -212,7 +223,7 @@ void set_core_options() {
     { "dsperate_swap_button", "Screen Swap Button; L2|R2|L3|R3|Off" },
     { "dsperate_touch_button", "Touch / Stylus Click; R2|L2|R3|L3|A" },
     { "dsperate_mic_button", "Microphone Button; L3|R3|L2|Off" },
-    { "dsperate_stylus_control", "Stylus Stick; Right Analog|Left Analog|Off" },
+    { "dsperate_stylus_control", "Stylus Navigation; Hold L2 + D-Pad|D-Pad|Right Analog|Left Analog|Off" },
     { "dsperate_stylus_mode", "Stylus Mode; Relative (Velocity)|Absolute" },
     { "dsperate_stylus_speed", "Stylus Speed; 1.5|1.0|2.0|2.5|3.0|0.5" },
     { "dsperate_show_cursor", "Show Stylus Cursor; On|Off" },
@@ -504,34 +515,42 @@ RETRO_API void retro_run(void) {
   }
 
   // --- Map Controls ---
-  ds::u32 pressed = 0;
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A))      pressed |= (1 << ds::io::Io::BTN_A);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B))      pressed |= (1 << ds::io::Io::BTN_B);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT)) pressed |= (1 << ds::io::Io::BTN_SELECT);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START))  pressed |= (1 << ds::io::Io::BTN_START);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT))  pressed |= (1 << ds::io::Io::BTN_RIGHT);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT))   pressed |= (1 << ds::io::Io::BTN_LEFT);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP))     pressed |= (1 << ds::io::Io::BTN_UP);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN))   pressed |= (1 << ds::io::Io::BTN_DOWN);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R))      pressed |= (1 << ds::io::Io::BTN_R);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L))      pressed |= (1 << ds::io::Io::BTN_L);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X))      pressed |= (1 << ds::io::Io::BTN_X);
-  if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y))      pressed |= (1 << ds::io::Io::BTN_Y);
+  bool btn_a = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A) != 0);
+  bool btn_b = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B) != 0);
+  bool btn_select = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT) != 0);
+  bool btn_start = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START) != 0);
+  bool btn_right = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT) != 0);
+  bool btn_left = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT) != 0);
+  bool btn_up = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP) != 0);
+  bool btn_down = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN) != 0);
+  bool btn_r = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R) != 0);
+  bool btn_l = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L) != 0);
+  bool btn_x = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X) != 0);
+  bool btn_y = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y) != 0);
+  bool btn_l2 = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) != 0);
 
-  g_nds->io.set_buttons(pressed);
-
-  // --- Screen Swap Hotkey ---
-  if (g_swap_button >= 0) {
-    bool swap_btn = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, g_swap_button) != 0);
-    if (swap_btn && !g_prev_swap_btn) {
-      g_swap_screens = !g_swap_screens;
+  bool stylus_active = false;
+  if (g_stylus_control == STYLUS_HOLD_L2_DPAD) {
+    if (btn_l2) {
+      float dx = (btn_right ? 1.0f : 0.0f) - (btn_left ? 1.0f : 0.0f);
+      float dy = (btn_down ? 1.0f : 0.0f) - (btn_up ? 1.0f : 0.0f);
+      if (dx != 0.0f || dy != 0.0f) {
+        g_l2_moved = true;
+        g_stylus_x += dx * g_stylus_speed * 3.5f;
+        g_stylus_y += dy * g_stylus_speed * 3.5f;
+      }
+      stylus_active = true;
     }
-    g_prev_swap_btn = swap_btn;
-  }
-
-  // --- Stylus Analog Control ---
-  if (g_stylus_control > 0) {
-    int analog_idx = (g_stylus_control == 1) ? RETRO_DEVICE_INDEX_ANALOG_RIGHT : RETRO_DEVICE_INDEX_ANALOG_LEFT;
+  } else if (g_stylus_control == STYLUS_DPAD) {
+    float dx = (btn_right ? 1.0f : 0.0f) - (btn_left ? 1.0f : 0.0f);
+    float dy = (btn_down ? 1.0f : 0.0f) - (btn_up ? 1.0f : 0.0f);
+    if (dx != 0.0f || dy != 0.0f) {
+      g_stylus_x += dx * g_stylus_speed * 3.5f;
+      g_stylus_y += dy * g_stylus_speed * 3.5f;
+    }
+    stylus_active = true;
+  } else if (g_stylus_control == STYLUS_RIGHT_ANALOG || g_stylus_control == STYLUS_LEFT_ANALOG) {
+    int analog_idx = (g_stylus_control == STYLUS_RIGHT_ANALOG) ? RETRO_DEVICE_INDEX_ANALOG_RIGHT : RETRO_DEVICE_INDEX_ANALOG_LEFT;
     int16_t ax = input_state_cb(0, RETRO_DEVICE_ANALOG, analog_idx, RETRO_DEVICE_ID_ANALOG_X);
     int16_t ay = input_state_cb(0, RETRO_DEVICE_ANALOG, analog_idx, RETRO_DEVICE_ID_ANALOG_Y);
 
@@ -551,9 +570,45 @@ RETRO_API void retro_run(void) {
         g_stylus_y = (static_cast<float>(ay) + 32768.0f) * 191.0f / 65535.0f;
       }
     }
+  }
 
-    g_stylus_x = std::max(0.0f, std::min(255.0f, g_stylus_x));
-    g_stylus_y = std::max(0.0f, std::min(191.0f, g_stylus_y));
+  g_stylus_x = std::max(0.0f, std::min(255.0f, g_stylus_x));
+  g_stylus_y = std::max(0.0f, std::min(191.0f, g_stylus_y));
+
+  ds::u32 pressed = 0;
+  if (btn_a) pressed |= (1 << ds::io::Io::BTN_A);
+  if (btn_b) pressed |= (1 << ds::io::Io::BTN_B);
+  if (btn_select) pressed |= (1 << ds::io::Io::BTN_SELECT);
+  if (btn_start) pressed |= (1 << ds::io::Io::BTN_START);
+  if (!stylus_active) {
+    if (btn_right) pressed |= (1 << ds::io::Io::BTN_RIGHT);
+    if (btn_left) pressed |= (1 << ds::io::Io::BTN_LEFT);
+    if (btn_up) pressed |= (1 << ds::io::Io::BTN_UP);
+    if (btn_down) pressed |= (1 << ds::io::Io::BTN_DOWN);
+  }
+  if (btn_r) pressed |= (1 << ds::io::Io::BTN_R);
+  if (btn_l) pressed |= (1 << ds::io::Io::BTN_L);
+  if (btn_x) pressed |= (1 << ds::io::Io::BTN_X);
+  if (btn_y) pressed |= (1 << ds::io::Io::BTN_Y);
+
+  g_nds->io.set_buttons(pressed);
+
+  // --- Screen Swap Hotkey ---
+  if (g_swap_button >= 0) {
+    bool swap_btn = (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, g_swap_button) != 0);
+    if (g_stylus_control == STYLUS_HOLD_L2_DPAD && g_swap_button == RETRO_DEVICE_ID_JOYPAD_L2) {
+      if (!swap_btn && g_prev_swap_btn) {
+        if (!g_l2_moved) {
+          g_swap_screens = !g_swap_screens;
+        }
+        g_l2_moved = false;
+      }
+    } else {
+      if (swap_btn && !g_prev_swap_btn) {
+        g_swap_screens = !g_swap_screens;
+      }
+    }
+    g_prev_swap_btn = swap_btn;
   }
 
   // --- Touch Down / Up ---
@@ -630,6 +685,9 @@ RETRO_API void retro_run(void) {
 
       case LAYOUT_TOP_ONLY: {
         std::memcpy(g_composite_buf.data(), src_top, 256 * 192 * sizeof(uint32_t));
+        if (g_show_cursor && g_swap_screens) {
+          draw_cursor(g_composite_buf.data(), 256, static_cast<int>(g_stylus_x), static_cast<int>(g_stylus_y), 256, 192);
+        }
         out_w = 256;
         out_h = 192;
         break;

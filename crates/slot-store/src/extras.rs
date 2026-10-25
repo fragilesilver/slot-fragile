@@ -82,6 +82,38 @@ impl ExtrasState {
             cart.map(|r| format!("{}/{}", r.platform.dir_name().to_ascii_lowercase(), r.stem));
         self.set(key, value.as_deref());
     }
+
+    pub fn ff_mode(&self) -> FfMode {
+        match self.get("ff_mode") {
+            Some("toggle" | "Toggle" | "1") => FfMode::Toggle,
+            _ => FfMode::Hold,
+        }
+    }
+
+    pub fn set_ff_mode(&mut self, mode: FfMode) {
+        match mode {
+            FfMode::Hold => self.set("ff_mode", None),
+            FfMode::Toggle => self.set("ff_mode", Some("toggle")),
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Default, Debug)]
+pub enum FfMode {
+    #[default]
+    Hold,
+    Toggle,
+}
+
+impl FfMode {
+    pub const ALL: [FfMode; 2] = [FfMode::Hold, FfMode::Toggle];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            FfMode::Hold => "Hold",
+            FfMode::Toggle => "Toggle",
+        }
+    }
 }
 
 pub fn extras_path(root: &Path) -> PathBuf {

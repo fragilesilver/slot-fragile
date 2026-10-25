@@ -174,6 +174,13 @@ impl Session {
         let mut actions = Vec::new();
         let latched = self.gestures.ff_latched();
         self.gestures.set_context(self.app.input_context());
+        let ff_mode = match self.app.ff_mode() {
+            slot_store::FfMode::Hold => slot_input::FfMode::Hold,
+            slot_store::FfMode::Toggle => slot_input::FfMode::Toggle,
+        };
+        if self.gestures.ff_mode() != ff_mode {
+            self.gestures.set_ff_mode(ff_mode);
+        }
         let mut entries = self.app.binding_table().entries();
         // Fragile: a pad's own extra buttons are the game's while it plays.
         self.app.yield_to_pad(&mut entries);

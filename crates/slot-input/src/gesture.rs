@@ -158,6 +158,7 @@ pub struct Gestures {
     ff_on: bool,
     ff_latched: bool,
     ff_latching_press: bool,
+    ff_mode: FfMode,
     r2_refused: bool,
     r2_last_release: Option<Millis>,
     rewinding: bool,
@@ -274,6 +275,14 @@ impl Gestures {
 
     pub fn ff_latched(&self) -> bool {
         self.ff_latched
+    }
+
+    pub fn ff_mode(&self) -> FfMode {
+        self.ff_mode
+    }
+
+    pub fn set_ff_mode(&mut self, mode: FfMode) {
+        self.ff_mode = mode;
     }
 
     pub fn drop_ff_latch(&mut self) -> Vec<Action> {
@@ -430,8 +439,16 @@ impl Gestures {
                 Release::Send(action) => vec![action],
             };
         }
-        if self.ff_button == Some(b) && (self.ff_on || self.r2_refused) {
-            return self.ff_up(now);
+        if self.ff_button == Some(b) {
+            if self.ff_on || self.r2_refused {
+                let out = self.ff_up(now);
+                if !self.ff_on {
+                    self.ff_button = None;
+                }
+                return out;
+            }
+            self.ff_button = None;
+            return Vec::new();
         }
         if self.rewind_button == Some(b) && self.rewinding {
             return self.rewind_stop();
@@ -649,6 +666,14 @@ impl Gestures {
             self.r2_refused = true;
             return Vec::new();
         }
+        if self.ff_mode == FfMode::Toggle {
+            if self.ff_on {
+                return self.ff_clear();
+            }
+            self.ff_latched = true;
+            self.ff_on = true;
+            return vec![Action::FfStart];
+        }
         if self.ff_latched {
             self.ff_latching_press = false;
         } else {
@@ -670,6 +695,9 @@ impl Gestures {
             return Vec::new();
         }
         self.r2_last_release = Some(now);
+        if self.ff_mode == FfMode::Toggle {
+            return Vec::new();
+        }
         if self.ff_latching_press {
             self.ff_latching_press = false;
             return Vec::new();
@@ -686,4 +714,11 @@ impl Gestures {
         self.ff_on = false;
         vec![Action::FfStop]
     }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Default, Debug)]
+pub enum FfMode {
+    #[default]
+    Hold,
+    Toggle,
 }

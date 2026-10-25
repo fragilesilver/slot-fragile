@@ -56,8 +56,8 @@ const ART: [Art; Media::COUNT] = [
         png: include_bytes!("../../../assets/nds_neutral.png"),
         w: 300,
         h: 318,
-        label: (38, 30, 224, 216),
-        sticker: None,
+        label: (26, 62, 248, 202),
+        sticker: Some((26, 16, 248, 248)),
         colour: [0x32, 0x32, 0x36],
     },
 ];
