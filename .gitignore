@@ -27,3 +27,4 @@
 /BaseOS/
 /release/
 /logs/
+__pycache__/

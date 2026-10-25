@@ -1,8 +1,8 @@
 # Credits
 
-Fragile is [slot](https://github.com/BrandonKowalski/slot) 1.8.0 by Brandon T. Kowalski, with
-features from community forks. Every fork named here, and slot itself, is GPL-3.0-or-later.
-Each ported file or function says where it came from in a `Ported from` comment.
+**Fragile** is an advanced community frontend for retro handheld consoles, maintained by [fragilesilver](https://github.com/fragilesilver/slot-fragile), originating from [slot](https://github.com/BrandonKowalski/slot) by Brandon T. Kowalski (incorporating upstream v1.9.0 stability and features) and expanded with community innovations. Every fork named here, and Fragile itself, is licensed under GPL-3.0-or-later. Each ported component documents its provenance in a `Ported from` source comment.
+
+Special thanks to **Markus Maribu** for the exquisite skeuomorphic cartridge, pak, and console artwork and bezels that define the visual character of the frontend.
 
 | From | What |
 | --- | --- |

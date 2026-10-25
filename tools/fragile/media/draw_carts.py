@@ -349,10 +349,59 @@ def nes():
     return s, (lx0, ly0, lx1 - lx0, ly1 - ly0), None
 
 
+def nds():
+    """A Nintendo DS Game Card (NTR-005), face on (35.0mm x 33.0mm, scaled to 300x318):
+    square-like silhouette with rounded corners, a 45-degree keying chamfer notch at the
+    top-right, a recessed square label well, a subtle thumb grip groove across the lower
+    section, and an upward insertion arrow centered at the bottom."""
+    W, H = 300, 318
+    s = Shell(W, H, seed=4, face=3.0, deepest=2.5)
+
+    # 1. Base outline: rounded corners, top-right chamfer
+    s.outline(0, 0, W, H, radii=(6, 2, 8, 8))
+
+    # Top-right 45-degree chamfer notch (16px cut)
+    def in_chamfer(x, y):
+        return x >= W - 16 and y <= 16 and (x - (W - 16)) + (16 - y) >= 16
+
+    for i, c in s.cover(in_chamfer, (W - 18, 0, W, 18)):
+        s.mask[i] *= 1 - c
+
+    # Top edge bevel / rim (y: 0..10)
+    s.height(0, 0, W, 10, 2.5)
+    s.height(0, 10, W, H, 3.0)
+
+    # 2. Label well: recessed, almost square (224x216)
+    lx0, ly0, lx1, ly1 = 38, 30, 262, 246
+    s.height(lx0 - 1.5, ly0 - 1.5, lx1 + 1.5, ly1 + 1.5, 1.2, radii=(4, 4, 4, 4))
+    s.paint(lx0, ly0, lx1, ly1, LABEL, r=3)
+
+    # 3. Lower thumb grip groove (y: 260..272, x: 54..246)
+    gx0, gy0, gx1, gy1 = 54, 260, 246, 272
+    s.height(gx0, gy0, gx1, gy1, 1.5, r=5)
+
+    # 4. Upward insertion arrow centered at bottom (x: 150, y: 286..298)
+    mid = W / 2.0
+    tri = [(mid, 286.0), (mid - 10.0, 298.0), (mid + 10.0, 298.0)]
+
+    def in_arrow(x, y):
+        (ax, ay), (bx, by), (cx, cy) = tri
+        d1 = (x - bx) * (ay - by) - (ax - bx) * (y - by)
+        d2 = (x - cx) * (by - cy) - (bx - cx) * (y - cy)
+        d3 = (x - ax) * (cy - ay) - (cx - ax) * (y - ay)
+        neg = d1 < 0 or d2 < 0 or d3 < 0
+        pos = d1 > 0 or d2 > 0 or d3 > 0
+        return not (neg and pos)
+
+    s.height_where(in_arrow, (mid - 12, 284, mid + 12, 300), 1.6)
+
+    return s, (lx0, ly0, lx1 - lx0, ly1 - ly0), None
+
+
 def main():
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(root, "assets")
-    for name, draw in (("snes", snes), ("nes", nes)):
+    for name, draw in (("snes", snes), ("nes", nes), ("nds", nds)):
         s, label, sticker = draw()
         s.png(os.path.join(out, f"{name}_neutral.png"))
         print(f"{name}: {s.w}x{s.h} label {label} sticker {sticker}")

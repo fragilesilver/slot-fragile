@@ -14,6 +14,7 @@ pub enum Media {
     Nes,
     Snes,
     Disc,
+    Nds,
 }
 
 struct Art {
@@ -51,6 +52,14 @@ const ART: [Art; Media::COUNT] = [
         sticker: None,
         colour: [0xd8, 0xd8, 0xdc],
     },
+    Art {
+        png: include_bytes!("../../../assets/nds_neutral.png"),
+        w: 300,
+        h: 318,
+        label: (38, 30, 224, 216),
+        sticker: None,
+        colour: [0x32, 0x32, 0x36],
+    },
 ];
 
 /// The disc's print runs from the clear hub to just inside the rim, as fractions of its radius:
@@ -62,16 +71,17 @@ const PRINT_OUTER: f32 = 58.5 / 60.0;
 const SEATED_MAX_H: u32 = 259;
 
 impl Media {
-    pub const COUNT: usize = 3;
-    pub const ALL: [Media; Media::COUNT] = [Media::Nes, Media::Snes, Media::Disc];
+    pub const COUNT: usize = 4;
+    pub const ALL: [Media; Media::COUNT] = [Media::Nes, Media::Snes, Media::Disc, Media::Nds];
 
     /// What a platform's games come on, or None for the Game Boy family's own moulds.
     pub fn of(platform: Platform) -> Option<Media> {
         Some(match platform {
-            Platform::Gba | Platform::Gb | Platform::Gbc | Platform::Nds => return None,
+            Platform::Gba | Platform::Gb | Platform::Gbc => return None,
             Platform::Nes => Media::Nes,
             Platform::Snes => Media::Snes,
             Platform::PlayStation => Media::Disc,
+            Platform::Nds => Media::Nds,
         })
     }
 
@@ -166,10 +176,7 @@ mod tests {
     #[test]
     fn every_platform_past_the_game_boy_has_media() {
         for p in Platform::ALL {
-            let game_boy = matches!(
-                p,
-                Platform::Gba | Platform::Gb | Platform::Gbc | Platform::Nds
-            );
+            let game_boy = matches!(p, Platform::Gba | Platform::Gb | Platform::Gbc);
             assert_eq!(Media::of(p).is_none(), game_boy, "{p:?}");
         }
     }

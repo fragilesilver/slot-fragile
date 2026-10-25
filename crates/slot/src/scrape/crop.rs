@@ -16,7 +16,7 @@ pub fn label_dimensions(platform: Platform) -> (u32, u32) {
         Platform::Nes => (143, 232),
         Platform::Snes => (122, 97),
         Platform::PlayStation => (337, 337),
-        Platform::Nds => (264, 136),
+        Platform::Nds => (224, 216),
     }
 }
 
@@ -87,6 +87,13 @@ fn crop_cart_sticker(image: &DynamicImage, platform: Platform) -> DynamicImage {
             h * 13 / 1000,
             w * 339 / 1000,
             h * 424 / 1000,
+        )),
+        // Nintendo DS Game Card front (aspect ~0.94): central square sticker
+        Platform::Nds if (0.88..=1.02).contains(&aspect) => Some((
+            w * 127 / 1000,
+            h * 94 / 1000,
+            w * 747 / 1000,
+            h * 679 / 1000,
         )),
         _ => None,
     };

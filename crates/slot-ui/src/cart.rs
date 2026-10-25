@@ -153,7 +153,7 @@ const GB_SEATED_H: u32 = 259;
 
 pub fn seated_box(platform: Platform) -> (u32, u32) {
     match platform {
-        Platform::Gba | Platform::Nds => (SEATED_W, SEATED_H),
+        Platform::Gba => (SEATED_W, SEATED_H),
         Platform::Gb | Platform::Gbc => (SEATED_W, GB_SEATED_H),
         other => media_of(other).seated(SEATED_W),
     }
@@ -161,7 +161,7 @@ pub fn seated_box(platform: Platform) -> (u32, u32) {
 
 pub fn cart_box(platform: Platform) -> (u32, u32) {
     let s = spec(match platform {
-        Platform::Gba | Platform::Nds => Shape::Gba,
+        Platform::Gba => Shape::Gba,
         Platform::Gb | Platform::Gbc => Shape::Gb(GbShell::Notched),
         other => return media_of(other).size(),
     });
