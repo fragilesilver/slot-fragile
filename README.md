@@ -60,7 +60,7 @@ please [open an issue on GitHub](https://github.com/BrandonKowalski/slot/issues)
 
 # AI Disclosure
 
-The Rust frontend, and the SVGs on [slot-cfw.fyi](https://slot-cfw.fyi), were put together by Claude.
+The Rust frontend, and the SVGs on [slot-cfw.fyi](https://slot-cfw.fyi), were put together with AI assistance.
 I reviewed everything that was produced. All documentation is 100% free-range, meatbag prose.
 
 My goal with this project was to recreate the feeling of playing my GBA SP in the back seat as a kid,

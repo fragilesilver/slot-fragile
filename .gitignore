@@ -3,7 +3,6 @@
 *.pdb
 
 /docs/
-/CLAUDE.md
 /.ralph/
 /.superpowers/
 
