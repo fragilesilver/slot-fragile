@@ -299,3 +299,28 @@ fn dashboard_quick_menu_toggle_and_connection_string() {
     );
     assert!(slot_store::read_extras(d.path()).flag("web_dashboard", false));
 }
+
+#[test]
+fn dashboard_api_returns_generated_cart_face_when_no_custom_label() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let _server = WebServer::start(d.path().to_path_buf(), 15077).expect("start server");
+
+    // Emerald has no file in Labels/ and no file in SCRAPED_LABELS
+    assert!(!d.path().join("Labels/GBA/Emerald.png").exists());
+
+    // GET /api/label?platform=GBA&stem=Emerald should still return 200 image/png with generated CartFace
+    let (status, headers, body) = request(
+        15077,
+        "GET",
+        "/api/label?platform=GBA&stem=Emerald",
+        Some(("root", "root")),
+        None,
+    );
+    assert_eq!(status, 200);
+    assert_eq!(
+        headers.get("content-type").map(|s| s.as_str()),
+        Some("image/png")
+    );
+    // Verify it is a valid PNG header
+    assert!(body.starts_with(b"\x89PNG\r\n\x1a\n"));
+}

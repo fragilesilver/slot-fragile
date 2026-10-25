@@ -394,16 +394,16 @@
       document.getElementById('preview-fallback-title').innerText = g.stem;
       const labelBox = document.getElementById('cart-label');
       labelBox.innerHTML = '';
-      if (g.has_label) {
-        const img = document.createElement('img');
-        img.src = `/api/label?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}`;
-        labelBox.appendChild(img);
-      } else {
+      const img = document.createElement('img');
+      img.src = `/api/label?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}`;
+      img.onerror = () => {
+        img.remove();
         const span = document.createElement('span');
         span.className = 'cart-label-fallback';
         span.innerText = g.stem;
         labelBox.appendChild(span);
-      }
+      };
+      labelBox.appendChild(img);
       if (g.shell) {
         const parts = g.shell.split(' ');
         setOutline(parts[0] || 'auto', false);
@@ -521,7 +521,8 @@
             <span class="platform-tag">${g.platform}</span>
           </div>
           <div class="card-thumb">
-            ${g.has_label ? `<img src="/api/label?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}" alt="${g.stem}">` : `<span style="font-size:0.8rem; color:var(--text-muted);">No custom label</span>`}
+            <img src="/api/label?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}" alt="${g.stem}" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <span style="font-size:0.8rem; color:var(--text-muted); display:none;">${g.stem}</span>
           </div>
           <div class="dropzone" style="padding:0.75rem;" onclick="triggerLabelUpload('${g.platform}', '${g.stem.replace(/'/g, "\\'")}')">
             <span style="font-size:0.85rem; font-weight:600;">Upload PNG</span>

@@ -107,6 +107,10 @@ fn the_row_on_each_consoles_screen_page_flips_and_saves() {
     assert_eq!(a.quick_menu(), Some(QuickRow::IntegerGb));
     assert_eq!(a.named_value(QuickRow::IntegerGb), Some("Fit".into()));
     a.apply(Action::GbaDown(Btn::Right));
+    assert_eq!(a.named_value(QuickRow::IntegerGb), Some("Fill".into()));
+    assert_eq!(a.scaling(Platform::Gb), slot_store::Scaling::Fill);
+    assert!(!a.integer_scale(Platform::Gb));
+    a.apply(Action::GbaDown(Btn::Right));
     assert_eq!(a.named_value(QuickRow::IntegerGb), Some("Sharp Fit".into()));
     assert_eq!(a.scaling(Platform::Gb), slot_store::Scaling::SharpFit);
     assert!(!a.integer_scale(Platform::Gb));

@@ -6,7 +6,7 @@ mod common;
 use common::{app_playing_in, tmp_root_with_carts};
 use slot::app::App;
 use slot_input::{Action, Btn};
-use slot_store::{read_slot_state, GameProfiles, Platform, ProfileField, Shader};
+use slot_store::{read_slot_state, GameProfiles, Platform, ProfileField, Scaling, Shader};
 use slot_ui::{QuickRow, QuickValue, Toast};
 use tempfile::TempDir;
 
@@ -47,7 +47,7 @@ fn own(d: &TempDir, stem: &str) -> slot_store::GameProfile {
 fn with_own(d: &TempDir, stem: &str, fields: &[ProfileField]) {
     let mut p = GameProfiles::read(d.path());
     for f in fields {
-        p.set(Platform::Gba, stem, *f);
+        p.set(Platform::Gba, stem, f.clone());
     }
     p.write(d.path()).unwrap();
 }
@@ -182,4 +182,49 @@ fn this_game_keeps_its_own_label_style() {
     }
     press(&mut a, Btn::Right);
     assert_eq!(own(&d, "Emerald").label, None);
+}
+
+#[test]
+fn this_game_keeps_its_own_scaling() {
+    let d = card();
+    let mut a = app_playing_in(d.path(), "Emerald");
+    go_to(&mut a, QuickRow::ThisScaling);
+    // GBA default is SharpFit, so stepping right produces Integer
+    press(&mut a, Btn::Right);
+    assert_eq!(own(&d, "Emerald").scaling, Some(Scaling::Integer));
+    assert_eq!(
+        own(&d, "Fusion").scaling,
+        None,
+        "Fusion took Emerald's scaling"
+    );
+    while a.in_game_menu() != Some(QuickRow::ThisDefaults) {
+        press(&mut a, Btn::Down);
+    }
+    press(&mut a, Btn::Right);
+    assert_eq!(own(&d, "Emerald").scaling, None);
+}
+
+#[test]
+fn this_game_keeps_its_own_card_shader() {
+    let d = card();
+    std::fs::create_dir_all(d.path().join("Shaders")).unwrap();
+    std::fs::write(d.path().join("Shaders/Ghosting.glsl"), b"shader").unwrap();
+    let mut a = app_playing_in(d.path(), "Emerald");
+    go_to(&mut a, QuickRow::ThisCardShader);
+    assert_eq!(
+        a.named_value(QuickRow::ThisCardShader).as_deref(),
+        Some("Off")
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(own(&d, "Emerald").card_shader.as_deref(), Some("Ghosting"));
+    assert_eq!(
+        own(&d, "Fusion").card_shader,
+        None,
+        "Fusion took Emerald's shader"
+    );
+    while a.in_game_menu() != Some(QuickRow::ThisDefaults) {
+        press(&mut a, Btn::Down);
+    }
+    press(&mut a, Btn::Right);
+    assert_eq!(own(&d, "Emerald").card_shader, None);
 }

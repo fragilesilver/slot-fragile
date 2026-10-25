@@ -13,6 +13,66 @@ const SHOW_FAVORITES: &str = "show_favorites";
 const CLOCK_12H: &str = "clock_12h";
 const SLEEP_OFF: &str = "sleep_off_min";
 const FF_PITCH: &str = "ff_pitch";
+const SCREENSAVER_TIMEOUT: &str = "screensaver_timeout";
+const SCREENSAVER_STYLE: &str = "screensaver_style";
+
+pub const SCREENSAVER_TIMEOUTS: [u32; 5] = [0, 1, 2, 5, 10];
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum ScreensaverStyle {
+    #[default]
+    Black,
+    Dim,
+    Clock,
+    CartArt,
+    AutoDoze,
+}
+
+impl ScreensaverStyle {
+    pub const ALL: [ScreensaverStyle; 5] = [
+        ScreensaverStyle::Black,
+        ScreensaverStyle::Dim,
+        ScreensaverStyle::Clock,
+        ScreensaverStyle::CartArt,
+        ScreensaverStyle::AutoDoze,
+    ];
+
+    pub fn text(self) -> &'static str {
+        match self {
+            Self::Black => "Black",
+            Self::Dim => "Dim",
+            Self::Clock => "Clock",
+            Self::CartArt => "Cart Art",
+            Self::AutoDoze => "Auto-Doze",
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Black => "black",
+            Self::Dim => "dim",
+            Self::Clock => "clock",
+            Self::CartArt => "cart_art",
+            Self::AutoDoze => "auto_doze",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<ScreensaverStyle> {
+        Self::ALL
+            .into_iter()
+            .find(|s| s.key().eq_ignore_ascii_case(text))
+    }
+
+    pub fn step(self, right: bool) -> ScreensaverStyle {
+        let n = Self::ALL.len();
+        let at = Self::ALL.iter().position(|s| *s == self).unwrap_or(0);
+        Self::ALL[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+    }
+}
 
 pub(super) fn mark_key(rack: Rack) -> String {
     format!("shelf.{}", rack.key())
@@ -29,7 +89,7 @@ pub enum StartShelf {
 }
 
 impl StartShelf {
-    pub const ALL: [StartShelf; 9] = [
+    pub const ALL: [StartShelf; 10] = [
         StartShelf::Last,
         StartShelf::Recents,
         StartShelf::Favorites,
@@ -39,6 +99,7 @@ impl StartShelf {
         StartShelf::Of(Platform::Nes),
         StartShelf::Of(Platform::Snes),
         StartShelf::Of(Platform::PlayStation),
+        StartShelf::Of(Platform::Nds),
     ];
 
     fn rack(self) -> Option<Rack> {
@@ -71,6 +132,7 @@ impl StartShelf {
             StartShelf::Of(Platform::Nes) => QuickValue::NesShelf,
             StartShelf::Of(Platform::Snes) => QuickValue::SnesShelf,
             StartShelf::Of(Platform::PlayStation) => QuickValue::Ps1Shelf,
+            StartShelf::Of(Platform::Nds) => QuickValue::NdsShelf,
         }
     }
 
@@ -157,6 +219,55 @@ impl App {
         let current = self.hdmi_mode();
         let next = current.step(right);
         self.set_hdmi_mode(next);
+    }
+
+    pub fn screensaver_timeout_min(&self) -> u32 {
+        self.extras
+            .get(SCREENSAVER_TIMEOUT)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0)
+    }
+
+    pub fn screensaver_timeout_text(&self) -> String {
+        let min = self.screensaver_timeout_min();
+        if min == 0 {
+            "Off".to_string()
+        } else {
+            format!("{min} min")
+        }
+    }
+
+    pub fn step_screensaver_timeout(&mut self, right: bool) {
+        let cur = self.screensaver_timeout_min();
+        let at = SCREENSAVER_TIMEOUTS
+            .iter()
+            .position(|&t| t == cur)
+            .unwrap_or(0);
+        let n = SCREENSAVER_TIMEOUTS.len();
+        let next = if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        };
+        self.extras.set(
+            SCREENSAVER_TIMEOUT,
+            Some(&SCREENSAVER_TIMEOUTS[next].to_string()),
+        );
+        self.save_extras();
+    }
+
+    pub fn screensaver_style(&self) -> ScreensaverStyle {
+        self.extras
+            .get(SCREENSAVER_STYLE)
+            .and_then(ScreensaverStyle::parse)
+            .unwrap_or_default()
+    }
+
+    pub fn step_screensaver_style(&mut self, right: bool) {
+        let cur = self.screensaver_style();
+        let next = cur.step(right);
+        self.extras.set(SCREENSAVER_STYLE, Some(next.key()));
+        self.save_extras();
     }
 
     /// The extras rows the carousel menu hides: a clamshell shows Lid Power Off and anything
@@ -260,6 +371,7 @@ impl App {
                 false => QuickValue::Hour24,
             })),
             QuickRow::HdmiOutput => Some(None),
+            QuickRow::Screensaver | QuickRow::ScreensaverStyle => Some(None),
             _ if self.network_value(row).is_some() => self.network_value(row),
             _ => self.screen_value(row),
         }
@@ -286,6 +398,12 @@ impl App {
             QuickRow::ClockFormat => {
                 let on = !self.twelve_hour();
                 self.extras.set_flag(CLOCK_12H, on);
+            }
+            QuickRow::Screensaver => {
+                self.step_screensaver_timeout(right);
+            }
+            QuickRow::ScreensaverStyle => {
+                self.step_screensaver_style(right);
             }
             QuickRow::SleepOff => {
                 // Never, then the lid's own steps.
@@ -315,5 +433,21 @@ impl App {
         }
         self.save_extras();
         true
+    }
+
+    pub fn ota_target(&self) -> String {
+        self.extras
+            .get("ota_repo")
+            .or_else(|| self.extras.get("ota_url"))
+            .unwrap_or(crate::ota::DEFAULT_REPO)
+            .to_string()
+    }
+
+    pub fn set_ota_target(&mut self, target: &str) {
+        self.extras.set("ota_repo", Some(target));
+        self.save_extras();
+        if let Some(ota) = &mut self.ota {
+            ota.set_target(target.to_string());
+        }
     }
 }

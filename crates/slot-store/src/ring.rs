@@ -34,6 +34,9 @@ impl StateRing {
     }
 
     pub fn push(&self, state: &[u8], thumb_png: &[u8], stamp: &str) -> std::io::Result<()> {
+        if state.is_empty() {
+            return Ok(());
+        }
         std::fs::create_dir_all(&self.dir)?;
         atomic_write(&self.path(stamp, THUMB_EXT), thumb_png)?;
         atomic_write(&self.path(stamp, STATE_EXT), state)?;
@@ -51,6 +54,12 @@ impl StateRing {
         for entry in dir {
             let path = entry?.path();
             if path.extension().and_then(|e| e.to_str()) != Some(STATE_EXT) {
+                continue;
+            }
+            if std::fs::metadata(&path)
+                .map(|m| m.len() == 0)
+                .unwrap_or(false)
+            {
                 continue;
             }
             let Some(stamp) = path.file_stem().and_then(|s| s.to_str()) else {
@@ -82,13 +91,17 @@ impl StateRing {
     }
 
     pub fn write_resume(&self, state: &[u8]) -> std::io::Result<()> {
+        if state.is_empty() {
+            return Ok(());
+        }
         std::fs::create_dir_all(&self.dir)?;
         atomic_write(&self.path(RESUME, STATE_EXT), state)
     }
 
     pub fn read_resume(&self) -> std::io::Result<Option<Vec<u8>>> {
         match std::fs::read(self.path(RESUME, STATE_EXT)) {
-            Ok(b) => Ok(Some(b)),
+            Ok(b) if !b.is_empty() => Ok(Some(b)),
+            Ok(_) => Ok(None),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e),
         }
@@ -164,7 +177,7 @@ impl StateRing {
     }
 }
 
-fn is_stamp(s: &str) -> bool {
+pub(crate) fn is_stamp(s: &str) -> bool {
     const SHAPE: &[u8] = b"0000-00-00_00-00-00";
     s.len() == SHAPE.len()
         && s.bytes().zip(SHAPE).all(|(c, shape)| match shape {

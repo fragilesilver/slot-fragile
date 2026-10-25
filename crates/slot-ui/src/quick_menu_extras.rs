@@ -34,8 +34,11 @@ pub fn bluetooth_legend_faces(ink: [u8; 3]) -> [UndoFace; 5] {
 
 impl QuickRow {
     /// In game, Settings → This Game: the settings this one game keeps for itself.
-    pub const THIS_GAME: [QuickRow; 6] = [
+    pub const THIS_GAME: [QuickRow; 9] = [
+        QuickRow::ThisScaling,
+        QuickRow::ThisNdsLayout,
         QuickRow::ThisShader,
+        QuickRow::ThisCardShader,
         QuickRow::ThisColour,
         QuickRow::ThisFfSpeed,
         QuickRow::ThisFfSound,
@@ -44,7 +47,7 @@ impl QuickRow {
     ];
 
     /// Main menu → Network: the Wi-Fi, Bluetooth and network time.
-    pub const NETWORK: [QuickRow; 13] = [
+    pub const NETWORK: [QuickRow; 14] = [
         QuickRow::WifiPower,
         QuickRow::WifiNetworks,
         QuickRow::WifiStatus,
@@ -58,5 +61,6 @@ impl QuickRow {
         QuickRow::Cheevos,
         QuickRow::CheevosAccount,
         QuickRow::GameArt,
+        QuickRow::Update,
     ];
 }

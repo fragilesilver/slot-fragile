@@ -17,6 +17,7 @@ fn pages() -> Vec<&'static [QuickRow]> {
         &QuickRow::SCREEN_NES,
         &QuickRow::SCREEN_SNES,
         &QuickRow::SCREEN_PS,
+        &QuickRow::SCREEN_NDS,
         &QuickRow::GAME,
         &QuickRow::PLAY,
         &QuickRow::SETTINGS,

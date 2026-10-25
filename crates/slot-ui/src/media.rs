@@ -68,7 +68,7 @@ impl Media {
     /// What a platform's games come on, or None for the Game Boy family's own moulds.
     pub fn of(platform: Platform) -> Option<Media> {
         Some(match platform {
-            Platform::Gba | Platform::Gb | Platform::Gbc => return None,
+            Platform::Gba | Platform::Gb | Platform::Gbc | Platform::Nds => return None,
             Platform::Nes => Media::Nes,
             Platform::Snes => Media::Snes,
             Platform::PlayStation => Media::Disc,
@@ -166,7 +166,10 @@ mod tests {
     #[test]
     fn every_platform_past_the_game_boy_has_media() {
         for p in Platform::ALL {
-            let game_boy = matches!(p, Platform::Gba | Platform::Gb | Platform::Gbc);
+            let game_boy = matches!(
+                p,
+                Platform::Gba | Platform::Gb | Platform::Gbc | Platform::Nds
+            );
             assert_eq!(Media::of(p).is_none(), game_boy, "{p:?}");
         }
     }

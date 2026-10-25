@@ -189,7 +189,7 @@ pub fn colour_option(
             if on { "enabled" } else { "disabled" },
         )),
         Core::Gambatte => Some(crate::gambatte::colour_option(on)),
-        Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::PcsxRearmed => None,
+        Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::PcsxRearmed | Core::Dsperate => None,
     }
 }
 
@@ -213,7 +213,9 @@ pub fn motion_blur_option(which: Core, on: bool) -> Option<(&'static str, &'stat
         ),
         Core::Gpsp => ("gpsp_frame_mixing", if on { "enabled" } else { "disabled" }),
         Core::Gambatte => crate::gambatte::motion_blur_option(on),
-        Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::PcsxRearmed => return None,
+        Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::PcsxRearmed | Core::Dsperate => {
+            return None
+        }
     })
 }
 
@@ -258,6 +260,15 @@ pub fn apply_core_options(
         if let Some((key, value)) = colour_option(which, platform, colour) {
             core.set_option(key, value);
         }
+    }
+    if which == Core::Dsperate {
+        core.set_option("dsperate_layout", "Top Dominant");
+        core.set_option("dsperate_cpu_engine", "JIT (AArch64)");
+        core.set_option("dsperate_swap_button", "L2");
+        core.set_option("dsperate_touch_button", "R2");
+        core.set_option("dsperate_stylus_control", "Right Analog");
+        core.set_option("dsperate_mic_button", "L3");
+        core.set_option("dsperate_show_cursor", "On");
     }
     crate::gambatte::apply_options(core, which, colour, palette);
     crate::more_cores::apply_options(core, which);

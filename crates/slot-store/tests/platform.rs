@@ -3,12 +3,12 @@ use slot_store::Platform;
 #[test]
 fn every_platform_has_a_directory() {
     let names: Vec<&str> = Platform::ALL.iter().map(|p| p.dir_name()).collect();
-    assert_eq!(names, vec!["GBA", "GB", "GBC", "NES", "SNES", "PS"]);
+    assert_eq!(names, vec!["GBA", "GB", "GBC", "NES", "SNES", "PS", "NDS"]);
 }
 
 #[test]
 fn every_platform_is_a_shelf_of_its_own() {
-    // Fragile: the NES, SNES and PlayStation after the Game Boy family.
+    // Fragile: the NES, SNES, PlayStation and Nintendo DS after the Game Boy family.
     assert_eq!(
         Platform::ALL,
         [
@@ -17,7 +17,8 @@ fn every_platform_is_a_shelf_of_its_own() {
             Platform::Gbc,
             Platform::Nes,
             Platform::Snes,
-            Platform::PlayStation
+            Platform::PlayStation,
+            Platform::Nds,
         ]
     );
     for (i, p) in Platform::ALL.iter().enumerate() {
@@ -36,4 +37,7 @@ fn each_platform_takes_only_its_own_extensions() {
     assert!(Platform::Gb.accepts(std::path::Path::new("Tetris.gbc")));
     assert!(!Platform::Gb.accepts(std::path::Path::new("Metroid Fusion.gba")));
     assert!(Platform::Gba.accepts(std::path::Path::new("Shrek.GBA")));
+    assert!(Platform::Nds.accepts(std::path::Path::new("Pokemon Platinum.nds")));
+    assert!(Platform::Nds.accepts(std::path::Path::new("Pokemon Platinum.zip")));
+    assert!(!Platform::Nds.accepts(std::path::Path::new("Pokemon Platinum.gba")));
 }

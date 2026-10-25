@@ -274,16 +274,25 @@ pub fn loaded(rom: &Path, resumed: bool) -> Guard {
 }
 
 fn identify(live: &Live, ticket: u64, rom: &PathBuf, console: &AtomicU32) {
-    let bytes = match std::fs::read(rom) {
-        Ok(b) => b,
+    let mut header = [0u8; 512];
+    let header_len = match std::fs::File::open(rom) {
+        Ok(mut f) => std::io::Read::read(&mut f, &mut header).unwrap_or(0),
         Err(e) => {
             eprintln!("slot: cheevos: {}: {e}", rom.display());
             return;
         }
     };
-    let id = game::console_for(rom, &bytes);
-    let hash = game::hash(id, &bytes);
-    drop(bytes);
+    let id = game::console_for(rom, &header[..header_len]);
+    let hash = game::hash_file(id, rom).or_else(|| {
+        if let Ok(metadata) = std::fs::metadata(rom) {
+            if metadata.len() <= 32 * 1024 * 1024 {
+                if let Ok(bytes) = std::fs::read(rom) {
+                    return game::hash(id, &bytes);
+                }
+            }
+        }
+        None
+    });
     let _switch = live.switch.lock().unwrap();
     if live.current.load(Ordering::Acquire) != ticket {
         return;

@@ -32,7 +32,7 @@ pub fn frameskip_option(which: Core) -> Option<(String, &'static str)> {
     match which {
         Core::Mgba | Core::Gpsp => Some((format!("{}_frameskip", which.as_str()), "auto")),
         Core::PcsxRearmed => Some(("pcsx_rearmed_frameskip_type".into(), "auto")),
-        Core::Gambatte | Core::Fceumm | Core::Snes9x | Core::Supafaust => None,
+        Core::Gambatte | Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::Dsperate => None,
     }
 }
 

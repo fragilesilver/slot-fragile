@@ -293,8 +293,8 @@ fn the_screen_page_sets_gb_palettes_in_line_with_the_rows_above() {
 
     let top = quick_row_top(QuickRow::GbPalettes, &[]) as usize;
     beside("Palettes", pointer(&px, top));
-    for row in QuickRow::SCREEN_GB {
-        let top = quick_row_top(row, &[]) as usize;
+    for &row in &QuickRow::SCREEN_GB[1..] {
+        let top = quick_row_top_at(row, QuickRow::GbPalettes, &[]) as usize;
         if row != QuickRow::GbPalettes {
             assert!(pointer(&px, top).is_none(), "a pointer at {row:?} as well");
         }

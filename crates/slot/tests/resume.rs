@@ -412,3 +412,31 @@ fn a_stand_in_core_refusing_a_resume_leaves_it_alone() {
         "a stand-in's refusal filed the state away"
     );
 }
+
+#[test]
+fn empty_resume_is_not_read_or_loaded() {
+    let d = common::tmp_root_with_carts(&["Emerald"]);
+    // Flushing empty bytes does not write a 0-byte file
+    persist::flush(
+        d.path(),
+        Platform::Gba,
+        slot_store::Core::Mgba,
+        "Emerald",
+        Some(&[]),
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        persist::read_resume(d.path(), Platform::Gba, slot_store::Core::Mgba, "Emerald"),
+        None
+    );
+
+    // If an empty file already exists on disk, read_resume filters it out
+    let state_path = d.path().join("States/GBA/mgba/Emerald/resume.state");
+    std::fs::create_dir_all(state_path.parent().unwrap()).unwrap();
+    std::fs::write(&state_path, b"").unwrap();
+    assert_eq!(
+        persist::read_resume(d.path(), Platform::Gba, slot_store::Core::Mgba, "Emerald"),
+        None
+    );
+}

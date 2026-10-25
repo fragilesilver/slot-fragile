@@ -40,7 +40,7 @@ ssh_on() {
 	[ -f "$rsa" ] || $DROPBEARKEY -t rsa -f "$rsa" >/dev/null 2>&1 || true
 	[ -f "$ed" ] || $DROPBEARKEY -t ed25519 -f "$ed" >/dev/null 2>&1 || true
 
-	$DROPBEAR -r "$rsa" -r "$ed" -B -P "$DROPBEAR_PID" \
+	$DROPBEAR -r "$rsa" -r "$ed" -B -W 131072 -P "$DROPBEAR_PID" \
 		< /dev/null > "$LOG" 2>&1 || {
 		echo "dropbear did not start" >&2
 		return 1

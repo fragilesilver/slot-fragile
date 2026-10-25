@@ -191,3 +191,26 @@ fn a_label_style_round_trips_and_a_disc_has_no_cart_label() {
         Some(LabelStyle::Logo)
     );
 }
+
+#[test]
+fn scaling_and_card_shader_round_trip() {
+    use slot_store::Scaling;
+    let mut p = GameProfiles::default();
+    assert!(p.set(
+        Platform::Gba,
+        "Minish Cap",
+        ProfileField::Scaling(Scaling::Integer)
+    ));
+    assert!(p.set(
+        Platform::Gba,
+        "Minish Cap",
+        ProfileField::CardShader("See-Through LCD".into())
+    ));
+    let text = p.to_text();
+    assert!(text.contains("GBA/Minish Cap.scaling = integer"));
+    assert!(text.contains("GBA/Minish Cap.card_shader = See-Through LCD"));
+    let back = GameProfiles::parse(&text);
+    let prof = back.get(Platform::Gba, "Minish Cap");
+    assert_eq!(prof.scaling, Some(Scaling::Integer));
+    assert_eq!(prof.card_shader.as_deref(), Some("See-Through LCD"));
+}

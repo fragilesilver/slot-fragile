@@ -41,6 +41,7 @@ pub fn source(platform: Platform) -> Vec<&'static str> {
         Platform::Nes => vec!["Nintendo - Nintendo Entertainment System"],
         Platform::Snes => vec!["Nintendo - Super Nintendo Entertainment System"],
         Platform::PlayStation => vec!["Sony - PlayStation"],
+        Platform::Nds => vec!["Nintendo - Nintendo DS"],
     }
 }
 

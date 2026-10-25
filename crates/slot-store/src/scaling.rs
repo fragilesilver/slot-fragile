@@ -7,16 +7,23 @@ use crate::{ExtrasState, Platform};
 pub enum Scaling {
     #[default]
     Fit,
+    Fill,
     SharpFit,
     Integer,
 }
 
 impl Scaling {
-    pub const ALL: [Scaling; 3] = [Scaling::Fit, Scaling::SharpFit, Scaling::Integer];
+    pub const ALL: [Scaling; 4] = [
+        Scaling::Fit,
+        Scaling::Fill,
+        Scaling::SharpFit,
+        Scaling::Integer,
+    ];
 
     pub fn key(self) -> &'static str {
         match self {
             Scaling::Fit => "fit",
+            Scaling::Fill => "fill",
             Scaling::SharpFit => "sharp",
             Scaling::Integer => "integer",
         }
@@ -25,6 +32,7 @@ impl Scaling {
     pub fn text(self) -> &'static str {
         match self {
             Scaling::Fit => "Fit",
+            Scaling::Fill => "Fill",
             Scaling::SharpFit => "Sharp Fit",
             Scaling::Integer => "Integer",
         }
@@ -33,6 +41,7 @@ impl Scaling {
     pub fn parse(s: &str) -> Option<Scaling> {
         match s.trim().to_ascii_lowercase().as_str() {
             "fit" => Some(Scaling::Fit),
+            "fill" | "full" | "stretch" => Some(Scaling::Fill),
             "sharp" | "sharp_fit" | "sharp fit" | "sharpfit" => Some(Scaling::SharpFit),
             "integer" | "integer_scale" => Some(Scaling::Integer),
             _ => None,
@@ -48,11 +57,13 @@ impl Scaling {
 
     pub fn step(self, right: bool) -> Scaling {
         match (self, right) {
-            (Scaling::Fit, true) => Scaling::SharpFit,
+            (Scaling::Fit, true) => Scaling::Fill,
+            (Scaling::Fill, true) => Scaling::SharpFit,
             (Scaling::SharpFit, true) => Scaling::Integer,
             (Scaling::Integer, true) => Scaling::Fit,
             (Scaling::Fit, false) => Scaling::Integer,
-            (Scaling::SharpFit, false) => Scaling::Fit,
+            (Scaling::Fill, false) => Scaling::Fit,
+            (Scaling::SharpFit, false) => Scaling::Fill,
             (Scaling::Integer, false) => Scaling::SharpFit,
         }
     }
@@ -91,28 +102,38 @@ mod tests {
     #[test]
     fn scaling_step_cycles_both_directions() {
         let s = Scaling::Fit;
-        assert_eq!(s.step(true), Scaling::SharpFit);
-        assert_eq!(s.step(true).step(true), Scaling::Integer);
-        assert_eq!(s.step(true).step(true).step(true), Scaling::Fit);
+        assert_eq!(s.step(true), Scaling::Fill);
+        assert_eq!(s.step(true).step(true), Scaling::SharpFit);
+        assert_eq!(s.step(true).step(true).step(true), Scaling::Integer);
+        assert_eq!(s.step(true).step(true).step(true).step(true), Scaling::Fit);
 
         assert_eq!(s.step(false), Scaling::Integer);
         assert_eq!(s.step(false).step(false), Scaling::SharpFit);
-        assert_eq!(s.step(false).step(false).step(false), Scaling::Fit);
+        assert_eq!(s.step(false).step(false).step(false), Scaling::Fill);
+        assert_eq!(
+            s.step(false).step(false).step(false).step(false),
+            Scaling::Fit
+        );
     }
 
     #[test]
     fn scaling_parse_and_keys() {
         assert_eq!(Scaling::parse("fit"), Some(Scaling::Fit));
+        assert_eq!(Scaling::parse("fill"), Some(Scaling::Fill));
+        assert_eq!(Scaling::parse("full"), Some(Scaling::Fill));
+        assert_eq!(Scaling::parse("stretch"), Some(Scaling::Fill));
         assert_eq!(Scaling::parse("sharp"), Some(Scaling::SharpFit));
         assert_eq!(Scaling::parse("sharp_fit"), Some(Scaling::SharpFit));
         assert_eq!(Scaling::parse("integer"), Some(Scaling::Integer));
         assert_eq!(Scaling::parse("unknown"), None);
 
         assert_eq!(Scaling::Fit.key(), "fit");
+        assert_eq!(Scaling::Fill.key(), "fill");
         assert_eq!(Scaling::SharpFit.key(), "sharp");
         assert_eq!(Scaling::Integer.key(), "integer");
 
         assert_eq!(Scaling::Fit.text(), "Fit");
+        assert_eq!(Scaling::Fill.text(), "Fill");
         assert_eq!(Scaling::SharpFit.text(), "Sharp Fit");
         assert_eq!(Scaling::Integer.text(), "Integer");
     }

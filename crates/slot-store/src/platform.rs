@@ -12,10 +12,11 @@ pub enum Platform {
     Nes,
     Snes,
     PlayStation,
+    Nds,
 }
 
 impl Platform {
-    pub const COUNT: usize = 6;
+    pub const COUNT: usize = 7;
     pub const ALL: [Platform; Platform::COUNT] = [
         Platform::Gba,
         Platform::Gb,
@@ -23,6 +24,7 @@ impl Platform {
         Platform::Nes,
         Platform::Snes,
         Platform::PlayStation,
+        Platform::Nds,
     ];
 
     // --- extras: the names below read the system's row in `spec.rs` ---

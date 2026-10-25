@@ -20,6 +20,7 @@ mod ring;
 pub mod scaling;
 mod scan;
 mod shaders;
+mod shots;
 mod slot_state;
 mod spec;
 mod stamp;
@@ -50,6 +51,7 @@ pub use shaders::{
     list_shaders, load_shader_params, save_shader_params, shader_config_path, shader_path,
     SHADERS_DIR, SHADER_CONFIG_DIR,
 };
+pub use shots::{shot_stamp, ShotDir, ShotEntry, SCREENSHOTS_DIR};
 pub use slot_state::{
     read_slot_state, write_slot_state, Appearance, BezelPick, Recent, Shader, SlotState,
     WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, FF_SPEED_DEFAULT,

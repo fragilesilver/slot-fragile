@@ -67,5 +67,12 @@ pub fn credit(core: Core) -> CoreCredit {
             file: "gambatte-GPL-2.0.txt",
             source: "https://github.com/libretro/gambatte-libretro",
         },
+        Core::Dsperate => CoreCredit {
+            name: core.text(),
+            by: "beebono and the DSperate contributors",
+            license: "GPL-3.0",
+            file: "dsperate-GPL-3.0.txt",
+            source: "https://github.com/beebono/DSperate",
+        },
     }
 }

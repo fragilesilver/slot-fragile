@@ -264,6 +264,7 @@ impl Session {
             Action::FfStop => self.fast = false,
             _ => {}
         }
+        let was_screensaver = self.app.screensaver_active();
         let menu = self.overlaid();
         self.bridge_link(|app| app.apply(action));
         if matches!(
@@ -274,7 +275,7 @@ impl Session {
                 emu.set_volume(self.app.output_volume());
             }
         }
-        if menu || self.overlaid() {
+        if was_screensaver || menu || self.overlaid() {
             self.pad.clear();
         } else if self.app.takes_from_the_game(action) {
             if let Action::GbaDown(btn) | Action::GbaUp(btn) = action {
@@ -344,6 +345,12 @@ impl Session {
             let blur = crate::core::motion_blur_option(self.app.core(), on);
             if let (Some((key, value)), Some(emu)) = (blur, &self.emu) {
                 emu.set_option(key, value);
+                recoloured = true;
+            }
+        }
+        if let Some(layout) = self.app.take_nds_layout() {
+            if let Some(emu) = &self.emu {
+                emu.set_option("dsperate_layout", &layout);
                 recoloured = true;
             }
         }
@@ -468,6 +475,7 @@ impl Session {
             || self.app.in_game_menu().is_some()
             || self.app.repair_prompt()
             || self.app.shutting_down()
+            || self.app.screensaver_active()
     }
 
     fn dozing(&self) -> bool {
@@ -536,6 +544,12 @@ impl Session {
                 {
                     for (key, value) in crate::gambatte::palette_options(self.app.core(), p) {
                         emu.set_option(key, &value);
+                    }
+                }
+                if self.app.playing_platform() == slot_store::Platform::Nds {
+                    let layout = self.app.nds_layout();
+                    if let Some(emu) = &self.emu {
+                        emu.set_option("dsperate_layout", &layout);
                     }
                 }
                 self.app.on_core_ready()

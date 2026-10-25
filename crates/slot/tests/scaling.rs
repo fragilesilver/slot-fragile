@@ -197,6 +197,11 @@ fn scaling_stepping_and_named_values_on_screen_menu() {
     assert_eq!(a.named_value(QuickRow::IntegerGba), Some("Fit".into()));
     assert_eq!(a.scaling(Platform::Gba), Scaling::Fit);
 
+    // Step right -> Fill
+    a.apply(Action::GbaDown(Btn::Right));
+    assert_eq!(a.named_value(QuickRow::IntegerGba), Some("Fill".into()));
+    assert_eq!(a.scaling(Platform::Gba), Scaling::Fill);
+
     // Step right -> Sharp Fit
     a.apply(Action::GbaDown(Btn::Right));
     assert_eq!(
@@ -205,8 +210,8 @@ fn scaling_stepping_and_named_values_on_screen_menu() {
     );
     assert_eq!(a.scaling(Platform::Gba), Scaling::SharpFit);
 
-    // Step left -> Fit
+    // Step left -> Fill
     a.apply(Action::GbaDown(Btn::Left));
-    assert_eq!(a.named_value(QuickRow::IntegerGba), Some("Fit".into()));
-    assert_eq!(a.scaling(Platform::Gba), Scaling::Fit);
+    assert_eq!(a.named_value(QuickRow::IntegerGba), Some("Fill".into()));
+    assert_eq!(a.scaling(Platform::Gba), Scaling::Fill);
 }

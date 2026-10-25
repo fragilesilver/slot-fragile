@@ -1,6 +1,6 @@
 use slot_store::GbPalette;
 use slot_ui::{
-    toast_face, toast_rect, Canvas, Draw, Hud, HudKind, QuickRow, TexId, Toast, ALARM_BAND_H,
+    toast_face, toast_rect, Canvas, Draw, Hud, HudKind, Icon, QuickRow, TexId, Toast, ALARM_BAND_H,
     OUT_H, OUT_W, PLATE_H,
 };
 
@@ -25,13 +25,39 @@ fn a_cart_gpsp_cannot_link_says_there_is_no_link() {
 }
 
 #[test]
+fn the_shot_toast_says_screenshot_captured_beside_a_camera() {
+    assert_eq!(Toast::ShotCaptured.text(), "Screenshot Captured");
+    assert_eq!(Toast::ShotCaptured.icon(), Some(Icon::Camera));
+    let f = toast_face(Toast::ShotCaptured);
+    let beside = toast_face(Toast::Duplicate(QuickRow::ScSave));
+    assert_eq!(
+        (f.w, f.h),
+        (beside.w, beside.h),
+        "the camera is not laid out beside the words"
+    );
+    let warning = f
+        .rgba
+        .chunks(4)
+        .any(|p| p[3] > 0xc0 && p[0] > 0xf0 && (0xa0..0xd0).contains(&p[1]) && p[2] < 0x50);
+    assert!(!warning, "the camera is inked like a warning");
+}
+
+#[test]
+fn a_failed_shot_says_so_beside_the_alert() {
+    assert_eq!(Toast::ShotFailed.text(), "Screenshot Failed");
+    assert_eq!(Toast::ShotFailed.icon(), Some(Icon::Alert));
+}
+
+#[test]
 fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     let all = Toast::all();
     assert_eq!(
-        all[..18],
+        all[..20],
         [
             Toast::StateSaved,
             Toast::StateLoaded,
+            Toast::ShotCaptured,
+            Toast::ShotFailed,
             Toast::NeedsGpsp,
             Toast::NoLink,
             Toast::LinkEnded,
@@ -53,7 +79,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     );
     let palettes = GbPalette::all().count();
     assert_eq!(
-        all[18..18 + palettes],
+        all[20..20 + palettes],
         GbPalette::all().map(Toast::Palette).collect::<Vec<_>>()[..],
         "the palette banners do not follow the fixed ones in palette order"
     );
@@ -69,7 +95,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         "Fragile's banners are not last"
     );
     assert_eq!(
-        all[18 + palettes..all.len() - extras.len()],
+        all[20 + palettes..all.len() - extras.len()],
         QuickRow::ALL
             .into_iter()
             .filter(|r| r.binds())

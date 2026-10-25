@@ -250,12 +250,14 @@ fn fast_forward_steps_through_its_speeds_wraps_at_both_ends_and_saves_each_one()
         (Btn::Left, 4),
         (Btn::Left, 3),
         (Btn::Left, 2),
+        (Btn::Left, 0),
         (Btn::Left, 6),
+        (Btn::Right, 0),
         (Btn::Right, 2),
         (Btn::Right, 3),
         (Btn::Right, 4),
         (Btn::Right, 6),
-        (Btn::Right, 2),
+        (Btn::Right, 0),
     ] {
         press(&mut a, btn);
         assert_eq!(a.ff_speed(), want, "{btn:?}");
@@ -371,6 +373,7 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
         QuickRow::ScreenNes,
         QuickRow::ScreenSnes,
         QuickRow::ScreenPs,
+        QuickRow::ScreenNds,
         QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
@@ -383,15 +386,15 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
         );
     }
     press(&mut a, Btn::A);
-    assert_eq!(a.quick_menu(), Some(QuickRow::GbShader));
+    assert_eq!(a.quick_menu(), Some(QuickRow::IntegerGb));
     for want in [
+        QuickRow::GbShader,
+        QuickRow::CardShaderGb,
         QuickRow::GbColourCorrection,
         QuickRow::GbPalettes,
         QuickRow::GbBezel,
-        QuickRow::IntegerGb,
-        QuickRow::CardShaderGb,
         QuickRow::MotionBlurGb,
-        QuickRow::GbShader,
+        QuickRow::IntegerGb,
     ] {
         press(&mut a, Btn::Down);
         assert_eq!(
@@ -648,7 +651,7 @@ fn fake_faces(a: &mut App) {
     let id = TexId::from_raw;
     a.set_quick_menu_faces(QuickMenuFaces {
         labels: (0..QuickRow::ALL.len())
-            .map(|i| [(id(1000 + i), 200, 40), (id(1100 + i), 200, 40)])
+            .map(|i| [(id(1000 + i), 200, 40), (id(1300 + i), 200, 40)])
             .collect(),
         pointer: (id(700), 32, 48),
         values: (0..QuickValue::ALL.len())
@@ -685,7 +688,7 @@ fn fake_faces(a: &mut App) {
 
 fn label(row: QuickRow, lit: bool) -> usize {
     if lit {
-        1100 + row.index()
+        1300 + row.index()
     } else {
         1000 + row.index()
     }
@@ -848,7 +851,7 @@ fn the_arrows_stand_only_around_the_selected_rows_value() {
         press(&mut a, Btn::Up);
     }
     press(&mut a, Btn::A);
-    for _ in 0..QuickRow::LidOff.position(&a.hidden_rows()) {
+    for _ in 0..QuickRow::DateTime.position(&a.hidden_rows()) - 1 {
         press(&mut a, Btn::Down);
     }
     let out = frame(&a);
@@ -1227,7 +1230,7 @@ fn a_wide_panel_offers_gb_and_gbc_frames_from_none_through_the_card() {
     );
     assert_eq!(a.resolved_bezel(Platform::Gb), BezelPick::None);
     press(&mut a, Btn::Down);
-    assert_eq!(a.quick_menu(), Some(QuickRow::IntegerGbc));
+    assert_eq!(a.quick_menu(), Some(QuickRow::MotionBlurGbc));
     assert!(!a.sp_frame());
 }
 
@@ -1331,8 +1334,8 @@ fn a_page_that_scrolls_shows_a_caret_on_each_side_with_more() {
 fn a_page_that_fits_shows_no_scroll_carets() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
-    // Fragile: Gameplay no longer fits (Fast Forward Pitch), so the Screen page stands in.
-    for row in [QuickRow::SCREEN[0], QuickRow::SCREEN_GBA[0]] {
+    // Fragile: Gameplay and Screen no longer fit (7 systems), so ScreenNds stands in.
+    for row in [QuickRow::SCREEN_NDS[0], QuickRow::SCREEN_GBA[0]] {
         open_at(&mut a, row);
         let out = frame(&a);
         assert!(
@@ -1357,6 +1360,11 @@ fn start_shelf_steps_both_ways_and_saves_to_extras_not_slot_state() {
         Some(QuickValue::RecentsShelf)
     );
     press(&mut a, Btn::Left);
+    press(&mut a, Btn::Left);
+    assert_eq!(
+        a.quick_value(QuickRow::StartShelf),
+        Some(QuickValue::NdsShelf)
+    );
     press(&mut a, Btn::Left);
     assert_eq!(
         a.quick_value(QuickRow::StartShelf),

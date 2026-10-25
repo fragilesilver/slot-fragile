@@ -27,6 +27,22 @@ impl Power {
         }
     }
 
+    pub fn dim(&mut self, step: u8) {
+        if !self.closed {
+            self.platform.set_backlight(step);
+        }
+    }
+
+    pub fn undim(&mut self) {
+        if !self.closed {
+            self.platform.set_backlight(self.level);
+        }
+    }
+
+    pub fn level(&self) -> u8 {
+        self.level
+    }
+
     pub fn battery(&self) -> Option<Battery> {
         self.platform.battery()
     }

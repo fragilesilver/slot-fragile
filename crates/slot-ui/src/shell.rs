@@ -93,7 +93,7 @@ pub fn shell_for(cart: &Cart) -> Shell {
         // Fragile: a NES or SNES cart or a disc comes in its own neutral plastic.
         other => match crate::media::Media::of(other) {
             Some(m) => shell(m.colour(), Finish::Solid),
-            None => gba_shell_for(&gba_code(cart)),
+            None => shell([0x3a, 0x3a, 0x3e], Finish::Solid),
         },
     }
 }

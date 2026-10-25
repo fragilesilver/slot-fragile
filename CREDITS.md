@@ -36,3 +36,4 @@ and About > Details lists it.
 | [Snes9x](https://github.com/libretro/snes9x) | the Snes9x team and the libretro team | Snes9x (non-commercial): free for personal use, not for sale; not GPL |
 | [Supafaust](https://github.com/libretro/supafaust) | the Mednafen team and the libretro team | GPL-2.0 |
 | [PCSX ReARMed](https://github.com/libretro/pcsx_rearmed) | notaz, the PCSX teams and the libretro team | GPL-2.0 |
+| [DSperate](https://github.com/beebono/DSperate) | beebono and the DSperate contributors | GPL-3.0 |

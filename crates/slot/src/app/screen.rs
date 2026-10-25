@@ -21,6 +21,7 @@ fn card_shader_row_platform(row: QuickRow) -> Option<Platform> {
         QuickRow::CardShaderNes => Some(Platform::Nes),
         QuickRow::CardShaderSnes => Some(Platform::Snes),
         QuickRow::CardShaderPs => Some(Platform::PlayStation),
+        QuickRow::CardShaderNds => Some(Platform::Nds),
         _ => None,
     }
 }
@@ -44,6 +45,7 @@ fn shader_row_platform(row: QuickRow) -> Option<Platform> {
         QuickRow::NesShader => Some(Platform::Nes),
         QuickRow::SnesShader => Some(Platform::Snes),
         QuickRow::PsShader => Some(Platform::PlayStation),
+        QuickRow::NdsShader => Some(Platform::Nds),
         _ => None,
     }
 }
@@ -83,6 +85,13 @@ impl App {
     }
 
     pub fn scaling(&self, platform: Platform) -> Scaling {
+        if let Some((p, stem)) = self.seated_game() {
+            if p == platform {
+                if let Some(s) = self.profiles.get(p, &stem).scaling {
+                    return s;
+                }
+            }
+        }
         slot_store::get_scaling(&self.extras, platform)
     }
 
@@ -93,6 +102,16 @@ impl App {
 
     pub fn integer_scale(&self, platform: Platform) -> bool {
         self.scaling(platform) == Scaling::Integer
+    }
+
+    /// Whether the game picture should fill the display frame completely.
+    pub fn fills_frame(&self) -> bool {
+        let platform = self.playing_platform();
+        self.scaling(platform) == Scaling::Fill
+            || (!platform.spec().native && self.video_mode == VideoMode::Stretch)
+            || (platform.spec().native
+                && self.framed_panel()
+                && self.scaling(platform) == Scaling::Fit)
     }
 
     /// Whether sharp-bilinear integer-snap filtering should be applied to the game picture.
@@ -129,6 +148,7 @@ impl App {
             QuickRow::IntegerNes => Some(Platform::Nes),
             QuickRow::IntegerSnes => Some(Platform::Snes),
             QuickRow::IntegerPs => Some(Platform::PlayStation),
+            QuickRow::IntegerNds => Some(Platform::Nds),
             _ => None,
         }
     }
@@ -136,11 +156,22 @@ impl App {
     pub(super) fn screen_value(&self, row: QuickRow) -> Option<Option<QuickValue>> {
         if card_shader_row_platform(row).is_some()
             || row == QuickRow::CardShader
+            || row == QuickRow::ThisCardShader
             || row == QuickRow::ShaderSettings
+            || row == QuickRow::Scaling
+            || row == QuickRow::ThisScaling
+            || row == QuickRow::NdsLayout
+            || row == QuickRow::PlayNdsLayout
+            || row == QuickRow::ThisNdsLayout
             || Self::integer_row_platform(row).is_some()
         {
             // Drawn from `named_value`, since a file name or scaling has no ready-made face.
             return Some(None);
+        }
+        if row == QuickRow::MotionBlur {
+            return Some(Some(QuickValue::flag(
+                self.motion_blur(self.playing_platform()),
+            )));
         }
         if let Some(platform) = motion_blur_row_platform(row) {
             return Some(Some(QuickValue::flag(self.motion_blur(platform))));
@@ -168,8 +199,33 @@ impl App {
     }
 
     pub(super) fn change_screen(&mut self, row: QuickRow, right: bool) -> bool {
+        if row == QuickRow::Scaling {
+            let platform = self.playing_platform();
+            let to = self.scaling(platform).step(right);
+            if self.seated_cart().is_some() && self.game_profile().scaling.is_some() {
+                self.set_own(slot_store::ProfileField::Scaling(to));
+            } else {
+                self.set_scaling(platform, to);
+            }
+            return true;
+        }
+        if row == QuickRow::MotionBlur {
+            let platform = self.playing_platform();
+            let on = !self.motion_blur(platform);
+            self.extras.set_flag(&motion_blur_key(platform), on);
+            self.motion_blur_changed();
+            return true;
+        }
         if row == QuickRow::CardShader {
             self.step_card_shader(self.playing_platform(), right);
+            return true;
+        }
+        if row == QuickRow::ThisNdsLayout {
+            self.step_nds_layout(true, right);
+            return true;
+        }
+        if row == QuickRow::NdsLayout || row == QuickRow::PlayNdsLayout {
+            self.step_nds_layout(false, right);
             return true;
         }
         if let Some(platform) = card_shader_row_platform(row) {
@@ -199,6 +255,17 @@ impl App {
 
     /// The shader from `Shaders/` a console draws with, by name; `None` for the built-in.
     pub fn card_shader_for(&self, platform: Platform) -> Option<String> {
+        if let Some((p, stem)) = self.seated_game() {
+            if p == platform {
+                if let Some(cs) = self.profiles.get(p, &stem).card_shader {
+                    return if cs == "Off" || cs.is_empty() {
+                        None
+                    } else {
+                        Some(cs)
+                    };
+                }
+            }
+        }
         self.extras
             .get(&card_shader_key(platform))
             .map(str::to_string)
@@ -235,6 +302,12 @@ impl App {
         if row == QuickRow::HdmiOutput {
             return Some(self.hdmi_mode().text().to_string());
         }
+        if row == QuickRow::Screensaver {
+            return Some(self.screensaver_timeout_text());
+        }
+        if row == QuickRow::ScreensaverStyle {
+            return Some(self.screensaver_style().text().to_string());
+        }
         if let Some(text) = self.network_text(row) {
             return Some(text);
         }
@@ -244,8 +317,17 @@ impl App {
         if let Some(text) = self.this_label_text(row) {
             return Some(text);
         }
-        if row == QuickRow::CardShader {
+        if row == QuickRow::CardShader || row == QuickRow::ThisCardShader {
             return Some(self.card_shader().unwrap_or_else(|| "Off".into()));
+        }
+        if row == QuickRow::Scaling || row == QuickRow::ThisScaling {
+            return Some(self.scaling(self.playing_platform()).text().to_string());
+        }
+        if row == QuickRow::NdsLayout
+            || row == QuickRow::PlayNdsLayout
+            || row == QuickRow::ThisNdsLayout
+        {
+            return Some(self.nds_layout());
         }
         if let Some(platform) = Self::integer_row_platform(row) {
             return Some(self.scaling(platform).text().to_string());
@@ -256,4 +338,52 @@ impl App {
                 .unwrap_or_else(|| "Off".into()),
         )
     }
+
+    pub fn nds_layout(&self) -> String {
+        if let Some((Platform::Nds, stem)) = self.seated_game() {
+            if let Some(ref layout) = self.profiles.get(Platform::Nds, &stem).nds_layout {
+                return layout.clone();
+            }
+        }
+        self.extras
+            .get(NDS_LAYOUT_KEY)
+            .map(str::to_string)
+            .unwrap_or_else(|| "Top Dominant".into())
+    }
+
+    pub fn step_nds_layout(&mut self, is_this_game: bool, right: bool) {
+        let current = self.nds_layout();
+        let at = NDS_LAYOUTS.iter().position(|&l| l == current).unwrap_or(0);
+        let n = NDS_LAYOUTS.len();
+        let next_idx = if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        };
+        let next = NDS_LAYOUTS[next_idx].to_string();
+
+        if is_this_game
+            || (self.seated_cart().is_some() && self.game_profile().nds_layout.is_some())
+        {
+            self.set_own(slot_store::ProfileField::NdsLayout(next.clone()));
+        } else {
+            self.extras.set(NDS_LAYOUT_KEY, Some(&next));
+            self.save_extras();
+        }
+
+        if self.playing_platform() == Platform::Nds {
+            self.nds_layout_pending = Some(next);
+        }
+    }
 }
+
+pub const NDS_LAYOUTS: [&str; 6] = [
+    "Top Dominant",
+    "Top Only",
+    "Bottom Only",
+    "Vertical",
+    "Horizontal",
+    "Picture in Picture",
+];
+
+const NDS_LAYOUT_KEY: &str = "nds_layout";

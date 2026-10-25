@@ -213,6 +213,8 @@ fn the_in_game_settings_have_no_save_changes_page() {
             QuickRow::PlayGameplay,
             QuickRow::PlayControls,
             QuickRow::PlayThisGame,
+            QuickRow::PlayNetwork,
+            QuickRow::PlayGeneral,
             QuickRow::PlayGuide
         ]
     );
@@ -760,4 +762,20 @@ fn with_turbo_off_its_rows_are_hidden_and_never_flagged() {
         assert_eq!(s.app().clash(row), None);
     }
     assert_eq!(s.app().clash(QuickRow::ScSave), None);
+}
+
+#[test]
+fn select_x_in_game_is_the_screenshot_action() {
+    let table = slot::input::Table::new(
+        &Controls::default(),
+        &ShortcutKeys::default(),
+        &CarouselKeys::default(),
+        true,
+    );
+    assert!(table.entries().iter().any(|e| e.chord
+        == slot_input::Chord {
+            modifier: Some(slot_input::Mod::Select),
+            button: Btn::X,
+        }
+        && e.action == Action::Screenshot));
 }

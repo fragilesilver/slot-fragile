@@ -144,6 +144,40 @@ fn a_pair_is_the_same_binding_in_either_order() {
 }
 
 #[test]
+fn screenshot_defaults_to_select_x() {
+    let c = ShortcutKeys::default();
+    assert_eq!(
+        c.get(Shortcut::Screenshot),
+        with(Modifier::Select, Device::X)
+    );
+    assert_eq!(Shortcut::Screenshot.label(), "Screenshot");
+    for other in Shortcut::ALL
+        .into_iter()
+        .filter(|s| *s != Shortcut::Screenshot)
+    {
+        assert_ne!(
+            c.get(other),
+            c.get(Shortcut::Screenshot),
+            "{other:?} starts on the screenshot chord"
+        );
+    }
+}
+
+#[test]
+fn a_screenshot_binding_round_trips_through_the_file() {
+    let d = card();
+    let mut keys = ShortcutKeys::default();
+    keys.set(Shortcut::Screenshot, with(Modifier::Select, Device::L2));
+    write_shortcuts(d.path(), &keys).unwrap();
+    assert_eq!(
+        read_shortcuts(d.path()).get(Shortcut::Screenshot),
+        with(Modifier::Select, Device::L2)
+    );
+    let text = std::fs::read_to_string(d.path().join("Config/shortcuts.txt")).unwrap();
+    assert!(text.contains("screenshot"), "{text}");
+}
+
+#[test]
 fn a_pair_with_select_is_a_select_chord() {
     assert_eq!(
         Binding::pair(Device::A, Device::Select),

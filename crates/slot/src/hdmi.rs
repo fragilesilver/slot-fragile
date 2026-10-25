@@ -135,7 +135,7 @@ impl DeviceHdmi {
     fn run_script(&self, args: &[&str]) -> bool {
         let mut cmd = std::process::Command::new("/bin/sh");
         cmd.arg(self.root.join("System/slothdmi.sh")).args(args);
-        cmd.status().map(|s| s.success()).unwrap_or(false)
+        cmd.output().map(|s| s.status.success()).unwrap_or(false)
     }
 }
 

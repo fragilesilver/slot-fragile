@@ -82,14 +82,14 @@ fn the_in_game_menu_darkens_the_game_and_screen_leaves_it_bare() {
     run_for(&mut f, &mut input, 0.4);
     assert_eq!(f.app().in_game_menu(), Some(QuickRow::Resume));
     let top = composed(&mut f, &mut c, "top");
-    for btn in [Btn::Down, Btn::Down, Btn::A, Btn::A] {
+    for btn in [Btn::Down, Btn::A, Btn::A] {
         tap(&mut f, &mut input, btn);
     }
     run_for(&mut f, &mut input, 0.3);
-    assert_eq!(f.app().in_game_menu(), Some(QuickRow::Shader));
+    assert_eq!(f.app().in_game_menu(), Some(QuickRow::Scaling));
     let screen = composed(&mut f, &mut c, "screen");
 
-    let panel = quick_row_top(QuickRow::Shader, &f.app().in_game_hidden()) as usize - 16;
+    let panel = quick_row_top(QuickRow::Scaling, &f.app().in_game_hidden()) as usize - 16;
     let (mut probed, mut lit) = (0, 0);
     for y in (48..panel).step_by(17) {
         for x in (0..150).chain(570..OUT_W as usize).step_by(13) {
@@ -128,14 +128,14 @@ fn the_in_game_menu_darkens_the_game_and_screen_leaves_it_bare() {
         );
     }
 
-    let row = quick_row_top(QuickRow::Shader, &f.app().in_game_hidden()) as usize;
+    let row = quick_row_top(QuickRow::Scaling, &f.app().in_game_hidden()) as usize;
     let ink = (row..row + 40)
         .flat_map(|y| (64..400).map(move |x| (x, y)))
         .filter(|&(x, y)| bright(at(&screen, x, y)) > 600)
         .count();
     assert!(
         ink > 100,
-        "no Shader label in the panel: {ink} bright pixels"
+        "no Scaling label in the panel: {ink} bright pixels"
     );
     let (x, y) = (700, OUT_H as usize - 4);
     let (panel_px, bare) = (at(&screen, x, y), at(&held, x, y));
@@ -162,7 +162,7 @@ fn the_controls_page_renders() {
     run_for(&mut f, &mut input, 4.0);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.5);
-    for btn in [Btn::Down, Btn::Down, Btn::A, Btn::Down, Btn::Down, Btn::A] {
+    for btn in [Btn::Down, Btn::A, Btn::Down, Btn::Down, Btn::A] {
         tap(&mut f, &mut input, btn);
     }
     run_for(&mut f, &mut input, 0.3);
@@ -236,25 +236,27 @@ fn the_this_game_page_renders_over_the_game() {
     run_for(&mut f, &mut input, 4.0);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.5);
-    for btn in [Btn::Down, Btn::Down, Btn::A] {
-        tap(&mut f, &mut input, btn);
+    for _ in 0..QuickRow::Settings.position(&f.app().in_game_hidden()) {
+        tap(&mut f, &mut input, Btn::Down);
     }
+    tap(&mut f, &mut input, Btn::A);
     run_for(&mut f, &mut input, 0.2);
     composed(&mut f, &mut c, "settings");
-    for btn in [Btn::Down, Btn::Down, Btn::Down, Btn::A] {
-        tap(&mut f, &mut input, btn);
+    for _ in 0..QuickRow::PlayThisGame.position(&f.app().in_game_hidden()) {
+        tap(&mut f, &mut input, Btn::Down);
     }
+    tap(&mut f, &mut input, Btn::A);
     run_for(&mut f, &mut input, 0.3);
-    assert_eq!(f.app().in_game_menu(), Some(QuickRow::ThisShader));
+    assert_eq!(f.app().in_game_menu(), Some(QuickRow::ThisScaling));
     let px = composed(&mut f, &mut c, "this-game");
-    let row = quick_row_top(QuickRow::ThisShader, &f.app().in_game_hidden()) as usize;
+    let row = quick_row_top(QuickRow::ThisScaling, &f.app().in_game_hidden()) as usize;
     let ink = (row..row + 40)
         .flat_map(|y| (64..400).map(move |x| (x, y)))
         .filter(|&(x, y)| at(&px, x, y).iter().map(|c| u32::from(*c)).sum::<u32>() > 600)
         .count();
     assert!(
         ink > 100,
-        "no Shader label on This Game: {ink} bright pixels"
+        "no Scaling label on This Game: {ink} bright pixels"
     );
 }
 
@@ -406,9 +408,11 @@ fn the_button_guide_renders_over_the_game() {
     run_for(&mut f, &mut input, 4.0);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.5);
-    for btn in [Btn::Down, Btn::Down, Btn::A] {
-        tap(&mut f, &mut input, btn);
+    for _ in 0..QuickRow::Settings.position(&f.app().in_game_hidden()) {
+        tap(&mut f, &mut input, Btn::Down);
     }
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 0.2);
     for _ in 0..QuickRow::PlayGuide.position(&f.app().in_game_hidden()) {
         tap(&mut f, &mut input, Btn::Down);
     }

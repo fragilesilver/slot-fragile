@@ -27,3 +27,19 @@ pub fn png_sized(xrgb8888: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
     writer.finish().ok()?;
     Some(out)
 }
+
+/// Encodes RGBA pixels of size (w, h) into PNG bytes.
+pub fn png_rgba(rgba: &[u8], (w, h): (u32, u32)) -> Option<Vec<u8>> {
+    let n = (w * h) as usize;
+    if n == 0 || rgba.len() < n * 4 {
+        return None;
+    }
+    let mut out = Vec::new();
+    let mut enc = png::Encoder::new(&mut out, w, h);
+    enc.set_color(png::ColorType::Rgba);
+    enc.set_depth(png::BitDepth::Eight);
+    let mut writer = enc.write_header().ok()?;
+    writer.write_image_data(&rgba[..n * 4]).ok()?;
+    writer.finish().ok()?;
+    Some(out)
+}

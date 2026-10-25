@@ -25,7 +25,7 @@ pub fn flush(
     state: Option<&[u8]>,
     sav: Option<&[u8]>,
 ) -> std::io::Result<()> {
-    if let Some(state) = state {
+    if let Some(state) = state.filter(|s| !s.is_empty()) {
         StateRing::new(root, platform, core, stem).write_resume(state)?;
     }
     if let Some(sav) = sav {
@@ -80,6 +80,7 @@ pub fn read_resume(root: &Path, platform: Platform, core: Core, stem: &str) -> O
         .read_resume()
         .ok()
         .flatten()
+        .filter(|s| !s.is_empty())
 }
 
 fn sav_path(root: &Path, platform: Platform, stem: &str) -> PathBuf {

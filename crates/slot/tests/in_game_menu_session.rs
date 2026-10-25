@@ -101,8 +101,11 @@ fn colour_correction_changed_behind_the_menu_redraws_the_paused_frame() {
     );
     open_menu(&mut s, &mut now);
     assert!(runs_at(&mut s, &mut now, Speed::Paused));
-    for btn in [Btn::Down, Btn::Down, Btn::A, Btn::A, Btn::Down] {
+    for btn in [Btn::Down, Btn::A, Btn::A] {
         tap(&mut s, &mut now, btn);
+    }
+    while s.app().in_game_menu() != Some(QuickRow::ColourCorrection) {
+        tap(&mut s, &mut now, Btn::Down);
     }
     assert_eq!(s.app().in_game_menu(), Some(QuickRow::ColourCorrection));
     let shown = s.emu().map(|e| e.published_count()).expect("no core");

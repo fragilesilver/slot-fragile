@@ -21,6 +21,7 @@ mod list_page;
 mod media;
 mod plate;
 mod polaroids;
+mod shot_viewer;
 // Fragile: Game Art's labels (Phase 13).
 mod scraped;
 pub use scraped::{box_hue, box_label, hue_of, scraped_label};
@@ -39,6 +40,7 @@ mod sticker_pro;
 pub mod text;
 mod toast;
 
+pub use art::decode as decode_png;
 pub use backdrop::{
     bezel_face, blur_background, default_background, default_game_bezel_face, draw_backdrop,
     draw_ground, game_bezel_face, wallpaper_face,
@@ -65,7 +67,7 @@ pub use clock::{
     ClockPicker, Field,
 };
 pub use draw::{Canvas, Draw, TexId, OUT_H, OUT_W};
-pub use footer::{draw_corners, draw_footer, Printed, FOOTER_Y};
+pub use footer::{draw_corners, draw_footer, draw_printed, Printed, FOOTER_Y};
 pub use hud::{
     badge_at, ff_badge, footer_ink, FfState, Hud, HudKind, LinkBadge, Millis, ALARM_BAND_H,
     HUD_ICON_PX, HUD_INK, HUD_MS, LINK_HOST_INK, LINK_JOIN_INK, PLATE_H,
@@ -87,18 +89,21 @@ pub use list_page::{
 pub use media::Media;
 pub use plate::{
     arrows_hint_coloured, arrows_hint_face, arrows_hint_width, cap_width, centred_hints,
-    hint_coloured, hint_face, hint_quad, hint_row, hint_width, title_face, title_line_face,
-    word_face, word_ink, word_width, Hint, UndoFace, ARROW_GAP, CAP, CAP_GAP, HINT_EDGE, HINT_GAP,
-    HINT_H, LEGEND_GAP, TITLE_H, TITLE_LINE_H, TITLE_W,
+    hint_coloured, hint_face, hint_quad, hint_row, hint_width, pad_hint_face, pad_hint_width,
+    tick_cap_face, title_face, title_line_face, word_face, word_ink, word_width, Hint, UndoFace,
+    ARROW_GAP, CAP, CAP_GAP, HINT_EDGE, HINT_GAP, HINT_H, LEGEND_GAP, TITLE_H, TITLE_LINE_H,
+    TITLE_W,
 };
-pub use polaroids::{photo_face, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W};
+pub use polaroids::{
+    draw_album_chrome, photo_face, AlbumChrome, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W,
+};
 pub use power_menu::{menu_detail_face, menu_face, PowerChoice, MENU_PAD};
 pub use quick_menu::{
-    core_button_legends, draw_menu_ground, link_button_legends, prompt_legends, quick_caret_face,
-    quick_description_face, quick_label_face, quick_legend_faces, quick_pointer_face,
-    quick_row_top, quick_row_top_at, quick_scroll_face, quick_value_face, quick_warning_value_face,
-    quick_window, repair_legends, FacePair, QuickMenu, QuickMenuFaces, QuickRow, QuickValue,
-    QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH, QUICK_VISIBLE,
+    core_button_legends, delete_legends, draw_menu_ground, link_button_legends, prompt_legends,
+    quick_caret_face, quick_description_face, quick_label_face, quick_legend_faces,
+    quick_pointer_face, quick_row_top, quick_row_top_at, quick_scroll_face, quick_value_face,
+    quick_warning_value_face, quick_window, repair_legends, FacePair, QuickMenu, QuickMenuFaces,
+    QuickRow, QuickValue, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH, QUICK_VISIBLE,
 };
 pub use rebuild::{rebuild_count_face, rebuild_title_face, RebuildScreen};
 pub use refusal::Refusal;
@@ -107,6 +112,10 @@ pub use shell::{
     gb_plastics, gb_table_shells, gba_plastics, gba_shell_for,
     lookup_order_is_exact_then_family_then_default, shell_for, shell_presets, table_keys, Finish,
     Shell, DEFAULT_SHELL, DMG_SHELL, DUAL_MODE_SHELL, GB_CLEAR_SHELL,
+};
+pub use shot_viewer::{
+    grid_cell, grid_rows_shown, thumbnail, ShotMode, ShotViewer, GRID_COLS, GRID_GAP, MAX_ZOOM,
+    PAN_KEY, PAN_TAP, SHOT_HINTS,
 };
 pub use silhouette::{gb_silhouette, silhouette, GbShell};
 pub use slot_chrome::{

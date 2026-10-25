@@ -193,6 +193,10 @@ impl GamePass {
         self.fills = on;
     }
 
+    pub fn fills_frame(&self) -> bool {
+        self.fills
+    }
+
     pub fn set_picture(&mut self, rect: [f32; 4]) {
         self.pic = rect;
     }

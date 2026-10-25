@@ -25,6 +25,7 @@ use std::path::Path;
 
 use crate::label_style::LabelStyle;
 use crate::platform::Platform;
+use crate::scaling::Scaling;
 use crate::slot_state::{Shader, SlotState, FF_SPEEDS};
 
 pub const GAME_PROFILES_FILE: &str = "Config/game_profiles.txt";
@@ -34,7 +35,7 @@ const HEADER: &str =
 # the game uses the default from the settings menu. Delete a game's lines to reset it.\n";
 
 /// What one game has chosen. `None` is "use the default".
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct GameProfile {
     pub shader: Option<Shader>,
     pub colour: Option<bool>,
@@ -42,16 +43,22 @@ pub struct GameProfile {
     pub ff_sound: Option<bool>,
     /// Fragile: how Game Art draws its label (Phase 13).
     pub label: Option<LabelStyle>,
+    pub scaling: Option<Scaling>,
+    pub card_shader: Option<String>,
+    pub nds_layout: Option<String>,
 }
 
 /// One change to a game's profile.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum ProfileField {
     Shader(Shader),
     Colour(bool),
     FfSpeed(u8),
     FfSound(bool),
     Label(LabelStyle),
+    Scaling(Scaling),
+    CardShader(String),
+    NdsLayout(String),
 }
 
 /// The settings a game actually runs with: its own where it has them, the defaults elsewhere.
@@ -75,6 +82,9 @@ impl GameProfile {
             ProfileField::FfSpeed(f) => self.ff_speed = Some(f),
             ProfileField::FfSound(on) => self.ff_sound = Some(on),
             ProfileField::Label(style) => self.label = Some(style),
+            ProfileField::Scaling(scaling) => self.scaling = Some(scaling),
+            ProfileField::CardShader(shader) => self.card_shader = Some(shader),
+            ProfileField::NdsLayout(layout) => self.nds_layout = Some(layout),
         }
     }
 
@@ -181,6 +191,9 @@ impl GameProfiles {
                 "label" => LabelStyle::parse(&value)
                     .filter(|s| LabelStyle::of(platform).contains(s))
                     .map(ProfileField::Label),
+                "scaling" => Scaling::parse(&value).map(ProfileField::Scaling),
+                "card_shader" => Some(ProfileField::CardShader(value)),
+                "nds_layout" => Some(ProfileField::NdsLayout(value)),
                 _ => None,
             };
             if let Some(field) = field {
@@ -193,7 +206,7 @@ impl GameProfiles {
     pub fn get(&self, platform: Platform, stem: &str) -> GameProfile {
         self.games
             .get(&profile_key(platform, stem))
-            .copied()
+            .cloned()
             .unwrap_or_default()
     }
 
@@ -242,6 +255,15 @@ impl GameProfiles {
             }
             if let Some(style) = p.label {
                 out.push_str(&format!("{game}.label = {}\n", style.key()));
+            }
+            if let Some(scaling) = p.scaling {
+                out.push_str(&format!("{game}.scaling = {}\n", scaling.key()));
+            }
+            if let Some(card_shader) = &p.card_shader {
+                out.push_str(&format!("{game}.card_shader = {card_shader}\n"));
+            }
+            if let Some(nds_layout) = &p.nds_layout {
+                out.push_str(&format!("{game}.nds_layout = {nds_layout}\n"));
             }
         }
         out

@@ -83,7 +83,7 @@ fn run_listener(listener: TcpListener, root: PathBuf, shutdown: Arc<AtomicBool>)
 
 fn handle_client(stream: &mut TcpStream, root: &Path) {
     let mut buf = Vec::new();
-    let mut chunk = [0u8; 4096];
+    let mut chunk = [0u8; 65536];
     let mut header_end = None;
 
     // Read headers
@@ -351,7 +351,7 @@ fn handle_api_games(root: &Path) -> String {
         let is_fav = favorites
             .iter()
             .any(|f| f.platform == c.platform && f.stem == *stem);
-        let has_label = c.label.is_some();
+        let has_label = true;
         let shell_val = c.shell.map(|s| s.to_value()).unwrap_or_default();
 
         items.push(format!(
@@ -448,24 +448,33 @@ fn handle_api_upload_label(platform_str: &str, stem: &str, body: &[u8], root: &P
 fn handle_api_get_label(platform_str: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
     let (plat, dir_name) = resolve_platform(platform_str);
 
+    // 1. Direct label file search across custom, scraped, and common media folders
     let candidates = [
         root.join("Labels").join(&dir_name),
         root.join(slot_store::SCRAPED_LABELS).join(&dir_name),
+        root.join("Games").join(&dir_name).join("media/images"),
+        root.join("Games").join(&dir_name).join("media/boxart"),
+        root.join("Games").join(&dir_name).join("images"),
+        root.join("Games").join(&dir_name).join("boxart"),
+        root.join("Roms").join(&dir_name).join("media/images"),
+        root.join("Roms").join(&dir_name).join("images"),
     ];
 
     let target_png = format!("{stem}.png").to_lowercase();
+    let target_jpg = format!("{stem}.jpg").to_lowercase();
 
     for dir in &candidates {
         let direct = dir.join(format!("{stem}.png"));
         if direct.is_file() {
-            if let Ok(bytes) = fs::read(direct) {
+            if let Ok(bytes) = fs::read(&direct) {
                 return Some(bytes);
             }
         }
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 if let Ok(name) = entry.file_name().into_string() {
-                    if name.to_lowercase() == target_png {
+                    let lower = name.to_lowercase();
+                    if lower == target_png || lower == target_jpg {
                         if let Ok(bytes) = fs::read(entry.path()) {
                             return Some(bytes);
                         }
@@ -475,6 +484,35 @@ fn handle_api_get_label(platform_str: &str, stem: &str, root: &Path) -> Option<V
         }
     }
 
+    // 2. Scraped art directories
+    let art_kinds = ["box.png", "cart.png", "logo.png"];
+    let art_dir = root.join("System/Cache/Scraper/Art").join(&dir_name);
+    for kind in art_kinds {
+        let p = art_dir.join(stem).join(kind);
+        if p.is_file() {
+            if let Ok(bytes) = fs::read(&p) {
+                return Some(bytes);
+            }
+        }
+    }
+    if let Ok(entries) = fs::read_dir(&art_dir) {
+        for entry in entries.flatten() {
+            if let Ok(name) = entry.file_name().into_string() {
+                if name.eq_ignore_ascii_case(stem) {
+                    for kind in art_kinds {
+                        let p = entry.path().join(kind);
+                        if p.is_file() {
+                            if let Ok(bytes) = fs::read(&p) {
+                                return Some(bytes);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Scan carts: check custom or scraped label, or generate on-the-fly CartFace / Disc Face as PNG
     if let Ok(carts) = slot_store::scan(root) {
         if let Some(c) = carts.iter().find(|c| {
             c.stem.eq_ignore_ascii_case(stem)
@@ -485,19 +523,15 @@ fn handle_api_get_label(platform_str: &str, stem: &str, root: &Path) -> Option<V
         }) {
             if let Some(label_path) = &c.label {
                 if let Ok(bytes) = fs::read(label_path) {
-                    return Some(bytes);
+                    if bytes.starts_with(b"\x89PNG") {
+                        return Some(bytes);
+                    }
                 }
             }
-        }
-    }
-
-    let art_kinds = ["box.png", "cart.png", "logo.png"];
-    let art_dir = root.join("System/Cache/Scraper/Art").join(&dir_name).join(stem);
-    for kind in art_kinds {
-        let p = art_dir.join(kind);
-        if p.is_file() {
-            if let Ok(bytes) = fs::read(p) {
-                return Some(bytes);
+            let art = crate::label_cache::label_art(root, c);
+            let face = slot_ui::cart_face_with(c, art);
+            if let Some(png) = crate::thumb::png_rgba(&face.rgba, (face.w, face.h)) {
+                return Some(png);
             }
         }
     }
@@ -622,8 +656,7 @@ fn handle_api_post_favorite(body: &[u8], root: &Path) -> String {
     let mut lines: Vec<String> = content.lines().map(|s| s.trim().to_string()).collect();
 
     if let Some(pos) = lines.iter().position(|l| {
-        l.eq_ignore_ascii_case(&entry)
-            || l.eq_ignore_ascii_case(&format!("{dir_name}/{stem}"))
+        l.eq_ignore_ascii_case(&entry) || l.eq_ignore_ascii_case(&format!("{dir_name}/{stem}"))
     }) {
         lines.remove(pos);
     } else {

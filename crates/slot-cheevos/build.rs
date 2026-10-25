@@ -11,7 +11,9 @@ const SOURCES: &[&str] = &[
     "src/rapi/rc_api_info.c",
     "src/rapi/rc_api_runtime.c",
     "src/rapi/rc_api_user.c",
+    "src/rhash/cdreader.c",
     "src/rhash/hash.c",
+    "src/rhash/hash_disc.c",
     "src/rhash/hash_rom.c",
     "src/rhash/md5.c",
 ];
@@ -23,7 +25,6 @@ fn main() {
         .include(rc.join("include"))
         .include(rc.join("src"))
         .include(rc.join("libretro"))
-        .define("RC_HASH_NO_DISC", None)
         .define("RC_HASH_NO_ENCRYPTED", None)
         .define("RC_HASH_NO_ZIP", None)
         .warnings(false);

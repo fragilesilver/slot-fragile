@@ -4,7 +4,7 @@ pub const BADGE: usize = 64;
 
 pub fn decode(bytes: &[u8]) -> Option<Vec<u8>> {
     let mut decoder = png::Decoder::new(bytes);
-    decoder.set_transformations(png::Transformations::normalize_to_color8());
+    decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
     let mut reader = decoder.read_info().ok()?;
     let mut buf = vec![0; reader.output_buffer_size()];
     let info = reader.next_frame(&mut buf).ok()?;

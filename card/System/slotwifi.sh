@@ -47,6 +47,7 @@ wifi_up() {
 	[ -d "$NET/wlan0" ] || return 1
 	$RFKILL unblock wifi 2>/dev/null || true
 	$IP link set wlan0 up 2>/dev/null || true
+	iw dev wlan0 set power_save off 2>/dev/null || iwconfig wlan0 power off 2>/dev/null || true
 	/bin/mkdir -p "$CTRL_DIR"
 	if [ ! -s "$conf" ]; then
 		/bin/mkdir -p "$(dirname "$conf")"
@@ -82,6 +83,7 @@ wifi_down() {
 
 lease() {
 	stop_pid "$LEASE_PID"
+	iw dev wlan0 set power_save off 2>/dev/null || iwconfig wlan0 power off 2>/dev/null || true
 	$UDHCPC -i wlan0 -b -p "$LEASE_PID" >/dev/null 2>&1 || true
 }
 

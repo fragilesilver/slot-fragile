@@ -35,6 +35,7 @@ pub struct Compositor {
     /// A picture drawn at a whole multiple of its size on a 4:3 panel, or `None` for the band.
     integer: Option<(u32, u32)>,
     turn: Option<Turn>,
+    captured: Option<(u32, u32, Vec<u8>)>,
 }
 
 impl Compositor {
@@ -85,6 +86,7 @@ impl Compositor {
                 sp_frame: true,
                 integer: None,
                 turn: None,
+                captured: None,
             })
         }
     }
@@ -160,6 +162,11 @@ impl Compositor {
                     if let Some(tex) = self.sprites.source(tex) {
                         self.in_game_rect(|c| c.game.draw_still(tex, &c.quad));
                     }
+                }
+                Draw::Capture => {
+                    self.sprites.draw(&items[from..i], &self.quad);
+                    let (w, h) = self.size;
+                    self.captured = Some((w, h, self.read_frame()));
                 }
                 _ => continue,
             }
@@ -333,6 +340,10 @@ impl Compositor {
 
     pub fn set_shake(&mut self, dx: f32) {
         self.shake = dx;
+    }
+
+    pub fn take_capture(&mut self) -> Option<(u32, u32, Vec<u8>)> {
+        self.captured.take()
     }
 
     pub fn frame_size(&self) -> (u32, u32) {
@@ -515,7 +526,9 @@ impl Compositor {
         }
         let (x, y, w, h) = match self.integer_viewport() {
             Some(rect) => rect,
-            None if self.game.aspect().is_some() => (0, 0, self.size.0 as i32, self.size.1 as i32),
+            None if self.game.aspect().is_some() || self.game.fills_frame() => {
+                (0, 0, self.size.0 as i32, self.size.1 as i32)
+            }
             None => {
                 let (x, top, w, h) = crate::bezel::game_rect(self.window, self.sp_frame);
                 (x, self.size.1 as i32 - top - h, w, h)

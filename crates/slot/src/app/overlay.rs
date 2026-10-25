@@ -173,6 +173,10 @@ impl App {
                 self.open_game_art();
                 return true;
             }
+            QuickRow::Update => {
+                self.activate_update();
+                return true;
+            }
             QuickRow::ShaderSettings => {
                 self.open_shader_settings();
                 return true;

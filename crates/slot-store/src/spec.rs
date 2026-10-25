@@ -143,7 +143,7 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         name: "PlayStation",
         short: "PS1",
         dir: "PS",
-        extensions: &["cue", "chd", "pbp", "m3u"],
+        extensions: &["cue", "chd", "pbp", "m3u", "iso", "img"],
         cores: &[Core::PcsxRearmed],
         shoulders: true,
         triggers: true,
@@ -156,6 +156,19 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
             "psxonpsp660.bin",
         ],
         discs: true,
+        ..CONSOLE
+    },
+    Spec {
+        name: "Nintendo DS",
+        short: "NDS",
+        dir: "NDS",
+        extensions: &["nds", "zip"],
+        cores: &[Core::Dsperate],
+        picture: (384, 480),
+        shoulders: true,
+        triggers: true,
+        turbo: false,
+        bios: &["bios9.bin", "bios7.bin", "firmware.bin"],
         ..CONSOLE
     },
 ];

@@ -169,7 +169,7 @@ fn a_playstation_game_keeps_l2_and_r2_and_a_gba_game_fast_forwards_on_r2() {
 fn the_screen_page_has_a_page_for_each_new_system() {
     let (d, mut a) = playing(Platform::Nes);
     assert!(QuickRow::SCREEN.contains(&QuickRow::ScreenNes));
-    assert_eq!(QuickRow::ScreenSnes.child(), Some(QuickRow::SnesShader));
+    assert_eq!(QuickRow::ScreenSnes.child(), Some(QuickRow::IntegerSnes));
     assert_eq!(QuickRow::PsShader.parent(), Some(QuickRow::ScreenPs));
     a.apply(Action::QuickMenu);
     for _ in 0..4 {
@@ -181,6 +181,8 @@ fn the_screen_page_has_a_page_for_each_new_system() {
     press(&mut a, Btn::A);
     assert_eq!(a.in_game_menu(), Some(QuickRow::PlayScreen));
     press(&mut a, Btn::A);
+    assert_eq!(a.in_game_menu(), Some(QuickRow::Scaling));
+    press(&mut a, Btn::Down);
     assert_eq!(a.in_game_menu(), Some(QuickRow::Shader));
     let before = a.quick_value(QuickRow::Shader);
     press(&mut a, Btn::Right);

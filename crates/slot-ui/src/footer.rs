@@ -53,7 +53,7 @@ pub fn draw_corners(
     draw_printed(x, (PLATE_H - HINT_H as f32) / 2.0, clock, out);
 }
 
-pub(crate) fn draw_printed(x: f32, y: f32, p: Printed, out: &mut Vec<Draw>) {
+pub fn draw_printed(x: f32, y: f32, p: Printed, out: &mut Vec<Draw>) {
     if p.w == 0 {
         return;
     }

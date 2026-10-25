@@ -107,6 +107,12 @@ extern "C" {
         size: usize,
     ) -> c_int;
 
+    pub fn rc_hash_generate_from_file(
+        hash: *mut c_char,
+        console_id: u32,
+        path: *const c_char,
+    ) -> c_int;
+
     pub fn slot_regions_new(
         descriptors: *const RetroMemoryDescriptor,
         count: c_uint,

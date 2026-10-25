@@ -2,7 +2,7 @@
 //! knew one pad, the GBA's; a SNES pad has X and Y of its own, a PlayStation one L2 and R2 too.
 
 use slot_input::{Action, Chord, Entry, Mod};
-use slot_store::{Binding, Device, GameButton, Modifier};
+use slot_store::{Binding, Device, GameButton, Modifier, Platform};
 use slot_ui::QuickRow;
 
 use super::{App, Phase};
@@ -23,6 +23,16 @@ impl App {
         }
         if spec.native && !spec.bezels {
             hide(QuickRow::Bezel);
+        }
+        if !matches!(
+            self.playing_platform(),
+            Platform::Gba | Platform::Gb | Platform::Gbc
+        ) {
+            hide(QuickRow::MotionBlur);
+        }
+        if self.playing_platform() != Platform::Nds {
+            hide(QuickRow::PlayNdsLayout);
+            hide(QuickRow::ThisNdsLayout);
         }
         let pad = self.game_pad();
         for row in QuickRow::CONTROLS {

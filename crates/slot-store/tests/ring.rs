@@ -255,3 +255,27 @@ fn a_second_retirement_in_the_same_second_does_not_overwrite_the_first() {
     assert_eq!(std::fs::read(&first).unwrap(), [1u8; 8], "the first went");
     assert_eq!(std::fs::read(&second).unwrap(), [2u8; 8]);
 }
+
+#[test]
+fn zero_byte_resume_and_states_are_ignored() {
+    let d = tempdir().unwrap();
+    let r = StateRing::new(d.path(), Platform::PlayStation, Core::PcsxRearmed, "FFT");
+
+    // Writing empty resume does nothing
+    r.write_resume(&[]).unwrap();
+    assert_eq!(r.read_resume().unwrap(), None);
+
+    // If an empty resume file exists on disk (e.g. from crash or bad write), it's treated as None
+    let dir = d.path().join("States/PS/pcsx_rearmed/FFT");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("resume.state"), b"").unwrap();
+    assert_eq!(r.read_resume().unwrap(), None);
+
+    // Empty push does nothing
+    r.push(&[], b"", "2026-10-24_12-00-00").unwrap();
+    assert!(r.list().unwrap().is_empty());
+
+    // 0-byte state file on disk is ignored in list()
+    std::fs::write(dir.join("2026-10-24_12-00-01.state"), b"").unwrap();
+    assert!(r.list().unwrap().is_empty());
+}

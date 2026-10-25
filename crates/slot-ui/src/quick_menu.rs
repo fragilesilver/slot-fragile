@@ -34,7 +34,10 @@ pub enum QuickRow {
     GbcShader,
     GbcColourCorrection,
     Resume,
+    UndoSave,
+    UndoLoad,
     States,
+    Screenshots,
     Settings,
     ExitGame,
     PlayScreen,
@@ -69,6 +72,7 @@ pub enum QuickRow {
     GameTurboB,
     ScSave,
     ScLoad,
+    ScScreenshot,
     ScBrightUp,
     ScBrightDown,
     ScBlueDown,
@@ -90,6 +94,8 @@ pub enum QuickRow {
     ShowFavorites,
     ClockFormat,
     SleepOff,
+    Screensaver,
+    ScreensaverStyle,
     BatteryBadge,
     FastForwardPitch,
     PlayThisGame,
@@ -125,15 +131,19 @@ pub enum QuickRow {
     ScreenNes,
     ScreenSnes,
     ScreenPs,
+    ScreenNds,
     NesShader,
     SnesShader,
     PsShader,
+    NdsShader,
     IntegerNes,
     IntegerSnes,
     IntegerPs,
+    IntegerNds,
     CardShaderNes,
     CardShaderSnes,
     CardShaderPs,
+    CardShaderNds,
     GameX,
     GameY,
     GameL2,
@@ -153,10 +163,21 @@ pub enum QuickRow {
     // --- extras: shader settings ---
     CardShader,
     ShaderSettings,
+    // --- extras: in-game generic and per-game ---
+    Scaling,
+    MotionBlur,
+    ThisScaling,
+    ThisCardShader,
+    NdsLayout,
+    PlayNdsLayout,
+    ThisNdsLayout,
+    PlayNetwork,
+    PlayGeneral,
+    Update,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 136] = [
+    pub const ALL: [QuickRow; 156] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -180,7 +201,10 @@ impl QuickRow {
         QuickRow::GbcShader,
         QuickRow::GbcColourCorrection,
         QuickRow::Resume,
+        QuickRow::UndoSave,
+        QuickRow::UndoLoad,
         QuickRow::States,
+        QuickRow::Screenshots,
         QuickRow::Settings,
         QuickRow::ExitGame,
         QuickRow::PlayScreen,
@@ -215,6 +239,7 @@ impl QuickRow {
         QuickRow::GameTurboB,
         QuickRow::ScSave,
         QuickRow::ScLoad,
+        QuickRow::ScScreenshot,
         QuickRow::ScBrightUp,
         QuickRow::ScBrightDown,
         QuickRow::ScBlueDown,
@@ -236,6 +261,8 @@ impl QuickRow {
         QuickRow::ShowFavorites,
         QuickRow::ClockFormat,
         QuickRow::SleepOff,
+        QuickRow::Screensaver,
+        QuickRow::ScreensaverStyle,
         QuickRow::BatteryBadge,
         QuickRow::FastForwardPitch,
         QuickRow::PlayThisGame,
@@ -271,15 +298,19 @@ impl QuickRow {
         QuickRow::ScreenNes,
         QuickRow::ScreenSnes,
         QuickRow::ScreenPs,
+        QuickRow::ScreenNds,
         QuickRow::NesShader,
         QuickRow::SnesShader,
         QuickRow::PsShader,
+        QuickRow::NdsShader,
         QuickRow::IntegerNes,
         QuickRow::IntegerSnes,
         QuickRow::IntegerPs,
+        QuickRow::IntegerNds,
         QuickRow::CardShaderNes,
         QuickRow::CardShaderSnes,
         QuickRow::CardShaderPs,
+        QuickRow::CardShaderNds,
         QuickRow::GameX,
         QuickRow::GameY,
         QuickRow::GameL2,
@@ -299,6 +330,17 @@ impl QuickRow {
         // --- extras: shader settings ---
         QuickRow::CardShader,
         QuickRow::ShaderSettings,
+        // --- extras: in-game generic and per-game ---
+        QuickRow::Scaling,
+        QuickRow::MotionBlur,
+        QuickRow::ThisScaling,
+        QuickRow::ThisCardShader,
+        QuickRow::NdsLayout,
+        QuickRow::PlayNdsLayout,
+        QuickRow::ThisNdsLayout,
+        QuickRow::PlayNetwork,
+        QuickRow::PlayGeneral,
+        QuickRow::Update,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -311,7 +353,7 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const GENERAL: [QuickRow; 13] = [
+    pub const GENERAL: [QuickRow; 15] = [
         QuickRow::Theme,
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
@@ -323,6 +365,8 @@ impl QuickRow {
         QuickRow::BatteryBadge,
         QuickRow::LidOff,
         QuickRow::SleepOff,
+        QuickRow::Screensaver,
+        QuickRow::ScreensaverStyle,
         QuickRow::DateTime,
         // --- extras ---
         QuickRow::HdmiOutput,
@@ -364,9 +408,10 @@ impl QuickRow {
         QuickRow::GameTurboB,
     ];
 
-    pub const SHORTCUTS: [QuickRow; 13] = [
+    pub const SHORTCUTS: [QuickRow; 14] = [
         QuickRow::ScSave,
         QuickRow::ScLoad,
+        QuickRow::ScScreenshot,
         QuickRow::ScBrightUp,
         QuickRow::ScBrightDown,
         QuickRow::ScBlueDown,
@@ -380,7 +425,7 @@ impl QuickRow {
         QuickRow::ScRewind,
     ];
 
-    pub const SCREEN: [QuickRow; 6] = [
+    pub const SCREEN: [QuickRow; 7] = [
         QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
@@ -388,52 +433,60 @@ impl QuickRow {
         QuickRow::ScreenNes,
         QuickRow::ScreenSnes,
         QuickRow::ScreenPs,
+        QuickRow::ScreenNds,
     ];
 
     // --- extras: the screen pages of the systems Fragile adds ---
     pub const SCREEN_NES: [QuickRow; 3] = [
-        QuickRow::NesShader,
         QuickRow::IntegerNes,
+        QuickRow::NesShader,
         QuickRow::CardShaderNes,
     ];
 
     pub const SCREEN_SNES: [QuickRow; 3] = [
-        QuickRow::SnesShader,
         QuickRow::IntegerSnes,
+        QuickRow::SnesShader,
         QuickRow::CardShaderSnes,
     ];
 
     pub const SCREEN_PS: [QuickRow; 3] = [
-        QuickRow::PsShader,
         QuickRow::IntegerPs,
+        QuickRow::PsShader,
         QuickRow::CardShaderPs,
     ];
 
+    pub const SCREEN_NDS: [QuickRow; 4] = [
+        QuickRow::IntegerNds,
+        QuickRow::NdsLayout,
+        QuickRow::NdsShader,
+        QuickRow::CardShaderNds,
+    ];
+
     pub const SCREEN_GBA: [QuickRow; 6] = [
+        QuickRow::IntegerGba,
         QuickRow::GbaShader,
+        QuickRow::CardShaderGba,
         QuickRow::GbaColourCorrection,
         QuickRow::GbaBezel,
-        QuickRow::IntegerGba,
-        QuickRow::CardShaderGba,
         QuickRow::MotionBlurGba,
     ];
 
     pub const SCREEN_GBC: [QuickRow; 6] = [
+        QuickRow::IntegerGbc,
         QuickRow::GbcShader,
+        QuickRow::CardShaderGbc,
         QuickRow::GbcColourCorrection,
         QuickRow::GbcBezel,
-        QuickRow::IntegerGbc,
-        QuickRow::CardShaderGbc,
         QuickRow::MotionBlurGbc,
     ];
 
     pub const SCREEN_GB: [QuickRow; 7] = [
+        QuickRow::IntegerGb,
         QuickRow::GbShader,
+        QuickRow::CardShaderGb,
         QuickRow::GbColourCorrection,
         QuickRow::GbPalettes,
         QuickRow::GbBezel,
-        QuickRow::IntegerGb,
-        QuickRow::CardShaderGb,
         QuickRow::MotionBlurGb,
     ];
 
@@ -448,9 +501,12 @@ impl QuickRow {
         QuickRow::EjectSave,
     ];
 
-    pub const PLAY: [QuickRow; 7] = [
+    pub const PLAY: [QuickRow; 10] = [
         QuickRow::Resume,
+        QuickRow::UndoSave,
+        QuickRow::UndoLoad,
         QuickRow::States,
+        QuickRow::Screenshots,
         // --- extras ---
         QuickRow::PlayDisc,
         QuickRow::PlayCheats,
@@ -459,21 +515,26 @@ impl QuickRow {
         QuickRow::ExitGame,
     ];
 
-    pub const SETTINGS: [QuickRow; 5] = [
+    pub const SETTINGS: [QuickRow; 7] = [
         QuickRow::PlayScreen,
         QuickRow::PlayGameplay,
         QuickRow::PlayControls,
         QuickRow::PlayThisGame,
+        QuickRow::PlayNetwork,
+        QuickRow::PlayGeneral,
         QuickRow::PlayGuide,
     ];
 
-    pub const PLAY_SCREEN: [QuickRow; 6] = [
+    pub const PLAY_SCREEN: [QuickRow; 9] = [
+        QuickRow::Scaling,
+        QuickRow::PlayNdsLayout,
         QuickRow::Shader,
+        QuickRow::CardShader,
+        QuickRow::ShaderSettings,
         QuickRow::ColourCorrection,
         QuickRow::Palette,
         QuickRow::Bezel,
-        QuickRow::CardShader,
-        QuickRow::ShaderSettings,
+        QuickRow::MotionBlur,
     ];
 
     pub fn index(self) -> usize {
@@ -487,7 +548,8 @@ impl QuickRow {
             | QuickRow::ScreenGb
             | QuickRow::ScreenNes
             | QuickRow::ScreenSnes
-            | QuickRow::ScreenPs => &QuickRow::SCREEN,
+            | QuickRow::ScreenPs
+            | QuickRow::ScreenNds => &QuickRow::SCREEN,
             QuickRow::NesShader | QuickRow::IntegerNes | QuickRow::CardShaderNes => {
                 &QuickRow::SCREEN_NES
             }
@@ -497,6 +559,10 @@ impl QuickRow {
             QuickRow::PsShader | QuickRow::IntegerPs | QuickRow::CardShaderPs => {
                 &QuickRow::SCREEN_PS
             }
+            QuickRow::NdsShader
+            | QuickRow::IntegerNds
+            | QuickRow::CardShaderNds
+            | QuickRow::NdsLayout => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
             | QuickRow::GbaBezel
@@ -535,6 +601,8 @@ impl QuickRow {
             | QuickRow::ShowFavorites
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
+            | QuickRow::Screensaver
+            | QuickRow::ScreensaverStyle
             | QuickRow::BatteryBadge
             | QuickRow::HdmiOutput => &QuickRow::GENERAL,
             QuickRow::ControlsShelf
@@ -542,7 +610,10 @@ impl QuickRow {
             | QuickRow::ControlsInGame
             | QuickRow::ControlsGuide => &QuickRow::CONTROL_PAGES,
             QuickRow::Resume
+            | QuickRow::UndoSave
+            | QuickRow::UndoLoad
             | QuickRow::States
+            | QuickRow::Screenshots
             | QuickRow::Settings
             | QuickRow::ExitGame
             | QuickRow::PlayCheats
@@ -552,8 +623,13 @@ impl QuickRow {
             | QuickRow::PlayGameplay
             | QuickRow::PlayControls
             | QuickRow::PlayThisGame
+            | QuickRow::PlayNetwork
+            | QuickRow::PlayGeneral
             | QuickRow::PlayGuide => &QuickRow::SETTINGS,
-            QuickRow::ThisShader
+            QuickRow::ThisScaling
+            | QuickRow::ThisNdsLayout
+            | QuickRow::ThisShader
+            | QuickRow::ThisCardShader
             | QuickRow::ThisColour
             | QuickRow::ThisFfSpeed
             | QuickRow::ThisFfSound
@@ -562,12 +638,15 @@ impl QuickRow {
             r if r.game_button().is_some() => &QuickRow::CONTROLS,
             r if r.shortcut().is_some() => &QuickRow::SHORTCUTS,
             r if r.carousel_action().is_some() => &QuickRow::SHELF_KEYS,
-            QuickRow::Shader
+            QuickRow::Scaling
+            | QuickRow::PlayNdsLayout
+            | QuickRow::Shader
             | QuickRow::ColourCorrection
             | QuickRow::Palette
             | QuickRow::Bezel
             | QuickRow::CardShader
-            | QuickRow::ShaderSettings => &QuickRow::PLAY_SCREEN,
+            | QuickRow::ShaderSettings
+            | QuickRow::MotionBlur => &QuickRow::PLAY_SCREEN,
             QuickRow::WifiPower
             | QuickRow::WifiNetworks
             | QuickRow::WifiStatus
@@ -580,38 +659,77 @@ impl QuickRow {
             | QuickRow::TimeSync
             | QuickRow::Cheevos
             | QuickRow::CheevosAccount
-            | QuickRow::GameArt => &QuickRow::NETWORK,
+            | QuickRow::GameArt
+            | QuickRow::Update => &QuickRow::NETWORK,
             _ => &QuickRow::MAIN,
         }
     }
 
     pub fn parent(self) -> Option<QuickRow> {
-        match self.page()[0] {
-            QuickRow::ScreenGba => Some(QuickRow::Screen),
-            QuickRow::GbaShader => Some(QuickRow::ScreenGba),
-            QuickRow::GbcShader => Some(QuickRow::ScreenGbc),
-            QuickRow::GbShader => Some(QuickRow::ScreenGb),
-            QuickRow::NesShader => Some(QuickRow::ScreenNes),
-            QuickRow::SnesShader => Some(QuickRow::ScreenSnes),
-            QuickRow::PsShader => Some(QuickRow::ScreenPs),
-            QuickRow::FastForward => Some(QuickRow::Game),
-            QuickRow::PlayScreen => Some(QuickRow::Settings),
-            QuickRow::Shader => Some(QuickRow::PlayScreen),
-            QuickRow::ThisShader => Some(QuickRow::PlayThisGame),
-            QuickRow::GameUp => Some(QuickRow::ControlsInGame),
-            QuickRow::ScSave => Some(QuickRow::Shortcuts),
-            QuickRow::Theme => Some(QuickRow::General),
-            QuickRow::ControlsShelf => Some(QuickRow::Controls),
-            QuickRow::ShelfPrev => Some(QuickRow::ControlsShelf),
-            QuickRow::WifiPower => Some(QuickRow::Network),
-            _ => None,
+        let p = self.page();
+        if p == QuickRow::SCREEN {
+            return Some(QuickRow::Screen);
         }
+        if p == QuickRow::SCREEN_GBA {
+            return Some(QuickRow::ScreenGba);
+        }
+        if p == QuickRow::SCREEN_GBC {
+            return Some(QuickRow::ScreenGbc);
+        }
+        if p == QuickRow::SCREEN_GB {
+            return Some(QuickRow::ScreenGb);
+        }
+        if p == QuickRow::SCREEN_NES {
+            return Some(QuickRow::ScreenNes);
+        }
+        if p == QuickRow::SCREEN_SNES {
+            return Some(QuickRow::ScreenSnes);
+        }
+        if p == QuickRow::SCREEN_PS {
+            return Some(QuickRow::ScreenPs);
+        }
+        if p == QuickRow::SCREEN_NDS {
+            return Some(QuickRow::ScreenNds);
+        }
+        if p == QuickRow::GAME {
+            return Some(QuickRow::Game);
+        }
+        if p == QuickRow::SETTINGS {
+            return Some(QuickRow::Settings);
+        }
+        if p == QuickRow::PLAY_SCREEN {
+            return Some(QuickRow::PlayScreen);
+        }
+        if p == QuickRow::THIS_GAME {
+            return Some(QuickRow::PlayThisGame);
+        }
+        if p == QuickRow::CONTROLS {
+            return Some(QuickRow::ControlsInGame);
+        }
+        if p == QuickRow::SHORTCUTS {
+            return Some(QuickRow::Shortcuts);
+        }
+        if p == QuickRow::GENERAL {
+            return Some(QuickRow::General);
+        }
+        if p == QuickRow::CONTROL_PAGES {
+            return Some(QuickRow::Controls);
+        }
+        if p == QuickRow::SHELF_KEYS {
+            return Some(QuickRow::ControlsShelf);
+        }
+        if p == QuickRow::NETWORK {
+            return Some(QuickRow::Network);
+        }
+        None
     }
 
     pub fn parent_in_game(self) -> Option<QuickRow> {
         match self.parent() {
             Some(QuickRow::Game) => Some(QuickRow::PlayGameplay),
             Some(QuickRow::ControlsInGame) => Some(QuickRow::PlayControls),
+            Some(QuickRow::Network) => Some(QuickRow::PlayNetwork),
+            Some(QuickRow::General) => Some(QuickRow::PlayGeneral),
             parent => parent,
         }
     }
@@ -644,9 +762,12 @@ impl QuickRow {
             QuickRow::ScreenGba => Some(QuickRow::SCREEN_GBA[0]),
             QuickRow::ScreenGbc => Some(QuickRow::SCREEN_GBC[0]),
             QuickRow::ScreenGb => Some(QuickRow::SCREEN_GB[0]),
+            QuickRow::PlayNetwork => Some(QuickRow::NETWORK[0]),
+            QuickRow::PlayGeneral => Some(QuickRow::GENERAL[0]),
             QuickRow::ScreenNes => Some(QuickRow::SCREEN_NES[0]),
             QuickRow::ScreenSnes => Some(QuickRow::SCREEN_SNES[0]),
             QuickRow::ScreenPs => Some(QuickRow::SCREEN_PS[0]),
+            QuickRow::ScreenNds => Some(QuickRow::SCREEN_NDS[0]),
             QuickRow::Network => Some(QuickRow::NETWORK[0]),
             _ => None,
         }
@@ -679,14 +800,23 @@ impl QuickRow {
             QuickRow::GbaShader => "Shader",
             QuickRow::GbShader => "Shader",
             QuickRow::GbcShader => "Shader",
-            QuickRow::NesShader | QuickRow::SnesShader | QuickRow::PsShader => "Shader",
-            QuickRow::IntegerNes | QuickRow::IntegerSnes | QuickRow::IntegerPs => "Scaling",
-            QuickRow::CardShaderNes | QuickRow::CardShaderSnes | QuickRow::CardShaderPs => {
-                "Card Shader"
-            }
+            QuickRow::NesShader
+            | QuickRow::SnesShader
+            | QuickRow::PsShader
+            | QuickRow::NdsShader => "Shader",
+            QuickRow::IntegerNes
+            | QuickRow::IntegerSnes
+            | QuickRow::IntegerPs
+            | QuickRow::IntegerNds => "Scaling",
+            QuickRow::CardShaderNes
+            | QuickRow::CardShaderSnes
+            | QuickRow::CardShaderPs
+            | QuickRow::CardShaderNds => "Card Shader",
             QuickRow::ScreenNes => "NES",
             QuickRow::ScreenSnes => "Super Nintendo",
             QuickRow::ScreenPs => "PlayStation",
+            QuickRow::ScreenNds => "Nintendo DS",
+            QuickRow::NdsLayout | QuickRow::PlayNdsLayout | QuickRow::ThisNdsLayout => "Layout",
             QuickRow::GbaColourCorrection => "Color Correction",
             QuickRow::GbColourCorrection => "Color Correction",
             QuickRow::GbcColourCorrection => "Color Correction",
@@ -702,6 +832,8 @@ impl QuickRow {
             QuickRow::StartShelf => "Start Shelf",
             QuickRow::ClockFormat => "Clock",
             QuickRow::SleepOff => "Sleep Power Off",
+            QuickRow::Screensaver => "Screensaver",
+            QuickRow::ScreensaverStyle => "Screensaver Style",
             QuickRow::BatteryBadge => "Battery Badge",
             QuickRow::FastForwardPitch => "Fast Forward Pitch",
             QuickRow::PlayThisGame => "This Game",
@@ -722,6 +854,7 @@ impl QuickRow {
             QuickRow::Cheevos => "RetroAchievements",
             QuickRow::CheevosAccount => "Account",
             QuickRow::GameArt => "Game Art",
+            QuickRow::Update => "System Update",
             QuickRow::PlayAchievements => "Achievements",
             QuickRow::PlayDisc => "Disc",
             QuickRow::ThisShader => "Shader",
@@ -730,19 +863,28 @@ impl QuickRow {
             QuickRow::ThisFfSound => "Fast Forward Sound",
             QuickRow::ThisLabel => "Label",
             QuickRow::ThisDefaults => "Use Defaults",
-            QuickRow::IntegerGba | QuickRow::IntegerGb | QuickRow::IntegerGbc => "Scaling",
+            QuickRow::IntegerGba
+            | QuickRow::IntegerGb
+            | QuickRow::IntegerGbc
+            | QuickRow::Scaling
+            | QuickRow::ThisScaling => "Scaling",
             QuickRow::CardShader
             | QuickRow::CardShaderGba
             | QuickRow::CardShaderGb
-            | QuickRow::CardShaderGbc => "Card Shader",
+            | QuickRow::CardShaderGbc
+            | QuickRow::ThisCardShader => "Card Shader",
             QuickRow::ShaderSettings => "Shader Settings",
-            QuickRow::MotionBlurGba | QuickRow::MotionBlurGb | QuickRow::MotionBlurGbc => {
-                "Motion Blur"
-            }
+            QuickRow::MotionBlurGba
+            | QuickRow::MotionBlurGb
+            | QuickRow::MotionBlurGbc
+            | QuickRow::MotionBlur => "Motion Blur",
             QuickRow::ShowTitles => "Game Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
+            QuickRow::UndoSave => "Undo Save",
+            QuickRow::UndoLoad => "Undo Load",
             QuickRow::States => "States",
+            QuickRow::Screenshots => "Screenshots",
             QuickRow::Settings => "Settings",
             QuickRow::ExitGame => "Exit Game",
             QuickRow::General => "General",
@@ -770,6 +912,7 @@ impl QuickRow {
             | QuickRow::GameR2 => self.game_button().map_or("", GameButton::label),
             QuickRow::ScSave
             | QuickRow::ScLoad
+            | QuickRow::ScScreenshot
             | QuickRow::ScBrightUp
             | QuickRow::ScBrightDown
             | QuickRow::ScBlueDown
@@ -788,6 +931,8 @@ impl QuickRow {
             | QuickRow::ShelfAddToList => self.carousel_action().map_or("", CarouselAction::label),
             QuickRow::PlayScreen => "Screen",
             QuickRow::PlayGameplay => "Gameplay",
+            QuickRow::PlayNetwork => "Network",
+            QuickRow::PlayGeneral => "System",
             QuickRow::Shader => "Shader",
             QuickRow::ColourCorrection => "Color Correction",
             QuickRow::Palette => "Palette",
@@ -818,7 +963,8 @@ impl QuickRow {
             | QuickRow::ScreenGb
             | QuickRow::ScreenNes
             | QuickRow::ScreenSnes
-            | QuickRow::ScreenPs => "Picture settings for this system.",
+            | QuickRow::ScreenPs
+            | QuickRow::ScreenNds => "Picture settings for this system.",
             QuickRow::ControlsShelf => "Buttons used on the shelf.",
             QuickRow::Shortcuts => "Shortcuts that work while playing.",
             QuickRow::ControlsInGame => "What each button does in a game.",
@@ -837,6 +983,8 @@ impl QuickRow {
             QuickRow::StartShelf => "The shelf slot opens on when it starts.",
             QuickRow::ClockFormat => "Show the time on a 24 or 12 hour clock.",
             QuickRow::SleepOff => "Power off after sleeping this long.",
+            QuickRow::Screensaver => "Start screensaver after this much idle time.",
+            QuickRow::ScreensaverStyle => "Style shown when the screensaver starts.",
             QuickRow::BatteryBadge => "Show the battery in a corner while you play.",
             QuickRow::FastForwardPitch => "Fast forward sound keeps its normal pitch.",
             QuickRow::PlayThisGame => "Settings this game keeps for itself.",
@@ -856,12 +1004,18 @@ impl QuickRow {
             QuickRow::Cheevos => "Earn achievements, softcore, while you play.",
             QuickRow::CheevosAccount => "Sign in to RetroAchievements.",
             QuickRow::GameArt => "Find labels for your games online.",
+            QuickRow::Update => "Check for and install Fragile updates.",
+            QuickRow::PlayNetwork => "Wi-Fi, Bluetooth, SSH and Web Dashboard.",
+            QuickRow::PlayGeneral => "HDMI output, battery badge and clock.",
             QuickRow::PlayAchievements => "This game's achievements and the ones you have.",
             QuickRow::PlayDisc => "Put another of this game's discs in.",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => {
                 "Every button and what it does, as set now."
             }
             QuickRow::ThisShader => "Screen effect for this game only.",
+            QuickRow::ThisScaling => "Scaling mode for this game only.",
+            QuickRow::ThisCardShader => "Card shader for this game only.",
+            QuickRow::ThisNdsLayout => "Screen layout for this game only.",
             QuickRow::ThisColour => "Color correction for this game only.",
             QuickRow::ThisFfSpeed => "Fast forward speed for this game only.",
             QuickRow::ThisFfSound => "Fast forward sound for this game only.",
@@ -872,21 +1026,29 @@ impl QuickRow {
             | QuickRow::IntegerGbc
             | QuickRow::IntegerNes
             | QuickRow::IntegerSnes
-            | QuickRow::IntegerPs => "Fit (fill screen), Sharp Fit (crisp) or Integer.",
-            QuickRow::CardShaderNes | QuickRow::CardShaderSnes | QuickRow::CardShaderPs => {
-                "A .glsl file from Shaders, used instead of Shader."
-            }
-            QuickRow::NesShader | QuickRow::SnesShader | QuickRow::PsShader => {
-                "Built-in screen effect drawn over the game."
+            | QuickRow::IntegerPs
+            | QuickRow::IntegerNds
+            | QuickRow::Scaling => "Fit (fill screen), Sharp Fit (crisp) or Integer.",
+            QuickRow::CardShaderNes
+            | QuickRow::CardShaderSnes
+            | QuickRow::CardShaderPs
+            | QuickRow::CardShaderNds => "A .glsl file from Shaders, used instead of Shader.",
+            QuickRow::NesShader
+            | QuickRow::SnesShader
+            | QuickRow::PsShader
+            | QuickRow::NdsShader => "Built-in screen effect drawn over the game.",
+            QuickRow::NdsLayout | QuickRow::PlayNdsLayout => {
+                "How the dual DS screens are arranged and sized."
             }
             QuickRow::CardShader
             | QuickRow::CardShaderGba
             | QuickRow::CardShaderGb
             | QuickRow::CardShaderGbc => "A .glsl file from Shaders, used instead of Shader.",
             QuickRow::ShaderSettings => "Tune the current card shader's parameters.",
-            QuickRow::MotionBlurGba | QuickRow::MotionBlurGb | QuickRow::MotionBlurGbc => {
-                "Moving pixels fade out slowly, like an old LCD."
-            }
+            QuickRow::MotionBlurGba
+            | QuickRow::MotionBlurGb
+            | QuickRow::MotionBlurGbc
+            | QuickRow::MotionBlur => "Moving pixels fade out slowly, like an old LCD.",
             QuickRow::ShowTitles => "Show the game name above the cart.",
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
             QuickRow::DateTime => "Set the clock.",
@@ -902,7 +1064,10 @@ impl QuickRow {
                 "Frame drawn around the game."
             }
             QuickRow::Resume => "Back to the game.",
+            QuickRow::UndoSave => "Take back the save just written.",
+            QuickRow::UndoLoad => "Return to the state before the load.",
             QuickRow::States => "Save, load and browse save states.",
+            QuickRow::Screenshots => "View and manage game screenshots.",
             QuickRow::Settings => "Change settings without leaving the game.",
             QuickRow::ExitGame => "Save and go back to the shelf.",
             _ => "",
@@ -917,7 +1082,10 @@ impl QuickRow {
                 | QuickRow::Screen
                 | QuickRow::Game
                 | QuickRow::Resume
+                | QuickRow::UndoSave
+                | QuickRow::UndoLoad
                 | QuickRow::States
+                | QuickRow::Screenshots
                 | QuickRow::Settings
                 | QuickRow::ExitGame
                 | QuickRow::PlayScreen
@@ -928,6 +1096,8 @@ impl QuickRow {
                 | QuickRow::ControlsInGame
                 | QuickRow::PlayControls
                 | QuickRow::PlayThisGame
+                | QuickRow::PlayNetwork
+                | QuickRow::PlayGeneral
                 | QuickRow::ControlsGuide
                 | QuickRow::PlayGuide
                 | QuickRow::PlayCheats
@@ -937,6 +1107,7 @@ impl QuickRow {
                 | QuickRow::SshPassword
                 | QuickRow::CheevosAccount
                 | QuickRow::GameArt
+                | QuickRow::Update
                 | QuickRow::PlayAchievements
                 | QuickRow::ShaderSettings
                 | QuickRow::Shortcuts
@@ -946,6 +1117,7 @@ impl QuickRow {
                 | QuickRow::ScreenNes
                 | QuickRow::ScreenSnes
                 | QuickRow::ScreenPs
+                | QuickRow::ScreenNds
         )
     }
 
@@ -975,6 +1147,7 @@ impl QuickRow {
         Some(match self {
             QuickRow::ScSave => Shortcut::SaveState,
             QuickRow::ScLoad => Shortcut::LoadState,
+            QuickRow::ScScreenshot => Shortcut::Screenshot,
             QuickRow::ScBrightUp => Shortcut::BrightnessUp,
             QuickRow::ScBrightDown => Shortcut::BrightnessDown,
             QuickRow::ScBlueDown => Shortcut::BlueLightDown,
@@ -1056,10 +1229,11 @@ pub enum QuickValue {
     NesShelf,
     SnesShelf,
     Ps1Shelf,
+    NdsShelf,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 35] = [
+    pub const ALL: [QuickValue; 36] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -1095,6 +1269,7 @@ impl QuickValue {
         QuickValue::NesShelf,
         QuickValue::SnesShelf,
         QuickValue::Ps1Shelf,
+        QuickValue::NdsShelf,
     ];
 
     pub const LID_OFF: [QuickValue; 6] = [
@@ -1147,11 +1322,13 @@ impl QuickValue {
             QuickValue::NesShelf => "NES",
             QuickValue::SnesShelf => "SNES",
             QuickValue::Ps1Shelf => "PS1",
+            QuickValue::NdsShelf => "NDS",
         }
     }
 
     pub fn speed(frames: u8) -> Option<QuickValue> {
         match frames {
+            0 => Some(QuickValue::Off),
             2 => Some(QuickValue::Speed2),
             3 => Some(QuickValue::Speed3),
             4 => Some(QuickValue::Speed4),
@@ -1462,6 +1639,14 @@ pub fn repair_legends(ink: [u8; 3]) -> [UndoFace; 2] {
     prompt_legends(ink, "Not now", "Repair")
 }
 
+pub fn delete_legends(ink: [u8; 3]) -> [UndoFace; 2] {
+    let hint = Some(ink);
+    [
+        with_hint(button_face(ButtonLegend::B), "Keep", hint, true),
+        with_hint(button_face(ButtonLegend::X), "Delete", hint, false),
+    ]
+}
+
 pub fn prompt_legends(ink: [u8; 3], no: &str, yes: &str) -> [UndoFace; 2] {
     let hint = Some(ink);
     [
@@ -1552,6 +1737,7 @@ pub struct QuickMenu<'a> {
     /// Where the sliding footer starts. The scrim stops there so it does not darken the strip.
     pub footer_top: f32,
     pub canvas: Canvas,
+    pub time_ms: u64,
 }
 
 impl QuickMenu<'_> {
@@ -1604,18 +1790,22 @@ impl QuickMenu<'_> {
                 push(out, down_tex, self.canvas.centred(dw as f32), y, dw, dh);
             }
         }
+        const VALUE_LABEL_GAP: f32 = 20.0;
         for row in shown.into_iter().skip(start).take(len) {
             let y = quick_row_top_at(row, self.row, self.hidden) + TYPE_DROP;
             let lit = row == self.row;
-            if let Some(&(tex, w, h)) = faces.labels.get(row.index()).map(|l| &l[lit as usize]) {
-                let x = match row.centred() {
-                    true => self.canvas.centred(main_w as f32),
-                    false => QUICK_LABEL_X - pad,
-                };
-                push(out, tex, x, y, w, h);
+            let label_face = faces.labels.get(row.index()).map(|l| &l[lit as usize]);
+            let label_x = match row.centred() {
+                true => self.canvas.centred(main_w as f32),
+                false => QUICK_LABEL_X - pad,
+            };
+            let mut label_end = label_x;
+            if let Some(&(tex, w, h)) = label_face {
+                push(out, tex, label_x, y, w, h);
+                label_end = label_x + w as f32;
                 if lit {
                     let (tex, pw, ph) = faces.pointer;
-                    let px = x + pad - POINTER_GAP - pw as f32;
+                    let px = label_x + pad - POINTER_GAP - pw as f32;
                     push(out, tex, px, y - POINTER_BLEED as f32, pw, ph);
                 }
             }
@@ -1641,16 +1831,73 @@ impl QuickMenu<'_> {
             let Some((tex, w, h)) = value else {
                 continue;
             };
+            let safe_left = label_end + VALUE_LABEL_GAP;
             if !lit || row.opens() || row.binds() {
-                push(out, tex, right + pad - w as f32, y, w, h);
+                let normal_x = right + pad - w as f32;
+                if normal_x >= safe_left {
+                    push(out, tex, normal_x, y, w, h);
+                } else {
+                    let clip_w = (right + pad - safe_left).max(20.0).min(w as f32);
+                    let vx = right + pad - clip_w;
+                    let u_w = clip_w / w as f32;
+                    out.push(Draw::Part {
+                        x: vx,
+                        y,
+                        w: clip_w,
+                        h: h as f32,
+                        tex,
+                        alpha: 1.0,
+                        uv: [0.0, 0.0, u_w, 1.0],
+                    });
+                }
                 continue;
             }
             let [(left_tex, lw, lh), (right_tex, rw, rh)] = faces.carets;
             let rx = right - rw as f32;
-            push(out, right_tex, rx, y, rw, rh);
-            let vx = rx - CARET_GAP + pad - w as f32;
-            push(out, tex, vx, y, w, h);
-            push(out, left_tex, vx + pad - CARET_GAP - lw as f32, y, lw, lh);
+            let normal_vx = rx - CARET_GAP + pad - w as f32;
+            let normal_lx = normal_vx + pad - CARET_GAP - lw as f32;
+            if normal_lx >= safe_left {
+                push(out, right_tex, rx, y, rw, rh);
+                push(out, tex, normal_vx, y, w, h);
+                push(out, left_tex, normal_lx, y, lw, lh);
+            } else {
+                let lx = safe_left;
+                let vx = lx + lw as f32 + CARET_GAP - pad;
+                let val_end = rx - CARET_GAP + pad;
+                let clip_w = (val_end - vx).max(20.0).min(w as f32);
+                push(out, right_tex, rx, y, rw, rh);
+                push(out, left_tex, lx, y, lw, lh);
+                let excess = (w as f32 - clip_w).max(0.0);
+                if excess > 0.0 {
+                    let travel_ms = (excess / 40.0 * 1000.0) as u64;
+                    let pause_ms = 1200u64;
+                    let cycle_ms = (pause_ms * 2 + travel_ms * 2).max(1);
+                    let phase = self.time_ms % cycle_ms;
+                    let scroll_px = if phase < pause_ms {
+                        0.0
+                    } else if phase < pause_ms + travel_ms {
+                        ((phase - pause_ms) as f32 / travel_ms as f32) * excess
+                    } else if phase < pause_ms * 2 + travel_ms {
+                        excess
+                    } else {
+                        (1.0 - ((phase - pause_ms * 2 - travel_ms) as f32 / travel_ms as f32))
+                            * excess
+                    };
+                    let u_x = scroll_px / w as f32;
+                    let u_w = clip_w / w as f32;
+                    out.push(Draw::Part {
+                        x: vx,
+                        y,
+                        w: clip_w,
+                        h: h as f32,
+                        tex,
+                        alpha: 1.0,
+                        uv: [u_x, 0.0, u_w, 1.0],
+                    });
+                } else {
+                    push(out, tex, vx, y, w, h);
+                }
+            }
         }
         if let Some((tex, w, h)) = self.description {
             let y = OUT_H as f32 - MOUTH_H - h as f32 - DESCRIPTION_GAP;

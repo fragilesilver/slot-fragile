@@ -25,7 +25,7 @@ impl App {
         self.card_writes.wrote("game_profiles.txt", &written);
     }
 
-    fn seated_game(&self) -> Option<(Platform, String)> {
+    pub(super) fn seated_game(&self) -> Option<(Platform, String)> {
         self.seated_cart().map(|c| (c.platform, c.stem.clone()))
     }
 
@@ -80,6 +80,7 @@ impl App {
         let this = QuickRow::THIS_GAME.contains(&row);
         match row {
             QuickRow::ThisDefaults => Some(Some(QuickValue::flag(own.is_empty()))),
+            QuickRow::ThisScaling | QuickRow::ThisCardShader => Some(None),
             r if self.edits_shader(r) && (this || own.shader.is_some()) => {
                 Some(Some(shader_value(self.screen_shader())))
             }
@@ -114,6 +115,9 @@ impl App {
                 if self.profiles.clear(platform, &stem) {
                     self.save_profiles();
                     self.colour_pending = Some(self.colour_correction());
+                    if platform == Platform::Nds {
+                        self.nds_layout_pending = Some(self.nds_layout());
+                    }
                     self.own_label_cleared();
                 }
             }
@@ -128,11 +132,38 @@ impl App {
             QuickRow::ThisFfSpeed => self.step_own_ff(right),
             QuickRow::FastForward if own.ff_speed.is_some() => self.step_own_ff(right),
             QuickRow::ThisFfSound => self.toggle_own_ff_sound(),
+            QuickRow::ThisScaling => {
+                let platform = self.playing_platform();
+                let to = self.scaling(platform).step(right);
+                self.set_own(ProfileField::Scaling(to));
+            }
+            QuickRow::ThisNdsLayout => self.step_nds_layout(true, right),
+            QuickRow::ThisCardShader => {
+                self.step_own_card_shader(right);
+            }
             QuickRow::ThisLabel => self.step_own_label(right),
             QuickRow::FastForwardSound if own.ff_sound.is_some() => self.toggle_own_ff_sound(),
             _ => return false,
         }
         true
+    }
+
+    fn step_own_card_shader(&mut self, right: bool) {
+        let mut choices = vec![None];
+        if let Some(root) = &self.root {
+            choices.extend(slot_store::list_shaders(root).into_iter().map(Some));
+        }
+        let now = self.card_shader();
+        let at = choices.iter().position(|c| *c == now).unwrap_or(0);
+        let n = choices.len();
+        let to = &choices[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }];
+        self.set_own(ProfileField::CardShader(
+            to.clone().unwrap_or_else(|| "Off".into()),
+        ));
     }
 
     fn step_own_shader(&mut self, right: bool) {

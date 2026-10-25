@@ -16,6 +16,7 @@ pub fn label_dimensions(platform: Platform) -> (u32, u32) {
         Platform::Nes => (143, 232),
         Platform::Snes => (122, 97),
         Platform::PlayStation => (337, 337),
+        Platform::Nds => (264, 136),
     }
 }
 

@@ -529,6 +529,9 @@ tasks:
           cp "vendor/${name}-src.tar.gz" "{{.OUT}}/System/licenses/${name}-${sha}.tar.gz"
           cp "vendor/${lib}_libretro.so.meta" "{{.OUT}}/System/licenses/${name}-${sha}.meta"
         done
+      - file vendor/dsperate_libretro.so | grep -q aarch64
+      - cp vendor/dsperate_libretro.so {{.OUT}}/System/
+      - cp licenses/dsperate-GPL-3.0.txt {{.OUT}}/System/licenses/
       - 'echo "device tree ready at {{.OUT}}, copy its contents to SD2"'
 
   deploy:device:

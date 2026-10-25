@@ -346,7 +346,7 @@ fn an_out_of_range_setting_falls_back_to_its_default() {
     for bad in [
         "rumble=2\nff_speed=5\nff_sound=9\n",
         "rumble=\nff_speed=1\nff_sound=on\n",
-        "rumble=-1\nff_speed=0\nff_sound=-1\n",
+        "rumble=-1\nff_speed=7\nff_sound=-1\n",
         "ff_speed=x\n",
         "colour_correction=2\n",
         "colour_correction=\n",
@@ -428,7 +428,8 @@ fn an_unreadable_platform_reads_as_a_card_that_never_said() {
         ("cart_platform=nes\n", Some(Platform::Nes)),
         ("cart_platform=gameboy\n", None),
         ("cart_platform=0\n", None),
-        ("cart_platform=nds\n", None),
+        ("cart_platform=dreamcast\n", None),
+        ("cart_platform=nds\n", Some(Platform::Nds)),
         ("cart_platform=GBA\n", Some(Platform::Gba)),
         ("cart_platform=Gbc\n", Some(Platform::Gbc)),
     ] {

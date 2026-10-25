@@ -41,6 +41,7 @@ build() {
 	fi
 
 	mkdir -p "$src"
+	git config --global --add safe.directory '*' 2>/dev/null || true
 	[ -d "$src/.git" ] || git init -q "$src"
 	git -C "$src" cat-file -e "$commit^{commit}" 2>/dev/null ||
 		git -C "$src" fetch -q --depth 1 https://github.com/libretro/mgba "$commit"

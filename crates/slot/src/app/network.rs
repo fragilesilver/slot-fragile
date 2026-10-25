@@ -127,6 +127,11 @@ impl App {
         crate::cheevos::set_enabled(self.cheevos_on());
     }
 
+    pub(super) fn start_ota(&mut self, root: &std::path::Path) {
+        let target = self.ota_target();
+        self.ota = Some(crate::ota::OtaManager::new(root.to_path_buf(), target));
+    }
+
     fn wifi_on(&self) -> bool {
         self.extras.flag(WIFI, false)
     }
@@ -241,7 +246,8 @@ impl App {
             | QuickRow::CheevosAccount
             | QuickRow::GameArt
             | QuickRow::BtDevices
-            | QuickRow::SshPassword => Some(None),
+            | QuickRow::SshPassword
+            | QuickRow::Update => Some(None),
             _ => None,
         }
     }
@@ -267,6 +273,12 @@ impl App {
             QuickRow::SshPassword => Some(self.ssh_password()),
             QuickRow::TimeSync => Some(self.time_sync().text().into()),
             QuickRow::GameArt => Some(self.game_art_text()),
+            QuickRow::Update => Some(
+                self.ota
+                    .as_ref()
+                    .map(|o| o.status().menu_text())
+                    .unwrap_or_else(|| "Unavailable".into()),
+            ),
             QuickRow::CheevosAccount => Some(match crate::cheevos::status() {
                 crate::cheevos::Status::SignedOut => "Sign in".into(),
                 crate::cheevos::Status::SigningIn if !crate::wifi::online() => {
@@ -360,6 +372,27 @@ impl App {
         let page = ListPage::new(network_rows(&self.wifi_view()));
         self.overlay.open = Some(Overlay::Networks(page));
         self.overlay.faces.clear();
+    }
+
+    pub fn activate_update(&mut self) {
+        let Some(ota) = &self.ota else {
+            return;
+        };
+        let status = ota.status();
+        match status {
+            crate::ota::OtaStatus::Idle
+            | crate::ota::OtaStatus::UpToDate(_)
+            | crate::ota::OtaStatus::Failed(_) => {
+                ota.check_for_updates();
+            }
+            crate::ota::OtaStatus::Available { .. } => {
+                ota.start_download();
+            }
+            crate::ota::OtaStatus::ReadyToRestart { .. } => {
+                self.begin_restart();
+            }
+            _ => {}
+        }
     }
 
     /// Each frame: the Networks page follows what the radio has found.

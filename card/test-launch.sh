@@ -63,4 +63,23 @@ head -c 1000 /dev/zero | tr '\0' 'x' > "$TMP/card/Logs/slot-session.log"
 launch
 [ ! -e "$TMP/card/Logs/slot-session.log.1" ] || fail "a small session log rotated"
 
+# OTA update staging handover test
+setup
+mkdir -p "$TMP/card/Logs"
+echo "old-slot-binary" > "$TMP/card/System/slot"
+echo "new-slot-binary" > "$TMP/card/System/slot.new"
+launch
+[ ! -e "$TMP/card/System/slot.new" ] || fail "slot.new was not consumed"
+[ "$(cat "$TMP/card/System/slot")" = "new-slot-binary" ] || fail "slot was not updated with slot.new"
+[ "$(cat "$TMP/card/System/slot.bak")" = "old-slot-binary" ] || fail "slot.bak was not created"
+
+# OTA rollback safeguard test
+setup
+mkdir -p "$TMP/card/Logs"
+echo "broken-slot-binary" > "$TMP/card/System/slot"
+echo "working-slot-backup" > "$TMP/card/System/slot.bak"
+echo "3" > "$TMP/run/slot-crash-count"
+launch
+[ "$(cat "$TMP/card/System/slot")" = "working-slot-backup" ] || fail "slot was not restored from slot.bak on 3 crashes"
+
 echo "launch: all passed"
