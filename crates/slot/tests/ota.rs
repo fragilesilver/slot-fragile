@@ -4,7 +4,7 @@ use std::fs::{self, File};
 use std::io::Write;
 
 use common::{boot, tmp_root_with_carts};
-use slot::ota::{OtaManager, OtaStatus, Version, DEFAULT_REPO};
+use slot::ota::{parse_release_manifest, OtaManager, OtaStatus, Version, DEFAULT_REPO};
 use slot::sha256::{to_hex, Sha256};
 use slot_ui::QuickRow;
 
@@ -107,4 +107,56 @@ fn ota_status_transitions() {
         version: "1.9.0".into(),
     };
     assert_eq!(ready.menu_text(), "Restart to apply");
+}
+
+#[test]
+fn ota_live_release_v1_9_1_manifest_and_updater() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mgr = OtaManager::new(d.path().to_path_buf(), DEFAULT_REPO.into());
+
+    let url = format!("https://api.github.com/repos/{DEFAULT_REPO}/releases/latest");
+    let resp = ureq::AgentBuilder::new()
+        .timeout(std::time::Duration::from_secs(10))
+        .user_agent("fragile")
+        .build()
+        .get(&url)
+        .set("Accept", "application/vnd.github.v3+json")
+        .call();
+
+    if let Ok(resp) = resp {
+        let body = resp.into_string().unwrap();
+        let info = parse_release_manifest(&body).expect("manifest should parse");
+        assert_eq!(info.version, "1.9.1");
+        assert!(info
+            .download_url
+            .contains("fragilesilver/slot-fragile/releases/download/v1.9.1/slot"));
+        assert_eq!(
+            info.sha256.as_deref(),
+            Some("363ddb738a35809553cdb8ef8c37fbbd0bece20301549e29e5c373587c3548d8")
+        );
+
+        // If an older device (e.g. running v1.8.0) checks for updates:
+        let rem = Version::parse(&info.version).unwrap();
+        let old = Version::parse("1.8.0").unwrap();
+        assert!(rem > old);
+        let avail_status = OtaStatus::Available {
+            version: info.version.clone(),
+            url: info.download_url.clone(),
+            sha256: info.sha256.clone(),
+            size: info.size,
+        };
+        assert_eq!(avail_status.menu_text(), "v1.9.1 ready");
+
+        // Test live check using OtaManager on the current version (1.9.1)
+        mgr.check_for_updates();
+        let mut waited = 0;
+        while mgr.status().is_busy() && waited < 100 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            waited += 1;
+        }
+
+        // Running 1.9.1 checking against 1.9.1 release -> UpToDate("1.9.1")
+        assert_eq!(mgr.status(), OtaStatus::UpToDate("1.9.1".into()));
+        assert_eq!(mgr.status().menu_text(), "Up to date");
+    }
 }

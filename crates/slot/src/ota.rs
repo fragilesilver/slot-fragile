@@ -327,7 +327,57 @@ pub fn parse_release_manifest(raw: &str) -> Option<UpdateInfo> {
         .or_else(|| json.get("version").and_then(|v| v.as_str()))?;
     let version = version_str.trim_start_matches(['v', 'V']).to_string();
 
-    // 2. Direct manifest with url field
+    // 2. GitHub release with assets array
+    if let Some(assets) = json.get("assets").and_then(|v| v.as_array()) {
+        // Look for slot binary or release asset
+        let mut download_url = None;
+        let mut size = 0;
+        let mut sha256 = None;
+
+        // First scan assets for slot binary
+        for a in assets {
+            let name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let url = a.get("browser_download_url").and_then(|v| v.as_str());
+            let asset_size = a.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+
+            if name == "slot"
+                || name == "slot-device"
+                || name == "slot.bin"
+                || name.starts_with("slot-device")
+            {
+                download_url = url.map(|s| s.to_string());
+                size = asset_size;
+                break;
+            }
+        }
+
+        // Fallback: take the first asset if none named slot
+        if download_url.is_none() && !assets.is_empty() {
+            if let Some(a) = assets.first() {
+                download_url = a
+                    .get("browser_download_url")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                size = a.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+            }
+        }
+
+        // Search body or sha256 asset for expected checksum
+        if let Some(body) = json.get("body").and_then(|v| v.as_str()) {
+            sha256 = extract_sha256_from_text(body);
+        }
+
+        if let Some(download_url) = download_url {
+            return Some(UpdateInfo {
+                version,
+                download_url,
+                sha256,
+                size,
+            });
+        }
+    }
+
+    // 3. Direct manifest with url field
     if let Some(url) = json.get("url").and_then(|v| v.as_str()) {
         let sha256 = json
             .get("sha256")
@@ -342,54 +392,7 @@ pub fn parse_release_manifest(raw: &str) -> Option<UpdateInfo> {
         });
     }
 
-    // 3. GitHub release with assets array
-    let assets = json.get("assets").and_then(|v| v.as_array())?;
-
-    // Look for slot binary or release asset
-    let mut download_url = None;
-    let mut size = 0;
-    let mut sha256 = None;
-
-    // First scan assets for slot binary
-    for a in assets {
-        let name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
-        let url = a.get("browser_download_url").and_then(|v| v.as_str());
-        let asset_size = a.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
-
-        if name == "slot"
-            || name == "slot-device"
-            || name == "slot.bin"
-            || name.starts_with("slot-device")
-        {
-            download_url = url.map(|s| s.to_string());
-            size = asset_size;
-            break;
-        }
-    }
-
-    // Fallback: take the first asset if none named slot
-    if download_url.is_none() && !assets.is_empty() {
-        if let Some(a) = assets.first() {
-            download_url = a
-                .get("browser_download_url")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-            size = a.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
-        }
-    }
-
-    // Search body or sha256 asset for expected checksum
-    if let Some(body) = json.get("body").and_then(|v| v.as_str()) {
-        sha256 = extract_sha256_from_text(body);
-    }
-
-    let download_url = download_url?;
-    Some(UpdateInfo {
-        version,
-        download_url,
-        sha256,
-        size,
-    })
+    None
 }
 
 /// Extract 64-character hex SHA-256 checksum from text if present.

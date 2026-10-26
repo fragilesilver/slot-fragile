@@ -271,7 +271,11 @@ mod tests {
         assert_eq!(at(0, h - 1), 0, "BL corner should be chamfered");
         assert_eq!(at(2, h - 3), 0, "inside BL chamfer cut should be 0");
         // Right along the bottom edge past the chamfer (x > 25) is solid
-        assert_eq!(at(30, h - 1), 255, "bottom edge past chamfer should be solid");
+        assert_eq!(
+            at(30, h - 1),
+            255,
+            "bottom edge past chamfer should be solid"
+        );
     }
 
     #[test]

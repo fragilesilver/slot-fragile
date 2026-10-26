@@ -1783,7 +1783,10 @@ mod tests {
     #[test]
     fn input_state_answers_analog_axes_from_dpad() {
         let mut host = host_with(HashMap::new(), false);
-        host.inputs = [ButtonMask::RIGHT | ButtonMask::UP, ButtonMask::LEFT | ButtonMask::DOWN];
+        host.inputs = [
+            ButtonMask::RIGHT | ButtonMask::UP,
+            ButtonMask::LEFT | ButtonMask::DOWN,
+        ];
         let _active = Active::bind(&mut host);
 
         let analog = |port, id| unsafe { input_state(port, DEVICE_ANALOG, 0, id) };

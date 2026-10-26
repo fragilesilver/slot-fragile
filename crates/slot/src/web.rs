@@ -598,13 +598,19 @@ fn synthesize_cart(
     let mut cart = slot_store::Cart {
         stem: stem.to_string(),
         platform,
-        rom: root.join("Games").join(dir_name).join(format!("{stem}.rom")),
+        rom: root
+            .join("Games")
+            .join(dir_name)
+            .join(format!("{stem}.rom")),
         label: None,
         title: stem.to_string(),
         code: String::new(),
         shell: None,
     };
-    let custom = root.join("Labels").join(dir_name).join(format!("{stem}.png"));
+    let custom = root
+        .join("Labels")
+        .join(dir_name)
+        .join(format!("{stem}.png"));
     if custom.is_file() {
         cart.label = Some(custom);
     } else {
@@ -884,15 +890,24 @@ fn handle_api_download_save(
     root: &Path,
 ) -> Option<(Vec<u8>, &'static str)> {
     let (_, dir_name) = resolve_platform(platform_str);
-    let p_sav = root.join("Saves").join(&dir_name).join(format!("{stem}.sav"));
+    let p_sav = root
+        .join("Saves")
+        .join(&dir_name)
+        .join(format!("{stem}.sav"));
     if let Ok(bytes) = fs::read(&p_sav) {
         return Some((bytes, "sav"));
     }
-    let p_srm = root.join("Saves").join(&dir_name).join(format!("{stem}.srm"));
+    let p_srm = root
+        .join("Saves")
+        .join(&dir_name)
+        .join(format!("{stem}.srm"));
     if let Ok(bytes) = fs::read(&p_srm) {
         return Some((bytes, "srm"));
     }
-    let p_dsv = root.join("Saves").join(&dir_name).join(format!("{stem}.dsv"));
+    let p_dsv = root
+        .join("Saves")
+        .join(&dir_name)
+        .join(format!("{stem}.dsv"));
     if let Ok(bytes) = fs::read(&p_dsv) {
         return Some((bytes, "dsv"));
     }
