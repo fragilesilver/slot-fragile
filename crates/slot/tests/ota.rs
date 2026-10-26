@@ -113,7 +113,7 @@ fn ota_status_transitions() {
 }
 
 #[test]
-fn ota_live_release_v1_9_1_manifest_and_updater() {
+fn ota_live_release_manifest_and_updater() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mgr = OtaManager::new(d.path().to_path_buf(), DEFAULT_REPO.into());
 
@@ -129,18 +129,18 @@ fn ota_live_release_v1_9_1_manifest_and_updater() {
     if let Ok(resp) = resp {
         let body = resp.into_string().unwrap();
         let info = parse_release_manifest(&body).expect("manifest should parse");
-        assert_eq!(info.version, "1.9.1");
+        assert_eq!(info.version, "1.9.2");
         assert!(info
             .download_url
-            .contains("fragilesilver/slot-fragile/releases/download/v1.9.1/slot"));
+            .contains("fragilesilver/slot-fragile/releases/download/v1.9.2/slot"));
         assert_eq!(
             info.sha256.as_deref(),
-            Some("363ddb738a35809553cdb8ef8c37fbbd0bece20301549e29e5c373587c3548d8")
+            Some("9e0e0c456d66f729e63e29eafc6a9a7e1d786a3710dabc00420110cf52b8879f")
         );
 
-        // If an older device (e.g. running v1.8.0) checks for updates:
+        // If an older device (e.g. running v1.9.1) checks for updates:
         let rem = Version::parse(&info.version).unwrap();
-        let old = Version::parse("1.8.0").unwrap();
+        let old = Version::parse("1.9.1").unwrap();
         assert!(rem > old);
         let avail_status = OtaStatus::Available {
             version: info.version.clone(),
@@ -148,9 +148,9 @@ fn ota_live_release_v1_9_1_manifest_and_updater() {
             sha256: info.sha256.clone(),
             size: info.size,
         };
-        assert_eq!(avail_status.menu_text(), "v1.9.1 ready");
+        assert_eq!(avail_status.menu_text(), "v1.9.2 ready");
 
-        // Test live check using OtaManager on the current version (1.9.1)
+        // Test live check using OtaManager on the current version (1.9.2)
         mgr.check_for_updates();
         let mut waited = 0;
         while mgr.status().is_busy() && waited < 100 {
@@ -158,8 +158,8 @@ fn ota_live_release_v1_9_1_manifest_and_updater() {
             waited += 1;
         }
 
-        // Running 1.9.1 checking against 1.9.1 release -> UpToDate("1.9.1")
-        assert_eq!(mgr.status(), OtaStatus::UpToDate("1.9.1".into()));
+        // Running 1.9.2 checking against 1.9.2 release -> UpToDate("1.9.2")
+        assert_eq!(mgr.status(), OtaStatus::UpToDate("1.9.2".into()));
         assert_eq!(mgr.status().menu_text(), "Up to date");
     }
 }
