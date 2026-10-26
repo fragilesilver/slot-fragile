@@ -34,17 +34,17 @@ fn ota_set_target_persists() {
 fn ota_version_comparison_logic() {
     let cur = Version::current();
     assert_eq!(cur.major, 1);
-    assert_eq!(cur.minor, 8);
-    assert_eq!(cur.patch, 0);
+    assert_eq!(cur.minor, 9);
+    assert_eq!(cur.patch, 1);
 
-    let v190 = Version::parse("v1.9.0").unwrap();
-    assert!(v190 > cur);
+    let v200 = Version::parse("v2.0.0").unwrap();
+    assert!(v200 > cur);
+
+    let v191 = Version::parse("1.9.1").unwrap();
+    assert_eq!(v191, cur);
 
     let v180 = Version::parse("1.8.0").unwrap();
-    assert_eq!(v180, cur);
-
-    let v175 = Version::parse("1.7.5").unwrap();
-    assert!(v175 < cur);
+    assert!(v180 < cur);
 }
 
 #[test]

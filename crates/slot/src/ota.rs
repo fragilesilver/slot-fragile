@@ -57,8 +57,8 @@ impl Version {
     pub fn current() -> Self {
         Self::parse(crate::build_info::SLOT_RELEASE).unwrap_or(Version {
             major: 1,
-            minor: 8,
-            patch: 0,
+            minor: 9,
+            patch: 1,
             rev: 0,
         })
     }

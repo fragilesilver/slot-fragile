@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.9.1](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.1)
+
+- 7 emulated systems with authentic skeuomorphic cartridge & media artwork:
+  - Game Boy Advance (curved shell, solid/clear/glitter tinting, interior PCB board)
+  - Game Boy & Game Boy Color (notched and rounded paks, custom palettes)
+  - Nintendo Entertainment System (tall ribbed cart, authentic label well)
+  - Super Nintendo Entertainment System (curved cart, official sticker header)
+  - Sony PlayStation (circular optical disc, clear hub hole, reflective bevel)
+  - Nintendo DS (authentic NTR-005 card mould with solid dark shell, bottom-left 45° chamfer cut, debossed arrow, white sticker paper, and official Nintendo DS header)
+- Nintendo DS Touch Cursor: navigate touch screen using L2 + D-Pad without needing an external stylus.
+- Fast Forward Hold / Toggle mode configurable in Quick Menu and persisted across sessions.
+- In-game screenshot capture (hotkey) and Polaroid-style photo viewer with in-game management.
+- Over-The-Air (OTA) updates engine: background streaming downloads, SHA-256 integrity verification, and crash-safe atomic staging.
+- Redesigned Web Dashboard:
+  - Live 3D cartridge rendering powered by native device moulds.
+  - Cart Studio live previews for plastic colours, finishes, and outlines.
+  - View toggle between floating 3D Cartridges and flat Cover Art in Labels & Media.
+  - Save Manager battery backup restore with DeSmuME .dsv, .sav, and .srm support.
+  - Nintendo DS support across system filters and ROM dropzone.
+- Storage endurance and crash safety: syncfs flushing, crash watchdogs, decoupled autosaves, and 3-crash rollback safeguards.
+- Screensavers & auto-doze: configurable Dim, Clock, CartArt, and Blackout styles.
+- Softcore RetroAchievements over Wi-Fi.
+- Two-device wireless link cable multiplayer.
+- Bluetooth audio & controller management.
+
 ## [1.8.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.8.0)
 
 - When the SD card turns read-only, SELECT + START repairs it: slot steps aside, checks FAT32 or exFAT, and restarts. (#72, #111)
