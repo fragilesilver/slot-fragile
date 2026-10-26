@@ -1,0 +1,3 @@
+commit=dev
+source=https://github.com/beebono/DSperate
+device_cflags=-mcpu=cortex-a53 -mtune=cortex-a53

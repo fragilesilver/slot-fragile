@@ -6,11 +6,14 @@
 /.ralph/
 /.superpowers/
 
-/vendor
+/vendor/*
+!/vendor/dsperate_libretro.so
+!/vendor/dsperate_libretro.so.meta
 /sdcard
 /dist
 *.dylib
 *.so
+!/vendor/dsperate_libretro.so
 
 .DS_Store
 /.idea/
