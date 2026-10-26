@@ -763,6 +763,15 @@ impl RetroCore for LibretroCore {
         &self.host.memory_map
     }
 
+    fn core_memory(&self, id: u32) -> Option<(*mut u8, usize)> {
+        let data = unsafe { (self.api.get_memory_data)(id) };
+        let len = unsafe { (self.api.get_memory_size)(id) };
+        if data.is_null() || len == 0 {
+            return None;
+        }
+        Some((data as *mut u8, len))
+    }
+
     fn discs(&self) -> Option<(u32, u32)> {
         self.host.discs.as_ref().map(crate::disc::Discs::now)
     }

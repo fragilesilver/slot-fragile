@@ -601,17 +601,21 @@ impl App {
     }
 
     pub(super) fn open_achievements(&mut self) {
-        let rows = self
-            .achievements()
-            .into_iter()
-            .map(|a| {
-                let value = match a.unlocked {
-                    true => "Unlocked".to_string(),
-                    false => format!("{} pts", a.points),
-                };
-                ListRow::new(a.title).with_value(value)
-            })
-            .collect();
+        let achievements = self.achievements();
+        let rows = if achievements.is_empty() {
+            vec![ListRow::new("No achievements for this game").with_value("None")]
+        } else {
+            achievements
+                .into_iter()
+                .map(|a| {
+                    let value = match a.unlocked {
+                        true => "Unlocked".to_string(),
+                        false => format!("{} pts", a.points),
+                    };
+                    ListRow::new(a.title).with_value(value)
+                })
+                .collect()
+        };
         self.overlay.open = Some(Overlay::Achievements(ListPage::new(rows)));
         self.overlay.faces.clear();
     }

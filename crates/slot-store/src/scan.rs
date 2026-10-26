@@ -74,17 +74,66 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
             }
         };
         let labels_dir = root.join("Labels").join(platform.dir_name());
+        let labels_dir_lower = root.join("Labels").join(platform.dir_name().to_lowercase());
+        let cartart_media_dir = dir.join("media/cartart");
+        let carts_media_dir = dir.join("media/carts");
+        let cartart_dir = dir.join("cartart");
+        let cartridges_dir = dir.join("media/cartridges");
+
         let labels = listing(&labels_dir);
+        let labels_lower = listing(&labels_dir_lower);
+        let cartart_media = listing(&cartart_media_dir);
+        let carts_media = listing(&carts_media_dir);
+        let cartart = listing(&cartart_dir);
+        let cartridges = listing(&cartridges_dir);
+
         // Fragile: Game Art's label, where the player has none of their own.
         let scraped_dir = root.join(crate::SCRAPED_LABELS).join(platform.dir_name());
         let scraped = listing(&scraped_dir);
         let make = |rom: PathBuf| {
             let stem = rom.file_stem().and_then(|s| s.to_str())?.to_string();
             let png = format!("{stem}.png").to_lowercase();
+            let jpg = format!("{stem}.jpg").to_lowercase();
             let label = labels
                 .get(&png)
+                .or_else(|| labels.get(&jpg))
                 .map(|name| labels_dir.join(name))
-                .or_else(|| scraped.get(&png).map(|name| scraped_dir.join(name)));
+                .or_else(|| {
+                    labels_lower
+                        .get(&png)
+                        .or_else(|| labels_lower.get(&jpg))
+                        .map(|name| labels_dir_lower.join(name))
+                })
+                .or_else(|| {
+                    cartart_media
+                        .get(&png)
+                        .or_else(|| cartart_media.get(&jpg))
+                        .map(|name| cartart_media_dir.join(name))
+                })
+                .or_else(|| {
+                    carts_media
+                        .get(&png)
+                        .or_else(|| carts_media.get(&jpg))
+                        .map(|name| carts_media_dir.join(name))
+                })
+                .or_else(|| {
+                    cartart
+                        .get(&png)
+                        .or_else(|| cartart.get(&jpg))
+                        .map(|name| cartart_dir.join(name))
+                })
+                .or_else(|| {
+                    cartridges
+                        .get(&png)
+                        .or_else(|| cartridges.get(&jpg))
+                        .map(|name| cartridges_dir.join(name))
+                })
+                .or_else(|| {
+                    scraped
+                        .get(&png)
+                        .or_else(|| scraped.get(&jpg))
+                        .map(|name| scraped_dir.join(name))
+                });
             Some(Cart {
                 platform,
                 shell: shells.get(&crate::cart_shell::key(&stem)).copied(),

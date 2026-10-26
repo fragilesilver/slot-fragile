@@ -22,10 +22,29 @@ typedef struct slot_game_t {
   uint32_t total;
 } slot_game_t;
 
-static void RC_CCONV slot_no_core_memory(uint32_t id, rc_libretro_core_memory_info_t* info) {
-  (void)id;
-  info->data = NULL;
-  info->size = 0;
+static void* s_core_ram_ptr = NULL;
+static size_t s_core_ram_size = 0;
+static void* s_save_ram_ptr = NULL;
+static size_t s_save_ram_size = 0;
+
+void slot_set_core_memory(void* ram, size_t ram_size, void* sram, size_t sram_size) {
+  s_core_ram_ptr = ram;
+  s_core_ram_size = ram_size;
+  s_save_ram_ptr = sram;
+  s_save_ram_size = sram_size;
+}
+
+static void RC_CCONV slot_get_core_memory(uint32_t id, rc_libretro_core_memory_info_t* info) {
+  if (id == 0) { /* RETRO_MEMORY_SYSTEM_RAM */
+    info->data = (uint8_t*)s_core_ram_ptr;
+    info->size = s_core_ram_size;
+  } else if (id == 1) { /* RETRO_MEMORY_SAVE_RAM */
+    info->data = (uint8_t*)s_save_ram_ptr;
+    info->size = s_save_ram_size;
+  } else {
+    info->data = NULL;
+    info->size = 0;
+  }
 }
 
 void* slot_regions_new(const struct retro_memory_descriptor* descriptors, unsigned count, uint32_t console_id) {
@@ -35,7 +54,7 @@ void* slot_regions_new(const struct retro_memory_descriptor* descriptors, unsign
     return NULL;
   map.descriptors = descriptors;
   map.num_descriptors = count;
-  if (!rc_libretro_memory_init(regions, &map, slot_no_core_memory, console_id)) {
+  if (!rc_libretro_memory_init(regions, &map, slot_get_core_memory, console_id)) {
     free(regions);
     return NULL;
   }

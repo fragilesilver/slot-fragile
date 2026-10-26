@@ -421,6 +421,30 @@ fn find_art(
         }
     }
 
+    // 2b. Check local media cartart directories if still none
+    if art.cart.is_none() && !cart.platform.spec().discs {
+        let dir = root.join("Games").join(cart.platform.dir_name());
+        for folder in [
+            "media/cartart",
+            "media/carts",
+            "cartart",
+            "media/cartridges",
+        ] {
+            for ext in ["png", "jpg", "jpeg"] {
+                let p = dir.join(folder).join(format!("{}.{ext}", cart.stem));
+                if let Ok(bytes) = std::fs::read(&p) {
+                    if let Some(cropped) = crop::prepare_cart_label(&bytes, cart.platform, 2) {
+                        art.cart = Some(cropped);
+                        break;
+                    }
+                }
+            }
+            if art.cart.is_some() {
+                break;
+            }
+        }
+    }
+
     // 3. Libretro thumbnails for logo and boxart
     for set in source(cart.platform) {
         if art.logo.is_some() && art.boxart.is_some() {
@@ -438,6 +462,9 @@ fn find_art(
             }
             if art.logo.is_none() {
                 art.logo = png(fetch.get(&thumb_url(set, "Named_Logos", name))?);
+            }
+            if art.logo.is_none() {
+                art.logo = png(fetch.get(&thumb_url(set, "Named_Titles", name))?);
             }
             if art.logo.is_some() && art.boxart.is_some() {
                 break;

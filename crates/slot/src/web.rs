@@ -503,9 +503,15 @@ fn handle_api_upload_label(platform_str: &str, stem: &str, body: &[u8], root: &P
 fn find_raw_label(platform_str: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
     let (plat, dir_name) = resolve_platform(platform_str);
 
-    // 1. Direct label file search across custom, scraped, and common media folders
+    // 1. Direct label file search across custom, cartart, scraped, and media folders
     let candidates = [
         root.join("Labels").join(&dir_name),
+        root.join("Labels").join(dir_name.to_lowercase()),
+        root.join("Games").join(&dir_name).join("media/cartart"),
+        root.join("Games").join(&dir_name).join("media/carts"),
+        root.join("Games").join(&dir_name).join("cartart"),
+        root.join("Games").join(&dir_name).join("media/cartridges"),
+        root.join("Roms").join(&dir_name).join("media/cartart"),
         root.join(slot_store::SCRAPED_LABELS).join(&dir_name),
         root.join("Games").join(&dir_name).join("media/images"),
         root.join("Games").join(&dir_name).join("media/boxart"),
@@ -1078,17 +1084,35 @@ fn get_disk_space(root: &Path) -> (u64, u64) {
     (16 * 1024 * 1024 * 1024, 64 * 1024 * 1024 * 1024)
 }
 
+pub fn battery_info_from_sysfs(base: &Path) -> (Option<u8>, bool) {
+    if let Ok(entries) = fs::read_dir(base) {
+        let mut best_dir = None;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let is_battery = fs::read_to_string(path.join("type"))
+                .is_ok_and(|t| t.trim().eq_ignore_ascii_case("Battery"))
+                || path.join("capacity").is_file();
+            if is_battery {
+                best_dir = Some(path);
+                break;
+            }
+        }
+        if let Some(dir) = best_dir {
+            let capacity = fs::read_to_string(dir.join("capacity"))
+                .ok()
+                .and_then(|s| s.trim().parse::<u8>().ok());
+            let charging = fs::read_to_string(dir.join("status"))
+                .map(|s| s.trim().eq_ignore_ascii_case("charging"))
+                .unwrap_or(false);
+            return (capacity, charging);
+        }
+    }
+    (None, false)
+}
+
 fn get_battery_info() -> (Option<u8>, bool) {
-    let capacity_path = Path::new("/sys/class/power_supply/battery/capacity");
-    let status_path = Path::new("/sys/class/power_supply/battery/status");
-
-    let capacity = fs::read_to_string(capacity_path)
-        .ok()
-        .and_then(|s| s.trim().parse::<u8>().ok());
-
-    let charging = fs::read_to_string(status_path)
-        .map(|s| s.trim().eq_ignore_ascii_case("charging"))
-        .unwrap_or(false);
-
-    (capacity, charging)
+    battery_info_from_sysfs(Path::new("/sys/class/power_supply"))
 }

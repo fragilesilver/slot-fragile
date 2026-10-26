@@ -24,11 +24,31 @@ thread_local! {
 }
 
 pub fn refresh(map: &[MemoryDescriptor], console: u32) -> bool {
+    refresh_with_core(map, None, None, console)
+}
+
+pub fn refresh_with_core(
+    map: &[MemoryDescriptor],
+    ram: Option<(*mut u8, usize)>,
+    sram: Option<(*mut u8, usize)>,
+    console: u32,
+) -> bool {
+    let (ram_ptr, ram_size) = ram.unwrap_or((std::ptr::null_mut(), 0));
+    let (sram_ptr, sram_size) = sram.unwrap_or((std::ptr::null_mut(), 0));
+    unsafe {
+        ffi::slot_set_core_memory(
+            ram_ptr as *mut c_void,
+            ram_size,
+            sram_ptr as *mut c_void,
+            sram_size,
+        );
+    }
+
     REGIONS.with_borrow_mut(|current| {
         let same = current
             .as_ref()
             .is_some_and(|r| r.console == console && r.map == map);
-        if !same && !map.is_empty() {
+        if !same && (!map.is_empty() || !ram_ptr.is_null()) {
             *current = Some(Regions {
                 map: map.to_vec(),
                 console,

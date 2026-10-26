@@ -431,3 +431,27 @@ fn dashboard_api_nds_rom_upload() {
     assert!(rom_path.exists());
     assert_eq!(std::fs::read(rom_path).unwrap(), rom_data);
 }
+
+#[test]
+fn dashboard_battery_sysfs_discovery() {
+    let d = tempfile::tempdir().unwrap();
+    let power_supply = d.path().join("power_supply");
+
+    // Case 1: H700 PMIC named axp2202-battery
+    let pmic_dir = power_supply.join("axp2202-battery");
+    std::fs::create_dir_all(&pmic_dir).unwrap();
+    std::fs::write(pmic_dir.join("type"), "Battery\n").unwrap();
+    std::fs::write(pmic_dir.join("capacity"), "88\n").unwrap();
+    std::fs::write(pmic_dir.join("status"), "Charging\n").unwrap();
+
+    let (cap, chg) = slot::web::battery_info_from_sysfs(&power_supply);
+    assert_eq!(cap, Some(88));
+    assert!(chg);
+
+    // Case 2: Discharging
+    std::fs::write(pmic_dir.join("status"), "Discharging\n").unwrap();
+    std::fs::write(pmic_dir.join("capacity"), "42\n").unwrap();
+    let (cap2, chg2) = slot::web::battery_info_from_sysfs(&power_supply);
+    assert_eq!(cap2, Some(42));
+    assert!(!chg2);
+}

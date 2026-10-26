@@ -285,7 +285,7 @@ fn identify(live: &Live, ticket: u64, rom: &PathBuf, console: &AtomicU32) {
     let id = game::console_for(rom, &header[..header_len]);
     let hash = game::hash_file(id, rom).or_else(|| {
         if let Ok(metadata) = std::fs::metadata(rom) {
-            if metadata.len() <= 32 * 1024 * 1024 {
+            if metadata.len() <= 512 * 1024 * 1024 {
                 if let Ok(bytes) = std::fs::read(rom) {
                     return game::hash(id, &bytes);
                 }
@@ -300,6 +300,8 @@ fn identify(live: &Live, ticket: u64, rom: &PathBuf, console: &AtomicU32) {
     console.store(id, Ordering::Release);
     if let Some(hash) = hash {
         live.cheevos.load_game(&hash);
+    } else {
+        live.cheevos.push(Notice::Unrecognised);
     }
 }
 
@@ -311,7 +313,12 @@ fn ready(live: &Live, seated: &Seated, core: &dyn RetroCore) -> bool {
         .cheevos
         .game_console()
         .unwrap_or_else(|| seated.console.load(Ordering::Acquire));
-    console != 0 && memory::refresh(core.memory_map(), console)
+    if console == 0 {
+        return false;
+    }
+    let ram = core.core_memory(0);
+    let sram = core.core_memory(1);
+    memory::refresh_with_core(core.memory_map(), ram, sram, console)
 }
 
 pub fn frame(core: &dyn RetroCore) {

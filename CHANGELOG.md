@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.9.2](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.2)
+
+- Nintendo DS & Media Cartridges:
+  - Local cartridge artwork discovery prioritizing `media/cartart/`, `media/carts/`, and `cartart/` over box art across library scan, scraper, and web dashboard.
+  - Transparent/Clear and Glitter finishes applied cleanly to media face shells (NES, SNES, PS1, NDS) with authentic alpha modulation and sparkle flecks.
+- Web Dashboard:
+  - Dynamic PMIC battery sysfs detection across AXP PMICs (`axp2202-battery`, `axp20x-battery`, etc.) for real-time battery status and charging indicators.
+- RetroAchievements:
+  - Broadened core memory fallback (`core_memory`) mapping System RAM and Save RAM for non-GBA/GB cores (FCEUmm, Snes9x, PCSX-ReARMed, DSperate).
+  - Raised live ROM hashing limit to 512MB for optical discs and large NDS paks.
+  - Informative toast notices when achievements are loaded or when a game is unrecognised.
+- OTA Updates:
+  - Release asset download URL resolution fixed for seamless in-place updates.
+
 ## [1.9.1](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.1)
 
 - 7 emulated systems with authentic skeuomorphic cartridge & media artwork:

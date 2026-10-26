@@ -1,6 +1,6 @@
 /// The upstream slot release Fragile is built on. The crates stay at 0.1.0, so this is the
 /// number About shows; a test holds it to the newest heading in CHANGELOG.md.
-pub const SLOT_RELEASE: &str = "1.9.1";
+pub const SLOT_RELEASE: &str = "1.9.2";
 
 #[derive(Copy, Clone, Debug)]
 pub struct Build {

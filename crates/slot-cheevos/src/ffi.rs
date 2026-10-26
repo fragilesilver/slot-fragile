@@ -113,6 +113,12 @@ extern "C" {
         path: *const c_char,
     ) -> c_int;
 
+    pub fn slot_set_core_memory(
+        ram: *mut c_void,
+        ram_size: usize,
+        sram: *mut c_void,
+        sram_size: usize,
+    );
     pub fn slot_regions_new(
         descriptors: *const RetroMemoryDescriptor,
         count: c_uint,

@@ -108,6 +108,10 @@ pub trait RetroCore: Send {
     fn memory_map(&self) -> &[crate::memory::MemoryDescriptor] {
         &[]
     }
+    /// Raw core memory region by ID (0 = System RAM, 1 = Save RAM) for RetroAchievements unmapped fallback.
+    fn core_memory(&self, _id: u32) -> Option<(*mut u8, usize)> {
+        None
+    }
     // --- extras: discs, for a game on more than one ---
     /// The disc in the drive (from 0) and how many the game has, when the core swaps discs.
     fn discs(&self) -> Option<(u32, u32)> {

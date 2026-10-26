@@ -714,7 +714,9 @@ pub fn media_shadow(m: Media) -> CartFace {
 fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
     let (w, h) = m.size();
     let (lx, ly, lw, lh) = m.label();
-    let colour = shell_for(cart).colour;
+    let shell = shell_for(cart);
+    let colour = shell.colour;
+    let clear = shell.finish != Finish::Solid && m != Media::Disc;
     let mut rgba = m.neutral().to_vec();
     let (sx, sy, sw, sh) = m.sticker().unwrap_or((lx, ly, lw, lh));
     for y in 0..h {
@@ -731,6 +733,30 @@ fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
             let i = ((y * w + x) * 4) as usize;
             for c in 0..3 {
                 rgba[i + c] = overlay(rgba[i + c], colour[c]);
+            }
+            if clear {
+                let own = u32::from(rgba[i + 3]);
+                rgba[i + 3] = ((own * u32::from(CLEAR_ALPHA) + 127) / 255) as u8;
+            }
+        }
+    }
+    if shell.finish == Finish::Glitter && m != Media::Disc {
+        for y in 0..h {
+            for x in 0..w {
+                if !fleck(x, y) {
+                    continue;
+                }
+                let on_label = (sx..sx + sw).contains(&x) && (sy..sy + sh).contains(&y);
+                if on_label {
+                    continue;
+                }
+                let i = ((y * w + x) * 4) as usize;
+                if rgba[i + 3] == 0 {
+                    continue;
+                }
+                let body = [rgba[i], rgba[i + 1], rgba[i + 2]];
+                rgba[i..i + 3].copy_from_slice(&lerp(body, [0xff; 3], 100, 255));
+                rgba[i + 3] = 255;
             }
         }
     }

@@ -781,3 +781,48 @@ fn nds_game_card_has_authentic_dimensions_and_seated_box() {
     assert_eq!(slot_ui::seated_box(Platform::Nds), (240, 254));
     assert_eq!(slot_ui::label_size_for(Platform::Nds), (248, 202));
 }
+
+#[test]
+fn media_cart_finishes_solid_clear_glitter() {
+    use slot_store::{Cart, ShellChoice, ShellFinish};
+
+    let mut cart = Cart {
+        stem: "MarioKartDS".into(),
+        platform: Platform::Nds,
+        rom: "MarioKartDS.nds".into(),
+        label: None,
+        title: "Mario Kart DS".into(),
+        code: String::new(),
+        shell: Some(ShellChoice {
+            outline: slot_store::Outline::Auto,
+            colour: [0x50, 0x50, 0x50],
+            finish: ShellFinish::Solid,
+        }),
+    };
+
+    let solid_face = slot_ui::cart_face(&cart);
+
+    // Clear finish produces lower alpha on shell pixels
+    cart.shell = Some(ShellChoice {
+        outline: slot_store::Outline::Auto,
+        colour: [0x50, 0x50, 0x50],
+        finish: ShellFinish::Clear,
+    });
+    let clear_face = slot_ui::cart_face(&cart);
+    assert_eq!(solid_face.w, clear_face.w);
+    assert_eq!(solid_face.h, clear_face.h);
+
+    // Sample top margin shell area (outside label)
+    let sample_idx = ((10 * solid_face.w + 100) * 4) as usize;
+    assert_eq!(solid_face.rgba[sample_idx + 3], 255);
+    assert!(clear_face.rgba[sample_idx + 3] < 255);
+
+    // Glitter finish modifies pixels
+    cart.shell = Some(ShellChoice {
+        outline: slot_store::Outline::Auto,
+        colour: [0x50, 0x50, 0x50],
+        finish: ShellFinish::Glitter,
+    });
+    let glitter_face = slot_ui::cart_face(&cart);
+    assert_ne!(glitter_face.rgba, solid_face.rgba);
+}
