@@ -140,6 +140,15 @@ fn handle_client(stream: &mut TcpStream, root: &Path) {
         return;
     }
 
+    // Lengthen read timeout for file uploads
+    if method == "POST"
+        && (uri.starts_with("/api/upload_rom")
+            || uri.starts_with("/api/upload_label")
+            || uri.starts_with("/api/save"))
+    {
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(60)));
+    }
+
     // Read remaining body if Content-Length specified
     let content_len: usize = headers
         .get("content-length")
@@ -215,6 +224,24 @@ fn route_request(
             let res = handle_api_upload_label(&platform, &stem, body, root);
             send_response(stream, 200, "application/json", res.as_bytes(), None);
         }
+        ("GET", "/api/cart") => {
+            let platform = query_map.get("platform").cloned().unwrap_or_default();
+            let stem = query_map.get("stem").cloned().unwrap_or_default();
+            if let Some(bytes) = handle_api_get_cart(&platform, &stem, &query_map, root) {
+                let cache = if query_map.contains_key("colour")
+                    || query_map.contains_key("finish")
+                    || query_map.contains_key("outline")
+                    || query_map.contains_key("t")
+                {
+                    "no-cache"
+                } else {
+                    "public, max-age=3600"
+                };
+                send_response_ex(stream, 200, "image/png", &bytes, None, Some(cache), None);
+            } else {
+                send_response(stream, 404, "text/plain", b"Cart Not Found", None);
+            }
+        }
         ("GET", "/api/label") => {
             let platform = query_map.get("platform").cloned().unwrap_or_default();
             let stem = query_map.get("stem").cloned().unwrap_or_default();
@@ -243,8 +270,17 @@ fn route_request(
         ("GET", "/api/save") => {
             let platform = query_map.get("platform").cloned().unwrap_or_default();
             let stem = query_map.get("stem").cloned().unwrap_or_default();
-            if let Some(bytes) = handle_api_download_save(&platform, &stem, root) {
-                send_response(stream, 200, "application/octet-stream", &bytes, None);
+            if let Some((bytes, ext)) = handle_api_download_save(&platform, &stem, root) {
+                let disp = format!("attachment; filename=\"{stem}.{ext}\"");
+                send_response_ex(
+                    stream,
+                    200,
+                    "application/octet-stream",
+                    &bytes,
+                    None,
+                    None,
+                    Some(&disp),
+                );
             } else {
                 send_response(stream, 404, "text/plain", b"Save Not Found", None);
             }
@@ -252,7 +288,8 @@ fn route_request(
         ("POST", "/api/save") => {
             let platform = query_map.get("platform").cloned().unwrap_or_default();
             let stem = query_map.get("stem").cloned().unwrap_or_default();
-            let res = handle_api_upload_save(&platform, &stem, body, root);
+            let filename = query_map.get("filename").map(|s| s.as_str());
+            let res = handle_api_upload_save(&platform, &stem, filename, body, root);
             send_response(stream, 200, "application/json", res.as_bytes(), None);
         }
         ("POST", "/api/upload_rom") => {
@@ -298,6 +335,18 @@ fn send_response(
     body: &[u8],
     auth_header: Option<&str>,
 ) {
+    send_response_ex(stream, status, content_type, body, auth_header, None, None);
+}
+
+fn send_response_ex(
+    stream: &mut TcpStream,
+    status: u16,
+    content_type: &str,
+    body: &[u8],
+    auth_header: Option<&str>,
+    cache_control: Option<&str>,
+    content_disposition: Option<&str>,
+) {
     let status_line = match status {
         200 => "HTTP/1.1 200 OK",
         204 => "HTTP/1.1 204 No Content",
@@ -311,6 +360,12 @@ fn send_response(
     );
     if let Some(auth) = auth_header {
         headers.push_str(&format!("WWW-Authenticate: {auth}\r\n"));
+    }
+    if let Some(cache) = cache_control {
+        headers.push_str(&format!("Cache-Control: {cache}\r\n"));
+    }
+    if let Some(disp) = content_disposition {
+        headers.push_str(&format!("Content-Disposition: {disp}\r\n"));
     }
     headers.push_str("\r\n");
 
@@ -445,7 +500,7 @@ fn handle_api_upload_label(platform_str: &str, stem: &str, body: &[u8], root: &P
     }
 }
 
-fn handle_api_get_label(platform_str: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
+fn find_raw_label(platform_str: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
     let (plat, dir_name) = resolve_platform(platform_str);
 
     // 1. Direct label file search across custom, scraped, and common media folders
@@ -512,7 +567,7 @@ fn handle_api_get_label(platform_str: &str, stem: &str, root: &Path) -> Option<V
         }
     }
 
-    // 3. Scan carts: check custom or scraped label, or generate on-the-fly CartFace / Disc Face as PNG
+    // 3. Scan carts label path
     if let Ok(carts) = slot_store::scan(root) {
         if let Some(c) = carts.iter().find(|c| {
             c.stem.eq_ignore_ascii_case(stem)
@@ -528,15 +583,133 @@ fn handle_api_get_label(platform_str: &str, stem: &str, root: &Path) -> Option<V
                     }
                 }
             }
-            let art = crate::label_cache::label_art(root, c);
-            let face = slot_ui::cart_face_with(c, art);
-            if let Some(png) = crate::thumb::png_rgba(&face.rgba, (face.w, face.h)) {
-                return Some(png);
-            }
         }
     }
 
     None
+}
+
+fn synthesize_cart(
+    platform: slot_store::Platform,
+    stem: &str,
+    root: &Path,
+    dir_name: &str,
+) -> slot_store::Cart {
+    let mut cart = slot_store::Cart {
+        stem: stem.to_string(),
+        platform,
+        rom: root.join("Games").join(dir_name).join(format!("{stem}.rom")),
+        label: None,
+        title: stem.to_string(),
+        code: String::new(),
+        shell: None,
+    };
+    let custom = root.join("Labels").join(dir_name).join(format!("{stem}.png"));
+    if custom.is_file() {
+        cart.label = Some(custom);
+    } else {
+        let scraped = root
+            .join(slot_store::SCRAPED_LABELS)
+            .join(dir_name)
+            .join(format!("{stem}.png"));
+        if scraped.is_file() {
+            cart.label = Some(scraped);
+        }
+    }
+    let shell_path = root.join(slot_store::LABELS_SHELL_FILE);
+    if let Ok(content) = fs::read_to_string(&shell_path) {
+        let shells = slot_store::cart_shell::choices(&content);
+        if let Some(s) = shells.get(&slot_store::cart_shell::key(stem)) {
+            cart.shell = Some(*s);
+        }
+    }
+    cart
+}
+
+fn handle_api_get_cart(
+    platform_str: &str,
+    stem: &str,
+    query_map: &HashMap<String, String>,
+    root: &Path,
+) -> Option<Vec<u8>> {
+    let (plat, dir_name) = resolve_platform(platform_str);
+    let platform = plat.unwrap_or(slot_store::Platform::Gba);
+
+    // 1. Scan or synthesize cart
+    let mut cart = slot_store::scan(root)
+        .ok()
+        .and_then(|carts| {
+            carts.into_iter().find(|c| {
+                c.stem.eq_ignore_ascii_case(stem)
+                    && (c.platform == platform
+                        || c.platform.dir_name().eq_ignore_ascii_case(&dir_name))
+            })
+        })
+        .unwrap_or_else(|| synthesize_cart(platform, stem, root, &dir_name));
+
+    // 2. Query overrides for live preview
+    let override_outline = query_map.get("outline").map(|s| s.as_str());
+    let override_colour = query_map.get("colour").map(|s| s.as_str());
+    let override_finish = query_map.get("finish").map(|s| s.as_str());
+
+    if override_outline.is_some() || override_colour.is_some() || override_finish.is_some() {
+        let outline = match override_outline.unwrap_or("auto") {
+            "notched" => slot_store::Outline::Notched,
+            "rounded" => slot_store::Outline::Rounded,
+            _ => cart
+                .shell
+                .map(|s| s.outline)
+                .unwrap_or(slot_store::Outline::Auto),
+        };
+        let colour = if let Some(hex) = override_colour {
+            let hex = hex.trim_start_matches('#');
+            if hex.len() == 6 && hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+                [0, 2, 4].map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap_or(0))
+            } else {
+                cart.shell.map(|s| s.colour).unwrap_or([0x4b, 0x38, 0x69])
+            }
+        } else {
+            cart.shell.map(|s| s.colour).unwrap_or([0x4b, 0x38, 0x69])
+        };
+        let finish = match override_finish.unwrap_or("solid") {
+            "clear" => slot_store::ShellFinish::Clear,
+            "glitter" => slot_store::ShellFinish::Glitter,
+            _ => slot_store::ShellFinish::Solid,
+        };
+        cart.shell = Some(slot_store::ShellChoice {
+            outline,
+            colour,
+            finish,
+        });
+    }
+
+    // 3. Resolve label art (scaled to cartridge label well)
+    let (lw, lh) = slot_ui::label_size_for(cart.platform);
+    let art = crate::label_cache::label_art(root, &cart).or_else(|| {
+        if let Some(label_path) = &cart.label {
+            if let Ok(bytes) = fs::read(label_path) {
+                return slot_ui::cover_bytes(&bytes, lw, lh);
+            }
+        }
+        if let Some(raw_bytes) = find_raw_label(platform_str, stem, root) {
+            return slot_ui::cover_bytes(&raw_bytes, lw, lh);
+        }
+        None
+    });
+
+    // 4. Render CartFace composite
+    let face = slot_ui::cart_face_with(&cart, art);
+
+    // 5. Encode PNG with alpha
+    crate::thumb::png_rgba(&face.rgba, (face.w, face.h))
+}
+
+fn handle_api_get_label(platform_str: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
+    if let Some(raw) = find_raw_label(platform_str, stem, root) {
+        return Some(raw);
+    }
+    let query_map = HashMap::new();
+    handle_api_get_cart(platform_str, stem, &query_map, root)
 }
 
 fn handle_api_get_lists(root: &Path) -> String {
@@ -682,13 +855,15 @@ fn handle_api_get_saves(root: &Path) -> String {
                         for s_entry in saves.flatten() {
                             let path = s_entry.path();
                             let ext = path.extension().and_then(|s| s.to_str());
-                            if ext == Some("sav") || ext == Some("srm") {
+                            if ext == Some("sav") || ext == Some("srm") || ext == Some("dsv") {
                                 if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
                                     let size = s_entry.metadata().map(|m| m.len()).unwrap_or(0);
+                                    let ext_str = ext.unwrap_or("sav");
                                     out.push(format!(
-                                        "{{\"platform\":\"{}\",\"stem\":\"{}\",\"size\":{}}}",
+                                        "{{\"platform\":\"{}\",\"stem\":\"{}\",\"ext\":\"{}\",\"size\":{}}}",
                                         escape_json(&platform_name),
                                         escape_json(stem),
+                                        escape_json(ext_str),
                                         size
                                     ));
                                 }
@@ -703,27 +878,50 @@ fn handle_api_get_saves(root: &Path) -> String {
     format!("[{}]", out.join(","))
 }
 
-fn handle_api_download_save(platform_str: &str, stem: &str, root: &Path) -> Option<Vec<u8>> {
+fn handle_api_download_save(
+    platform_str: &str,
+    stem: &str,
+    root: &Path,
+) -> Option<(Vec<u8>, &'static str)> {
     let (_, dir_name) = resolve_platform(platform_str);
-    let p1 = root
-        .join("Saves")
-        .join(&dir_name)
-        .join(format!("{stem}.sav"));
-    let p2 = root
-        .join("Saves")
-        .join(&dir_name)
-        .join(format!("{stem}.srm"));
-    fs::read(&p1).or_else(|_| fs::read(&p2)).ok()
+    let p_sav = root.join("Saves").join(&dir_name).join(format!("{stem}.sav"));
+    if let Ok(bytes) = fs::read(&p_sav) {
+        return Some((bytes, "sav"));
+    }
+    let p_srm = root.join("Saves").join(&dir_name).join(format!("{stem}.srm"));
+    if let Ok(bytes) = fs::read(&p_srm) {
+        return Some((bytes, "srm"));
+    }
+    let p_dsv = root.join("Saves").join(&dir_name).join(format!("{stem}.dsv"));
+    if let Ok(bytes) = fs::read(&p_dsv) {
+        return Some((bytes, "dsv"));
+    }
+    None
 }
 
-fn handle_api_upload_save(platform_str: &str, stem: &str, body: &[u8], root: &Path) -> String {
+fn handle_api_upload_save(
+    platform_str: &str,
+    stem: &str,
+    filename: Option<&str>,
+    body: &[u8],
+    root: &Path,
+) -> String {
     if platform_str.is_empty() || stem.is_empty() || body.is_empty() {
         return "{\"ok\":false,\"error\":\"Invalid parameters\"}".into();
     }
-    let (_, dir_name) = resolve_platform(platform_str);
+    let (plat, dir_name) = resolve_platform(platform_str);
     let target_dir = root.join("Saves").join(&dir_name);
     let _ = fs::create_dir_all(&target_dir);
-    let target_file = target_dir.join(format!("{stem}.sav"));
+
+    let ext = filename
+        .and_then(|f| Path::new(f).extension().and_then(|s| s.to_str()))
+        .unwrap_or(if plat == Some(slot_store::Platform::Nds) {
+            "dsv"
+        } else {
+            "sav"
+        });
+
+    let target_file = target_dir.join(format!("{stem}.{ext}"));
 
     match fs::write(&target_file, body) {
         Ok(()) => "{\"ok\":true}".into(),

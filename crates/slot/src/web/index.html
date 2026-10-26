@@ -45,14 +45,11 @@
     .game-item:hover { background: var(--card-hover); }
     .game-item.selected { border-color: var(--accent); background: #352640; font-weight: 600; }
     .platform-tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 0.15rem 0.4rem; border-radius: 4px; background: #2f3542; color: #a4b0be; }
-    .preview-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 2rem; }
-    .cart-preview-stage { width: 320px; height: 320px; display: flex; justify-content: center; align-items: center; position: relative; }
-    .cart-shell-mock { width: 240px; height: 260px; border-radius: 12px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.5); transition: all 0.3s ease; border: 2px solid rgba(255,255,255,0.15); }
-    .cart-shell-mock.notched { border-radius: 4px 20px 4px 4px; }
-    .cart-shell-mock.rounded { border-radius: 16px; }
-    .cart-label-mock { width: 180px; height: 160px; background: #1e1e24; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); overflow: hidden; display: flex; justify-content: center; align-items: center; position: relative; }
-    .cart-label-mock img { width: 100%; height: 100%; object-fit: cover; }
-    .cart-label-fallback { font-size: 0.8rem; font-weight: 700; text-align: center; color: var(--text-muted); padding: 1rem; }
+    .preview-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; }
+    .cart-preview-stage { width: 340px; height: 340px; display: flex; justify-content: center; align-items: center; position: relative; }
+    .cart-preview-stage img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 15px 35px rgba(0,0,0,0.65)); transition: transform 0.2s ease, filter 0.2s ease; }
+    .cart-preview-stage img:hover { transform: scale(1.02); filter: drop-shadow(0 20px 42px rgba(0,0,0,0.8)); }
+    .cart-label-fallback { font-size: 0.9rem; font-weight: 700; text-align: center; color: var(--text-muted); padding: 1rem; border: 2px dashed var(--border); border-radius: var(--radius); width: 200px; }
     .controls-grid { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 1.25rem; }
     .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
     .control-label { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
@@ -71,8 +68,12 @@
     .action-btn.danger { background: var(--danger); }
     .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
     .card-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
-    .card-thumb { width: 100%; height: 160px; background: var(--card); border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); }
-    .card-thumb img { width: 100%; height: 100%; object-fit: contain; }
+    .card-thumb { width: 100%; height: 220px; display: flex; align-items: center; justify-content: center; position: relative; border-radius: 6px; transition: background 0.2s; }
+    .card-thumb.cart-view { background: transparent; border: 1px solid transparent; }
+    .card-thumb.cart-view img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 10px 22px rgba(0,0,0,0.6)); transition: transform 0.2s ease; }
+    .card-thumb.cart-view:hover img { transform: translateY(-4px) scale(1.03); }
+    .card-thumb.cover-view { background: var(--card); border: 1px solid var(--border); height: 180px; overflow: hidden; }
+    .card-thumb.cover-view img { width: 100%; height: 100%; object-fit: contain; }
     .dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 1.5rem; text-align: center; cursor: pointer; transition: border-color 0.2s; }
     .dropzone:hover { border-color: var(--accent); }
     .table-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; }
@@ -113,13 +114,14 @@
         <div class="game-list-panel">
           <div class="filter-box">
             <select id="studio-sys-filter" onchange="renderStudioList()">
-              <option value="all">All Systems (GBA, GB, GBC, NES, SNES, PS1)</option>
+              <option value="all">All Systems (GBA, GB, GBC, NES, SNES, PS1, NDS)</option>
               <option value="gba">Game Boy Advance</option>
               <option value="gb">Game Boy</option>
               <option value="gbc">Game Boy Color</option>
               <option value="nes">NES</option>
               <option value="snes">SNES</option>
               <option value="ps">PlayStation</option>
+              <option value="nds">Nintendo DS</option>
             </select>
             <input type="text" id="studio-search" class="search-input" placeholder="Filter games..." oninput="renderStudioList()">
           </div>
@@ -127,39 +129,43 @@
         </div>
 
         <div class="preview-panel">
-          <div class="cart-preview-stage">
-            <div id="cart-mock" class="cart-shell-mock">
-              <div id="cart-label" class="cart-label-mock">
-                <span class="cart-label-fallback" id="preview-fallback-title">Select a game</span>
-              </div>
-            </div>
+          <div class="cart-preview-stage" id="cart-preview-stage">
+            <img id="cart-preview-img" src="" alt="Cartridge Preview" style="display:none;" onload="this.style.display='block'; document.getElementById('preview-fallback-title').style.display='none';">
+            <span class="cart-label-fallback" id="preview-fallback-title">Select a game</span>
+          </div>
+
+          <div style="display:flex; gap:0.5rem; justify-content:center; width:100%; max-width:340px;">
+            <button class="action-btn secondary" style="font-size:0.85rem; padding:0.45rem 1rem; flex:1;" onclick="triggerStudioLabelUpload()">Upload Label to Cart</button>
           </div>
 
           <div class="controls-grid">
-            <div class="control-group">
+            <div class="control-group" id="group-outline">
               <label class="control-label">Outline Style</label>
-              <div class="btn-row">
+              <div class="btn-row" id="row-outline-btns">
                 <button class="choice-btn active" id="btn-out-auto" onclick="setOutline('auto')">Auto</button>
                 <button class="choice-btn" id="btn-out-notched" onclick="setOutline('notched')">Notched (GB)</button>
-                <button class="choice-btn" id="btn-out-rounded" onclick="setOutline('rounded')">Rounded (GBA)</button>
+                <button class="choice-btn" id="btn-out-rounded" onclick="setOutline('rounded')">Rounded (GBA/GBC)</button>
+              </div>
+              <div id="outline-fixed-msg" style="display:none; font-size:0.85rem; color:var(--text-muted); font-style:italic;">
+                Fixed console mould for this platform.
               </div>
             </div>
 
             <div class="control-group">
               <label class="control-label">Plastic Color</label>
               <div class="swatches-grid">
-                <div class="swatch selected" style="background:#4b3869" title="Atomic Purple" onclick="setColor('#4b3869','clear')"></div>
-                <div class="swatch" style="background:#00aa44" title="Emerald Green" onclick="setColor('#00aa44','clear')"></div>
-                <div class="swatch" style="background:#cc0022" title="Ruby Red" onclick="setColor('#cc0022','clear')"></div>
-                <div class="swatch" style="background:#0044cc" title="Sapphire Blue" onclick="setColor('#0044cc','clear')"></div>
-                <div class="swatch" style="background:#ffd700" title="Pokémon Gold Glitter" onclick="setColor('#ffd700','glitter')"></div>
-                <div class="swatch" style="background:#c0c0c0" title="Pokémon Silver Glitter" onclick="setColor('#c0c0c0','glitter')"></div>
-                <div class="swatch" style="background:#00c4d4" title="Crystal Blue" onclick="setColor('#00c4d4','glitter')"></div>
-                <div class="swatch" style="background:#908e82" title="Classic DMG Grey" onclick="setColor('#908e82','solid')"></div>
-                <div class="swatch" style="background:#fed833" title="Pikachu Yellow" onclick="setColor('#fed833','solid')"></div>
-                <div class="swatch" style="background:#bfbfb8" title="Super Famicom Grey" onclick="setColor('#bfbfb8','solid')"></div>
-                <div class="swatch" style="background:#1c1c1c" title="Jet Black" onclick="setColor('#1c1c1c','solid')"></div>
-                <div class="swatch" style="background:#f0f0ee" title="Arctic White" onclick="setColor('#f0f0ee','solid')"></div>
+                <div class="swatch selected" data-hex="4b3869" data-finish="clear" style="background:#4b3869" title="Atomic Purple" onclick="setColor('#4b3869','clear')"></div>
+                <div class="swatch" data-hex="00aa44" data-finish="clear" style="background:#00aa44" title="Emerald Green" onclick="setColor('#00aa44','clear')"></div>
+                <div class="swatch" data-hex="cc0022" data-finish="clear" style="background:#cc0022" title="Ruby Red" onclick="setColor('#cc0022','clear')"></div>
+                <div class="swatch" data-hex="0044cc" data-finish="clear" style="background:#0044cc" title="Sapphire Blue" onclick="setColor('#0044cc','clear')"></div>
+                <div class="swatch" data-hex="ffd700" data-finish="glitter" style="background:#ffd700" title="Pokémon Gold Glitter" onclick="setColor('#ffd700','glitter')"></div>
+                <div class="swatch" data-hex="c0c0c0" data-finish="glitter" style="background:#c0c0c0" title="Pokémon Silver Glitter" onclick="setColor('#c0c0c0','glitter')"></div>
+                <div class="swatch" data-hex="00c4d4" data-finish="glitter" style="background:#00c4d4" title="Crystal Blue" onclick="setColor('#00c4d4','glitter')"></div>
+                <div class="swatch" data-hex="908e82" data-finish="solid" style="background:#908e82" title="Classic DMG Grey" onclick="setColor('#908e82','solid')"></div>
+                <div class="swatch" data-hex="fed833" data-finish="solid" style="background:#fed833" title="Pikachu Yellow" onclick="setColor('#fed833','solid')"></div>
+                <div class="swatch" data-hex="bfbfb8" data-finish="solid" style="background:#bfbfb8" title="Super Famicom Grey" onclick="setColor('#bfbfb8','solid')"></div>
+                <div class="swatch" data-hex="1c1c1c" data-finish="solid" style="background:#1c1c1c" title="Jet Black" onclick="setColor('#1c1c1c','solid')"></div>
+                <div class="swatch" data-hex="f0f0ee" data-finish="solid" style="background:#f0f0ee" title="Arctic White" onclick="setColor('#f0f0ee','solid')"></div>
                 <input type="color" id="custom-color-picker" style="width:36px;height:36px;border:none;cursor:pointer;background:none;" onchange="setColor(this.value, curFinish)">
                 <input type="text" id="custom-color-hex" style="width:90px;font-family:monospace;" value="4b3869" maxlength="6" oninput="if(this.value.length===6) setColor('#'+this.value, curFinish)">
               </div>
@@ -185,8 +191,8 @@
 
     <!-- TAB 2: LABELS & MEDIA -->
     <section id="tab-labels" class="tab-content">
-      <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; gap:1rem; flex-wrap:wrap;">
-        <div style="display:flex; gap:0.5rem; flex:1; max-width:600px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; gap:1rem; flex-wrap:wrap; align-items:center;">
+        <div style="display:flex; gap:0.5rem; flex:1; max-width:650px; flex-wrap:wrap;">
           <select id="labels-sys-filter" style="max-width:180px;" onchange="renderLabelsGrid()">
             <option value="all">All Systems</option>
             <option value="GBA">GBA</option>
@@ -195,11 +201,16 @@
             <option value="NES">NES</option>
             <option value="SNES">SNES</option>
             <option value="PS">PlayStation (PS)</option>
+            <option value="NDS">Nintendo DS (NDS)</option>
           </select>
-          <input type="text" id="labels-search" class="search-input" placeholder="Search games..." oninput="renderLabelsGrid()">
+          <input type="text" id="labels-search" class="search-input" placeholder="Search games..." oninput="renderLabelsGrid()" style="flex:1; min-width:200px;">
         </div>
-        <div>
-          <button class="action-btn secondary" onclick="loadGames()">Refresh Labels</button>
+        <div style="display:flex; gap:0.75rem; align-items:center;">
+          <div class="btn-row">
+            <button class="choice-btn active" id="btn-view-cart" onclick="setLabelsView('cart')">Cartridge View</button>
+            <button class="choice-btn" id="btn-view-cover" onclick="setLabelsView('cover')">Cover View</button>
+          </div>
+          <button class="action-btn secondary" onclick="loadGames()">Refresh</button>
         </div>
       </div>
       <div class="grid-cards" id="labels-grid"></div>
@@ -235,9 +246,15 @@
 
     <!-- TAB 4: SAVE MANAGER -->
     <section id="tab-saves" class="tab-content">
-      <div style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
-        <div style="color:var(--text-muted); font-size:0.9rem;">Backup or restore battery save files (.sav / .srm) directly to and from your device.</div>
-        <button class="action-btn secondary" onclick="loadSaves()">Refresh Saves</button>
+      <div style="margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+          <h2 style="font-size:1.15rem; margin-bottom:0.25rem;">Battery Save Manager</h2>
+          <div style="color:var(--text-muted); font-size:0.85rem;">Backup or restore battery save files (.sav, .srm, .dsv) directly to and from your device.</div>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="action-btn" onclick="triggerDirectSaveRestore()">+ Restore Save File</button>
+          <button class="action-btn secondary" onclick="loadSaves()">Refresh Saves</button>
+        </div>
       </div>
       <div class="table-container">
         <table>
@@ -245,8 +262,8 @@
             <tr>
               <th>System</th>
               <th>Game Stem</th>
+              <th>Format</th>
               <th>File Size</th>
-              <th>Modified</th>
               <th style="text-align:right;">Actions</th>
             </tr>
           </thead>
@@ -268,12 +285,13 @@
             <option value="NES">NES (NES/)</option>
             <option value="SNES">Super Nintendo (SNES/)</option>
             <option value="PS">Sony PlayStation (PS/)</option>
+            <option value="NDS">Nintendo DS (NDS/)</option>
           </select>
         </div>
         <div class="dropzone" id="rom-dropzone" onclick="document.getElementById('rom-file-input').click()">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:0.5rem;color:var(--text-muted);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           <div style="font-weight:600;">Click or drag ROM file here</div>
-          <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">Supports .gba, .gb, .gbc, .nes, .sfc, .smc, .chd, .pbp, .cue, .bin, .zip</div>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">Supports .gba, .gb, .gbc, .nes, .sfc, .smc, .chd, .pbp, .cue, .bin, .zip, .nds</div>
           <input type="file" id="rom-file-input" style="display:none;" onchange="handleRomUpload(this.files[0])">
         </div>
         <div id="rom-upload-progress" style="display:none; font-size:0.9rem; color:var(--accent); font-weight:600; text-align:center;"></div>
@@ -285,7 +303,7 @@
       <div style="max-width:700px; margin:0 auto; display:flex; flex-direction:column; gap:1.5rem;">
         <div class="card-item">
           <h2 style="font-size:1.15rem;">Device Details</h2>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; font-size:0.9rem;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; font-size:0.9rem; margin-top:0.5rem;">
             <div>Model: <b id="sys-detail-model">Anbernic RG35XX Pro</b></div>
             <div>BaseOS Target: <b id="sys-detail-target">H700 BaseOS</b></div>
             <div>Storage Free: <b id="sys-detail-free">-- GB</b></div>
@@ -314,6 +332,8 @@
     let curFinish = 'clear';
     let curList = 'favorites';
     let listsMap = {};
+    let labelsView = 'cart';
+    let previewDebounceTimer = null;
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -392,18 +412,20 @@
       document.querySelectorAll('.game-item').forEach(el => el.classList.remove('selected'));
       renderStudioList();
       document.getElementById('preview-fallback-title').innerText = g.stem;
-      const labelBox = document.getElementById('cart-label');
-      labelBox.innerHTML = '';
-      const img = document.createElement('img');
-      img.src = `/api/label?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}`;
-      img.onerror = () => {
-        img.remove();
-        const span = document.createElement('span');
-        span.className = 'cart-label-fallback';
-        span.innerText = g.stem;
-        labelBox.appendChild(span);
-      };
-      labelBox.appendChild(img);
+
+      // Adapt outline controls based on platform
+      const isGbFamily = ['gba', 'gb', 'gbc'].includes(g.platform.toLowerCase());
+      const outlineRow = document.getElementById('row-outline-btns');
+      const outlineFixed = document.getElementById('outline-fixed-msg');
+      if (isGbFamily) {
+        outlineRow.style.display = 'flex';
+        outlineFixed.style.display = 'none';
+      } else {
+        outlineRow.style.display = 'none';
+        outlineFixed.style.display = 'block';
+        outlineFixed.innerText = `Fixed authentic mould for ${g.platform}.`;
+      }
+
       if (g.shell) {
         const parts = g.shell.split(' ');
         setOutline(parts[0] || 'auto', false);
@@ -412,7 +434,7 @@
         setOutline('auto', false);
         setColor('#4b3869', 'clear', false);
       }
-      updateMockStyle();
+      updateLiveCartPreview();
     }
 
     function setOutline(out, redraw = true) {
@@ -420,7 +442,7 @@
       document.querySelectorAll('[id^="btn-out-"]').forEach(b => b.classList.remove('active'));
       const activeBtn = document.getElementById('btn-out-' + out);
       if (activeBtn) activeBtn.classList.add('active');
-      if (redraw) updateMockStyle();
+      if (redraw) updateLiveCartPreview();
     }
 
     function setColor(hex, finish, redraw = true) {
@@ -428,7 +450,8 @@
       document.getElementById('custom-color-picker').value = '#' + curHex;
       document.getElementById('custom-color-hex').value = curHex;
       setFinish(finish, false);
-      if (redraw) updateMockStyle();
+      updateSwatchSelection();
+      if (redraw) debouncedUpdateLiveCartPreview();
     }
 
     function setFinish(fin, redraw = true) {
@@ -436,30 +459,45 @@
       document.querySelectorAll('[id^="btn-fin-"]').forEach(b => b.classList.remove('active'));
       const activeBtn = document.getElementById('btn-fin-' + fin);
       if (activeBtn) activeBtn.classList.add('active');
-      if (redraw) updateMockStyle();
+      updateSwatchSelection();
+      if (redraw) updateLiveCartPreview();
     }
 
-    function updateMockStyle() {
-      const mock = document.getElementById('cart-mock');
-      mock.className = 'cart-shell-mock ' + (curOutline === 'notched' ? 'notched' : (curOutline === 'rounded' ? 'rounded' : ''));
-      let bg = '#' + curHex;
-      if (curFinish === 'clear') {
-        const r = parseInt(curHex.substr(0,2), 16) || 0;
-        const g = parseInt(curHex.substr(2,2), 16) || 0;
-        const b = parseInt(curHex.substr(4,2), 16) || 0;
-        mock.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.75)`;
-        mock.style.backgroundImage = 'none';
-      } else if (curFinish === 'glitter') {
-        const r = parseInt(curHex.substr(0,2), 16) || 0;
-        const g = parseInt(curHex.substr(2,2), 16) || 0;
-        const b = parseInt(curHex.substr(4,2), 16) || 0;
-        mock.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.8)`;
-        mock.style.backgroundImage = 'radial-gradient(circle, rgba(255,255,255,0.7) 1px, transparent 1px)';
-        mock.style.backgroundSize = '8px 8px';
-      } else {
-        mock.style.backgroundColor = bg;
-        mock.style.backgroundImage = 'none';
-      }
+    function updateSwatchSelection() {
+      document.querySelectorAll('.swatch').forEach(sw => {
+        sw.classList.remove('selected');
+        if (sw.dataset.hex && sw.dataset.hex.toLowerCase() === curHex.toLowerCase() && sw.dataset.finish === curFinish) {
+          sw.classList.add('selected');
+        }
+      });
+    }
+
+    function debouncedUpdateLiveCartPreview() {
+      clearTimeout(previewDebounceTimer);
+      previewDebounceTimer = setTimeout(() => {
+        updateLiveCartPreview();
+      }, 120);
+    }
+
+    function updateLiveCartPreview() {
+      if (!curGame) return;
+      const img = document.getElementById('cart-preview-img');
+      const fallback = document.getElementById('preview-fallback-title');
+      const cacheBust = Date.now();
+      const url = `/api/cart?platform=${encodeURIComponent(curGame.platform)}&stem=${encodeURIComponent(curGame.stem)}&outline=${curOutline}&colour=${curHex}&finish=${curFinish}&t=${cacheBust}`;
+      img.src = url;
+      img.style.display = 'block';
+      fallback.style.display = 'none';
+      img.onerror = () => {
+        img.style.display = 'none';
+        fallback.style.display = 'block';
+        fallback.innerText = curGame.stem;
+      };
+    }
+
+    function triggerStudioLabelUpload() {
+      if (!curGame) return;
+      triggerLabelUpload(curGame.platform, curGame.stem);
     }
 
     async function saveCartShell() {
@@ -500,6 +538,13 @@
       } catch (e) { showToast('Error resetting shell'); }
     }
 
+    function setLabelsView(view) {
+      labelsView = view;
+      document.getElementById('btn-view-cart').classList.toggle('active', view === 'cart');
+      document.getElementById('btn-view-cover').classList.toggle('active', view === 'cover');
+      renderLabelsGrid();
+    }
+
     function renderLabelsGrid() {
       const filter = document.getElementById('labels-sys-filter').value;
       const q = document.getElementById('labels-search').value.toLowerCase();
@@ -512,19 +557,24 @@
         const matchQ = !q || g.stem.toLowerCase().includes(q);
         return matchSys && matchQ;
       });
+      const cacheBust = Date.now();
       filtered.forEach(g => {
         const card = document.createElement('div');
         card.className = 'card-item';
+        const imgUrl = labelsView === 'cart'
+          ? `/api/cart?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}&_t=${cacheBust}`
+          : `/api/label?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}&_t=${cacheBust}`;
+        const thumbClass = labelsView === 'cart' ? 'card-thumb cart-view' : 'card-thumb cover-view';
         card.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <b style="font-size:0.95rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${g.stem}">${g.stem}</b>
             <span class="platform-tag">${g.platform}</span>
           </div>
-          <div class="card-thumb">
-            <img src="/api/label?platform=${encodeURIComponent(g.platform)}&stem=${encodeURIComponent(g.stem)}" alt="${g.stem}" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='block';">
+          <div class="${thumbClass}">
+            <img src="${imgUrl}" alt="${g.stem}" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='block';">
             <span style="font-size:0.8rem; color:var(--text-muted); display:none;">${g.stem}</span>
           </div>
-          <div class="dropzone" style="padding:0.75rem;" onclick="triggerLabelUpload('${g.platform}', '${g.stem.replace(/'/g, "\\'")}')">
+          <div class="dropzone" style="padding:0.6rem;" onclick="triggerLabelUpload('${g.platform}', '${g.stem.replace(/'/g, "\\'")}')">
             <span style="font-size:0.85rem; font-weight:600;">Upload PNG</span>
           </div>
         `;
@@ -532,16 +582,12 @@
       });
     }
 
-    let uploadTarget = null;
     function triggerLabelUpload(platform, stem) {
-      uploadTarget = { platform, stem };
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/png';
       input.onchange = async () => {
         if (!input.files[0]) return;
-        const form = new FormData();
-        form.append('label', input.files[0]);
         try {
           const res = await fetch(`/api/upload_label?platform=${encodeURIComponent(platform)}&stem=${encodeURIComponent(stem)}`, {
             method: 'POST',
@@ -550,6 +596,9 @@
           if (res.ok) {
             showToast(`Uploaded label for ${stem}`);
             await loadGames();
+            if (curGame && curGame.platform === platform && curGame.stem === stem) {
+              updateLiveCartPreview();
+            }
           } else {
             showToast('Failed to upload label');
           }
@@ -681,18 +730,69 @@
         saves.forEach(s => {
           const tr = document.createElement('tr');
           const sizeKb = (s.size / 1024).toFixed(1) + ' KB';
+          const ext = s.ext || 'sav';
           tr.innerHTML = `
             <td><span class="platform-tag">${s.platform}</span></td>
             <td><b>${s.stem}</b></td>
+            <td><span style="font-family:monospace; font-size:0.85rem; color:var(--text-muted);">.${ext}</span></td>
             <td>${sizeKb}</td>
-            <td>${s.modified || '--'}</td>
-            <td style="text-align:right;">
-              <a href="/api/save?platform=${encodeURIComponent(s.platform)}&stem=${encodeURIComponent(s.stem)}" class="action-btn secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem; text-decoration:none; display:inline-block;" download="${s.stem}.sav">Download</a>
+            <td style="text-align:right; display:flex; gap:0.5rem; justify-content:flex-end;">
+              <a href="/api/save?platform=${encodeURIComponent(s.platform)}&stem=${encodeURIComponent(s.stem)}" class="action-btn secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem; text-decoration:none; display:inline-block;" download="${s.stem}.${ext}">Download</a>
+              <button class="action-btn secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="triggerSaveUpload('${s.platform}', '${s.stem.replace(/'/g, "\\'")}', '${ext}')">Restore</button>
             </td>
           `;
           tbody.appendChild(tr);
         });
       } catch (e) { console.error('saves error', e); }
+    }
+
+    function triggerSaveUpload(platform, stem, defaultExt = 'sav') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.sav,.srm,.dsv';
+      input.onchange = async () => {
+        if (!input.files[0]) return;
+        const file = input.files[0];
+        try {
+          const res = await fetch(`/api/save?platform=${encodeURIComponent(platform)}&stem=${encodeURIComponent(stem)}&filename=${encodeURIComponent(file.name)}`, {
+            method: 'POST',
+            body: file
+          });
+          if (res.ok) {
+            showToast(`Restored save for ${stem}`);
+            await loadSaves();
+          } else {
+            showToast('Failed to restore save');
+          }
+        } catch (e) { showToast('Save upload error'); }
+      };
+      input.click();
+    }
+
+    function triggerDirectSaveRestore() {
+      const targetSys = prompt('Enter target platform for save (GBA, GB, GBC, NES, SNES, PS, NDS):', 'GBA');
+      if (!targetSys) return;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.sav,.srm,.dsv';
+      input.onchange = async () => {
+        if (!input.files[0]) return;
+        const file = input.files[0];
+        const stem = file.name.replace(/\.[^/.]+$/, '');
+        try {
+          const res = await fetch(`/api/save?platform=${encodeURIComponent(targetSys.trim())}&stem=${encodeURIComponent(stem)}&filename=${encodeURIComponent(file.name)}`, {
+            method: 'POST',
+            body: file
+          });
+          if (res.ok) {
+            showToast(`Uploaded save ${file.name} to ${targetSys}`);
+            await loadSaves();
+          } else {
+            showToast('Failed to upload save');
+          }
+        } catch (e) { showToast('Upload error'); }
+      };
+      input.click();
     }
 
     async function handleRomUpload(file) {

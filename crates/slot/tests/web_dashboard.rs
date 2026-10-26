@@ -324,3 +324,110 @@ fn dashboard_api_returns_generated_cart_face_when_no_custom_label() {
     // Verify it is a valid PNG header
     assert!(body.starts_with(b"\x89PNG\r\n\x1a\n"));
 }
+
+#[test]
+fn dashboard_api_cart_renders_png_for_all_platforms() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let _server = WebServer::start(d.path().to_path_buf(), 15078).expect("start server");
+
+    let platforms = ["GBA", "GB", "GBC", "NES", "SNES", "PS", "NDS"];
+    for plat in platforms {
+        let path = format!("/api/cart?platform={plat}&stem=TestGame");
+        let (status, headers, body) = request(15078, "GET", &path, Some(("root", "root")), None);
+        assert_eq!(status, 200, "Failed for platform {plat}");
+        assert_eq!(
+            headers.get("content-type").map(|s| s.as_str()),
+            Some("image/png")
+        );
+        assert!(
+            body.starts_with(b"\x89PNG\r\n\x1a\n"),
+            "Invalid PNG magic for platform {plat}"
+        );
+    }
+}
+
+#[test]
+fn dashboard_api_cart_preview_overrides() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let _server = WebServer::start(d.path().to_path_buf(), 15079).expect("start server");
+
+    let path = "/api/cart?platform=GBA&stem=Emerald&outline=rounded&colour=00aa44&finish=clear";
+    let (status, headers, body) = request(15079, "GET", path, Some(("root", "root")), None);
+    assert_eq!(status, 200);
+    assert_eq!(
+        headers.get("content-type").map(|s| s.as_str()),
+        Some("image/png")
+    );
+    assert!(body.starts_with(b"\x89PNG\r\n\x1a\n"));
+    assert_eq!(
+        headers.get("cache-control").map(|s| s.as_str()),
+        Some("no-cache")
+    );
+}
+
+#[test]
+fn dashboard_api_save_manager_dsv_and_upload() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let _server = WebServer::start(d.path().to_path_buf(), 15080).expect("start server");
+
+    // 1. Create dummy .dsv for NDS
+    let nds_saves_dir = d.path().join("Saves/NDS");
+    std::fs::create_dir_all(&nds_saves_dir).unwrap();
+    let dsv_content = b"fake dsv battery save";
+    std::fs::write(nds_saves_dir.join("Pokemon.dsv"), dsv_content).unwrap();
+
+    // 2. Query /api/saves
+    let (status, _, body) = request(15080, "GET", "/api/saves", Some(("root", "root")), None);
+    assert_eq!(status, 200);
+    let json = String::from_utf8_lossy(&body);
+    assert!(json.contains("Pokemon"));
+    assert!(json.contains("\"ext\":\"dsv\""));
+
+    // 3. Download /api/save
+    let (status, headers, download_body) = request(
+        15080,
+        "GET",
+        "/api/save?platform=NDS&stem=Pokemon",
+        Some(("root", "root")),
+        None,
+    );
+    assert_eq!(status, 200);
+    assert_eq!(&download_body, dsv_content);
+    assert!(headers
+        .get("content-disposition")
+        .unwrap()
+        .contains("Pokemon.dsv"));
+
+    // 4. Upload save via POST /api/save
+    let new_save_content = b"new zelda save";
+    let (status, _, _) = request(
+        15080,
+        "POST",
+        "/api/save?platform=NDS&stem=Zelda&filename=Zelda.dsv",
+        Some(("root", "root")),
+        Some(new_save_content),
+    );
+    assert_eq!(status, 200);
+    let written = std::fs::read(nds_saves_dir.join("Zelda.dsv")).unwrap();
+    assert_eq!(written, new_save_content);
+}
+
+#[test]
+fn dashboard_api_nds_rom_upload() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let _server = WebServer::start(d.path().to_path_buf(), 15081).expect("start server");
+
+    let rom_data = b"dummy nds rom binary data";
+    let (status, _, _) = request(
+        15081,
+        "POST",
+        "/api/upload_rom?platform=NDS&filename=mario.nds",
+        Some(("root", "root")),
+        Some(rom_data),
+    );
+    assert_eq!(status, 200);
+
+    let rom_path = d.path().join("Games/NDS/mario.nds");
+    assert!(rom_path.exists());
+    assert_eq!(std::fs::read(rom_path).unwrap(), rom_data);
+}
