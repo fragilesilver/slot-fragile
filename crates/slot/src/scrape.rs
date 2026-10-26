@@ -463,9 +463,6 @@ fn find_art(
             if art.logo.is_none() {
                 art.logo = png(fetch.get(&thumb_url(set, "Named_Logos", name))?);
             }
-            if art.logo.is_none() {
-                art.logo = png(fetch.get(&thumb_url(set, "Named_Titles", name))?);
-            }
             if art.logo.is_some() && art.boxart.is_some() {
                 break;
             }

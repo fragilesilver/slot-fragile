@@ -515,8 +515,10 @@ fn find_raw_label(platform_str: &str, stem: &str, root: &Path) -> Option<Vec<u8>
         root.join(slot_store::SCRAPED_LABELS).join(&dir_name),
         root.join("Games").join(&dir_name).join("media/images"),
         root.join("Games").join(&dir_name).join("media/boxart"),
+        root.join("Games").join(&dir_name).join("media/covers"),
         root.join("Games").join(&dir_name).join("images"),
         root.join("Games").join(&dir_name).join("boxart"),
+        root.join("Games").join(&dir_name).join("covers"),
         root.join("Roms").join(&dir_name).join("media/images"),
         root.join("Roms").join(&dir_name).join("images"),
     ];

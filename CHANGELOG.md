@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.9.3](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.3)
+
+- Nintendo DS:
+  - Updated cartridge shell to photorealistic NTR-005 mould with authentic dark charcoal finish, debossed downward insertion arrow, and official "NINTENDO DS®" header.
+  - Eliminated screenshot fetching (`Named_Titles`), prioritizing authentic cartridge sticker artwork and official front cover art.
+  - Dual artwork support: full-bleed cartridge stickers (aspect $\le 1.05$) cover the sticker well with authentic 45° bottom-left chamfer; box covers (aspect $> 1.05$) are framed cleanly between the official header and footer.
+- Fast Forward Controls:
+  - Fixed chorded fast forward (`Select + R2`) in Toggle mode: latches active on press, persists across button release, and toggles off on next tap.
+- Artwork & Cutouts:
+  - SNES cartridge sticker expanded to full 223x99 well with 3px rounded corners.
+  - NES cartridge label fitted with bottom corner radius mask (3.5px) matching recess.
+  - Removed destructive percentage cropping on existing stickers across all systems.
+  - Expanded media scan to discover local `media/boxart`, `media/images`, and `media/covers`.
+
 ## [1.9.2](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.2)
 
 - Nintendo DS & Media Cartridges:

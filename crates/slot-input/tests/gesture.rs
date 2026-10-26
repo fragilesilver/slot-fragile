@@ -985,3 +985,35 @@ fn ff_mode_toggle_with_chord_latches_and_persists_past_button_release() {
     assert_eq!(g.feed(Up(A), 1100), vec![]);
     assert_eq!(g.feed(Up(Start), 1200), vec![GbaUp(Start)]);
 }
+
+#[test]
+fn ff_mode_toggle_with_select_chord_latches_and_toggles() {
+    let mut g = Gestures::new();
+    g.set_shortcuts(vec![(
+        Chord {
+            modifier: Some(Mod::Select),
+            button: R2,
+        },
+        FfStart,
+    )]);
+    g.set_playing(true);
+    g.set_ff_mode(slot_input::FfMode::Toggle);
+
+    // Press Select, then R2
+    assert_eq!(g.feed(Down(Select), 0), vec![]);
+    assert_eq!(g.feed(Down(R2), 50), vec![FfStart]);
+    assert!(g.ff_latched());
+
+    // Release R2, then Select
+    assert_eq!(g.feed(Up(R2), 200), vec![]);
+    assert!(g.ff_latched());
+    assert_eq!(g.feed(Up(Select), 250), vec![]);
+    assert!(g.ff_latched());
+
+    // Press Select + R2 again to toggle off
+    assert_eq!(g.feed(Down(Select), 1000), vec![]);
+    assert_eq!(g.feed(Down(R2), 1050), vec![FfStop]);
+    assert!(!g.ff_latched());
+    assert_eq!(g.feed(Up(R2), 1100), vec![]);
+    assert_eq!(g.feed(Up(Select), 1150), vec![]);
+}

@@ -358,7 +358,7 @@ impl Gestures {
             self.menu_last_tap = None;
             self.menu_eject_fired = false;
             return match self.shortcut(Some(Mod::Menu), b) {
-                Some(action) => self.hold(b, action),
+                Some(action) => self.fire(b, action, now),
                 None => {
                     self.held.push((b, Release::Send(Action::MenuChordUp(b))));
                     vec![Action::MenuChordDown(b)]
@@ -372,7 +372,7 @@ impl Gestures {
             };
             if let Some(action) = action {
                 self.mark_chorded();
-                return self.hold(b, action);
+                return self.fire(b, action, now);
             }
         }
         if let Some((first, action)) = self.pair(b) {

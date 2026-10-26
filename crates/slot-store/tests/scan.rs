@@ -180,3 +180,37 @@ fn a_scraped_label_stands_in_until_the_player_has_their_own() {
     assert!(label("Fusion").starts_with(d.path().join(slot_store::SCRAPED_LABELS)));
     assert_eq!(label("Zero"), d.path().join("Labels/GBA/Zero.png"));
 }
+
+#[test]
+fn cartart_prioritized_over_boxart_media() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join("Games/NDS/media/cartart")).unwrap();
+    std::fs::create_dir_all(d.path().join("Games/NDS/media/boxart")).unwrap();
+    std::fs::write(d.path().join("Games/NDS/MarioKart.nds"), b"x").unwrap();
+    std::fs::write(
+        d.path().join("Games/NDS/media/cartart/MarioKart.png"),
+        b"cart",
+    )
+    .unwrap();
+    std::fs::write(
+        d.path().join("Games/NDS/media/boxart/MarioKart.png"),
+        b"box",
+    )
+    .unwrap();
+
+    std::fs::write(d.path().join("Games/NDS/Zelda.nds"), b"x").unwrap();
+    std::fs::write(d.path().join("Games/NDS/media/boxart/Zelda.png"), b"box").unwrap();
+
+    let carts = scan(d.path()).unwrap();
+    let mk = carts.iter().find(|c| c.stem == "MarioKart").unwrap();
+    assert_eq!(
+        mk.label.as_ref().unwrap(),
+        &d.path().join("Games/NDS/media/cartart/MarioKart.png")
+    );
+
+    let zelda = carts.iter().find(|c| c.stem == "Zelda").unwrap();
+    assert_eq!(
+        zelda.label.as_ref().unwrap(),
+        &d.path().join("Games/NDS/media/boxart/Zelda.png")
+    );
+}

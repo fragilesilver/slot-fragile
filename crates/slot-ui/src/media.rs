@@ -40,7 +40,7 @@ const ART: [Art; Media::COUNT] = [
         png: include_bytes!("../../../assets/snes_neutral.png"),
         w: 360,
         h: 229,
-        label: (102, 3, 122, 97),
+        label: (68, 2, 223, 99),
         sticker: Some((68, 2, 223, 99)),
         colour: [0x9a, 0x99, 0xa0],
     },
@@ -54,10 +54,10 @@ const ART: [Art; Media::COUNT] = [
     },
     Art {
         png: include_bytes!("../../../assets/nds_neutral.png"),
-        w: 300,
-        h: 318,
-        label: (26, 62, 248, 202),
-        sticker: Some((26, 16, 248, 248)),
+        w: 336,
+        h: 360,
+        label: (32, 20, 272, 296),
+        sticker: Some((32, 20, 272, 296)),
         colour: [0x32, 0x32, 0x36],
     },
 ];
@@ -157,17 +157,30 @@ impl Media {
                     nds_label_mask(w, h)
                 }))
             }
-            _ => None,
+            Media::Snes => {
+                static SNES_LABEL: OnceLock<Vec<u8>> = OnceLock::new();
+                Some(SNES_LABEL.get_or_init(|| {
+                    let (_, _, w, h) = self.label();
+                    snes_label_mask(w, h)
+                }))
+            }
+            Media::Nes => {
+                static NES_LABEL: OnceLock<Vec<u8>> = OnceLock::new();
+                Some(NES_LABEL.get_or_init(|| {
+                    let (_, _, w, h) = self.label();
+                    nes_label_mask(w, h)
+                }))
+            }
         }
     }
 }
 
-/// An authentic Nintendo DS Game Card label mask (224x216): rounded top-left, top-right,
-/// and bottom-right corners (radius 4px), with a distinctive 45-degree chamfer cutout at
-/// the bottom-left corner (20px cut) matching real NTR-005 game cards.
+/// An authentic Nintendo DS Game Card label mask (272x296): rounded top-left, top-right,
+/// and bottom-right corners (radius 5px), with a distinctive 45-degree chamfer cutout at
+/// the bottom-left corner (24px cut) matching real NTR-005 game cards.
 fn nds_label_mask(w: u32, h: u32) -> Vec<u8> {
-    let r = 4.0f32;
-    let chamfer = 20.0f32;
+    let r = 5.0f32;
+    let chamfer = 24.0f32;
     let mut out = Vec::with_capacity((w * h) as usize);
     let sqrt2 = std::f32::consts::SQRT_2;
     for y in 0..h {
@@ -186,6 +199,55 @@ fn nds_label_mask(w: u32, h: u32) -> Vec<u8> {
             } else if px < chamfer && py > h as f32 - chamfer {
                 let d = (px - (py - (h as f32 - chamfer))) / sqrt2;
                 cov = cov.min((d + 0.5).clamp(0.0, 1.0));
+            }
+            out.push((cov * 255.0 + 0.5).clamp(0.0, 255.0) as u8);
+        }
+    }
+    out
+}
+
+/// An authentic SNES cartridge label mask (223x99) with all 4 corners rounded with radius 3px.
+fn snes_label_mask(w: u32, h: u32) -> Vec<u8> {
+    let r = 3.0f32;
+    let mut out = Vec::with_capacity((w * h) as usize);
+    for y in 0..h {
+        let py = y as f32 + 0.5;
+        for x in 0..w {
+            let px = x as f32 + 0.5;
+            let mut cov = 1.0f32;
+            if px < r && py < r {
+                cov = cov.min((r - (r - px).hypot(r - py) + 0.5).clamp(0.0, 1.0));
+            } else if px > w as f32 - r && py < r {
+                cov = cov.min((r - (px - (w as f32 - r)).hypot(r - py) + 0.5).clamp(0.0, 1.0));
+            } else if px > w as f32 - r && py > h as f32 - r {
+                cov = cov.min(
+                    (r - (px - (w as f32 - r)).hypot(py - (h as f32 - r)) + 0.5).clamp(0.0, 1.0),
+                );
+            } else if px < r && py > h as f32 - r {
+                cov = cov.min((r - (r - px).hypot(py - (h as f32 - r)) + 0.5).clamp(0.0, 1.0));
+            }
+            out.push((cov * 255.0 + 0.5).clamp(0.0, 255.0) as u8);
+        }
+    }
+    out
+}
+
+/// An authentic NES cartridge label mask (143x232) whose bottom-left and bottom-right
+/// corners are rounded with radius 3.5px matching the moulded recess.
+fn nes_label_mask(w: u32, h: u32) -> Vec<u8> {
+    let r = 3.5f32;
+    let mut out = Vec::with_capacity((w * h) as usize);
+    for y in 0..h {
+        let py = y as f32 + 0.5;
+        for x in 0..w {
+            let px = x as f32 + 0.5;
+            let mut cov = 1.0f32;
+            if px < r && py > h as f32 - r {
+                cov = cov.min((r - (r - px).hypot(py - (h as f32 - r)) + 0.5).clamp(0.0, 1.0));
+            } else if px > w as f32 - r && py > h as f32 - r {
+                cov = cov.min(
+                    (r - (px - (w as f32 - r)).hypot(py - (h as f32 - r)) + 0.5).clamp(0.0, 1.0),
+                );
             }
             out.push((cov * 255.0 + 0.5).clamp(0.0, 255.0) as u8);
         }

@@ -79,6 +79,9 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
         let carts_media_dir = dir.join("media/carts");
         let cartart_dir = dir.join("cartart");
         let cartridges_dir = dir.join("media/cartridges");
+        let boxart_media_dir = dir.join("media/boxart");
+        let images_media_dir = dir.join("media/images");
+        let covers_media_dir = dir.join("media/covers");
 
         let labels = listing(&labels_dir);
         let labels_lower = listing(&labels_dir_lower);
@@ -86,6 +89,9 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
         let carts_media = listing(&carts_media_dir);
         let cartart = listing(&cartart_dir);
         let cartridges = listing(&cartridges_dir);
+        let boxart_media = listing(&boxart_media_dir);
+        let images_media = listing(&images_media_dir);
+        let covers_media = listing(&covers_media_dir);
 
         // Fragile: Game Art's label, where the player has none of their own.
         let scraped_dir = root.join(crate::SCRAPED_LABELS).join(platform.dir_name());
@@ -127,6 +133,24 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
                         .get(&png)
                         .or_else(|| cartridges.get(&jpg))
                         .map(|name| cartridges_dir.join(name))
+                })
+                .or_else(|| {
+                    boxart_media
+                        .get(&png)
+                        .or_else(|| boxart_media.get(&jpg))
+                        .map(|name| boxart_media_dir.join(name))
+                })
+                .or_else(|| {
+                    images_media
+                        .get(&png)
+                        .or_else(|| images_media.get(&jpg))
+                        .map(|name| images_media_dir.join(name))
+                })
+                .or_else(|| {
+                    covers_media
+                        .get(&png)
+                        .or_else(|| covers_media.get(&jpg))
+                        .map(|name| covers_media_dir.join(name))
                 })
                 .or_else(|| {
                     scraped

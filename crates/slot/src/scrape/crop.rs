@@ -14,9 +14,9 @@ pub fn label_dimensions(platform: Platform) -> (u32, u32) {
         Platform::Gb => (220, 195),
         Platform::Gbc => (223, 199),
         Platform::Nes => (143, 232),
-        Platform::Snes => (122, 97),
+        Platform::Snes => (223, 99),
         Platform::PlayStation => (337, 337),
-        Platform::Nds => (248, 202),
+        Platform::Nds => (272, 296),
     }
 }
 
@@ -78,23 +78,17 @@ fn crop_cart_sticker(image: &DynamicImage, platform: Platform) -> DynamicImage {
             h * 573 / 1000,
         )),
         // NES cart front (aspect ~0.89): tall vertical label in the right groove
-        Platform::Nes if (0.80..=0.96).contains(&aspect) => {
+        Platform::Nes if (0.80..=0.96).contains(&aspect) && !image.color().has_alpha() => {
             Some((w * 401 / 1000, h * 6 / 1000, w * 471 / 1000, h * 676 / 1000))
         }
-        // SNES cart front (aspect ~1.57): central sticker art window
-        Platform::Snes if (1.45..=1.70).contains(&aspect) => Some((
-            w * 283 / 1000,
-            h * 13 / 1000,
-            w * 339 / 1000,
-            h * 424 / 1000,
-        )),
-        // Nintendo DS Game Card front (aspect ~0.94): central square sticker
-        Platform::Nds if (0.88..=1.02).contains(&aspect) => Some((
-            w * 127 / 1000,
-            h * 94 / 1000,
-            w * 747 / 1000,
-            h * 679 / 1000,
-        )),
+        // SNES cart front (aspect ~1.57): full sticker well
+        Platform::Snes if (1.45..=1.70).contains(&aspect) && !image.color().has_alpha() => {
+            Some((w * 189 / 1000, h * 9 / 1000, w * 619 / 1000, h * 432 / 1000))
+        }
+        // Nintendo DS Game Card front (aspect ~0.94): full sticker well
+        Platform::Nds if (0.88..=1.02).contains(&aspect) && !image.color().has_alpha() => {
+            Some((w * 95 / 1000, h * 55 / 1000, w * 810 / 1000, h * 822 / 1000))
+        }
         _ => None,
     };
 
@@ -130,12 +124,12 @@ mod tests {
     }
 
     #[test]
-    fn snes_cart_photo_is_cropped_to_center_window() {
+    fn snes_cart_photo_is_cropped_to_sticker_well() {
         // 360x229 SNES photo mockup (aspect ~1.572)
         let img = DynamicImage::new_rgb8(360, 229);
         let cropped = crop_cart_sticker(&img, Platform::Snes);
-        assert_eq!(cropped.width(), 360 * 339 / 1000);
-        assert_eq!(cropped.height(), 229 * 424 / 1000);
+        assert_eq!(cropped.width(), 360 * 619 / 1000);
+        assert_eq!(cropped.height(), 229 * 432 / 1000);
     }
 
     #[test]
