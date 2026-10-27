@@ -11,6 +11,8 @@ slot-retro = { path = "../slot-retro" }
 slot-store = { path = "../slot-store" }
 png = { workspace = true }
 ureq = { version = "2", default-features = false, features = ["tls"] }
+chd = "0.4.0"
+zip = { version = "9.1.2", default-features = false, features = ["deflate"] }
 
 [build-dependencies]
 cc = "1"

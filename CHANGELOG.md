@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.9.4](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.4)
+
+- Nintendo DS Cartridge Scale & Authentic Cutout:
+  - Rescaled cartridge geometry to authentic NTR-005 card dimensions (300×318 canvas, scaled to 240×254 in slot) ensuring proper proportional fit alongside other systems on the shelf.
+  - Restored authentic label well (`(26, 62, 248, 202)`) preserving the debossed downward grip arrow and official header.
+  - Restored 20px 45° bottom-left chamfer cutout with 4px corner rounding on cartridge stickers.
+- RetroAchievements:
+  - Added native ISO9660 reader for Sony PlayStation CHD (`.chd`) disc images and `.m3u` playlists, enabling RetroAchievements game identification and badge unlocks for compressed disc formats.
+  - Added transparent `.zip` archive decompression for ROM hashing, ensuring Nintendo DS (and other systems) packaged in `.zip` archives hash the uncompressed ROM payload rather than the zip container.
+  - Enabled RetroAchievements badge display for Nintendo DS titles.
+
 ## [1.9.3](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.3)
 
 - Nintendo DS:

@@ -54,10 +54,10 @@ const ART: [Art; Media::COUNT] = [
     },
     Art {
         png: include_bytes!("../../../assets/nds_neutral.png"),
-        w: 336,
-        h: 360,
-        label: (32, 20, 272, 296),
-        sticker: Some((32, 20, 272, 296)),
+        w: 300,
+        h: 318,
+        label: (26, 62, 248, 202),
+        sticker: Some((26, 16, 248, 248)),
         colour: [0x32, 0x32, 0x36],
     },
 ];
@@ -175,12 +175,12 @@ impl Media {
     }
 }
 
-/// An authentic Nintendo DS Game Card label mask (272x296): rounded top-left, top-right,
-/// and bottom-right corners (radius 5px), with a distinctive 45-degree chamfer cutout at
-/// the bottom-left corner (24px cut) matching real NTR-005 game cards.
+/// An authentic Nintendo DS Game Card label mask (248x202): rounded top-left, top-right,
+/// and bottom-right corners (radius 4px), with a distinctive 45-degree chamfer cutout at
+/// the bottom-left corner (20px cut) matching real NTR-005 game cards.
 fn nds_label_mask(w: u32, h: u32) -> Vec<u8> {
-    let r = 5.0f32;
-    let chamfer = 24.0f32;
+    let r = 4.0f32;
+    let chamfer = 20.0f32;
     let mut out = Vec::with_capacity((w * h) as usize);
     let sqrt2 = std::f32::consts::SQRT_2;
     for y in 0..h {

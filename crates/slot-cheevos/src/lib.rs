@@ -4,6 +4,7 @@ mod client;
 mod ffi;
 
 pub mod badge;
+pub mod cdreader;
 pub mod config;
 pub mod game;
 pub mod memory;

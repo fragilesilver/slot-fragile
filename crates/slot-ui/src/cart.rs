@@ -724,9 +724,9 @@ fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
             let on_label = (sx..sx + sw).contains(&x)
                 && (sy..sy + sh).contains(&y)
                 && !(m == Media::Nds
-                    && x < sx + 24
-                    && y >= sy + sh - 24
-                    && (x - sx) + (sy + sh - 1 - y) < 24);
+                    && x < sx + 20
+                    && y >= sy + sh - 20
+                    && (x - sx) + (sy + sh - 1 - y) < 20);
             if on_label && m != Media::Disc {
                 continue;
             }

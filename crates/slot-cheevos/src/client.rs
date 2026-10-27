@@ -59,6 +59,7 @@ impl Cheevos {
         host: Option<&str>,
         transport: impl FnOnce(&str) -> Box<dyn Transport>,
     ) -> &'static Cheevos {
+        crate::cdreader::init();
         let client = unsafe { ffi::rc_client_create(crate::memory::read_memory, server_call) };
         assert!(!client.is_null(), "rc_client_create failed");
         unsafe {

@@ -161,8 +161,8 @@ fn ota_live_release_manifest_and_updater() {
             waited += 1;
         }
 
-        // Running 1.9.3 checking against 1.9.3 release -> UpToDate("1.9.3")
-        assert_eq!(mgr.status(), OtaStatus::UpToDate("1.9.3".into()));
+        // Running local version checking against remote release -> UpToDate(SLOT_RELEASE)
+        assert_eq!(mgr.status(), OtaStatus::UpToDate(slot::build_info::SLOT_RELEASE.into()));
         assert_eq!(mgr.status().menu_text(), "Up to date");
     }
 }

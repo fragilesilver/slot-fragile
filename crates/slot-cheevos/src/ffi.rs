@@ -61,6 +61,38 @@ pub struct SlotGame {
     pub total: u32,
 }
 
+pub type rc_hash_cdreader_open_track_handler =
+    Option<unsafe extern "C" fn(path: *const c_char, track: u32) -> *mut c_void>;
+pub type rc_hash_cdreader_open_track_iterator_handler = Option<
+    unsafe extern "C" fn(
+        path: *const c_char,
+        track: u32,
+        iterator: *const c_void,
+    ) -> *mut c_void,
+>;
+pub type rc_hash_cdreader_read_sector_handler = Option<
+    unsafe extern "C" fn(
+        track_handle: *mut c_void,
+        sector: u32,
+        buffer: *mut c_void,
+        requested_bytes: usize,
+    ) -> usize,
+>;
+pub type rc_hash_cdreader_close_track_handler =
+    Option<unsafe extern "C" fn(track_handle: *mut c_void)>;
+pub type rc_hash_cdreader_first_track_sector_handler =
+    Option<unsafe extern "C" fn(track_handle: *mut c_void) -> u32>;
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct rc_hash_cdreader_t {
+    pub open_track: rc_hash_cdreader_open_track_handler,
+    pub read_sector: rc_hash_cdreader_read_sector_handler,
+    pub close_track: rc_hash_cdreader_close_track_handler,
+    pub first_track_sector: rc_hash_cdreader_first_track_sector_handler,
+    pub open_track_iterator: rc_hash_cdreader_open_track_iterator_handler,
+}
+
 extern "C" {
     pub fn rc_client_create(read: ReadMemory, server: ServerCall) -> *mut rc_client_t;
     pub fn rc_client_set_userdata(client: *mut rc_client_t, userdata: *mut c_void);
@@ -112,6 +144,9 @@ extern "C" {
         console_id: u32,
         path: *const c_char,
     ) -> c_int;
+
+    pub fn rc_hash_get_default_cdreader(cdreader: *mut rc_hash_cdreader_t);
+    pub fn rc_hash_init_custom_cdreader(reader: *mut rc_hash_cdreader_t);
 
     pub fn slot_set_core_memory(
         ram: *mut c_void,
