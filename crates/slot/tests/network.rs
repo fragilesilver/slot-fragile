@@ -186,3 +186,25 @@ fn the_wifi_comes_back_on_at_boot_when_it_was_left_on() {
     let mut a = boot(d.path());
     until(&mut a, "the radio", |a| a.wifi_view().on);
 }
+
+#[test]
+fn network_time_syncs_and_updates_status() {
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    let mut a = boot(d.path());
+    a.set_net_time_source(std::sync::Arc::new(|| Some(1_775_548_800)));
+    wifi_on(&mut a);
+    go(&mut a, QuickRow::TimeSync);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        a.named_value(QuickRow::TimeSync).as_deref(),
+        Some("On, waiting")
+    );
+    go(&mut a, QuickRow::WifiNetworks);
+    press(&mut a, Btn::A);
+    lit(&mut a, "Cafe Guest");
+    press(&mut a, Btn::A);
+    until(&mut a, "the join", |a| a.wifi_view().connected.is_some());
+    until(&mut a, "time sync", |a| {
+        a.named_value(QuickRow::TimeSync).as_deref() == Some("On, synced")
+    });
+}

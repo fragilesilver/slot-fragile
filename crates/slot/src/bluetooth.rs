@@ -215,7 +215,7 @@ fn work(
                 } else {
                     set(&|v| v.on = true);
                     for d in radio.devices() {
-                        if d.paired && !d.connected && d.kind == Kind::Audio {
+                        if d.paired && !d.connected && (d.kind == Kind::Audio || d.kind == Kind::Controller) {
                             set(&|v| v.busy = BtBusy::Connecting(d.name.clone()));
                             radio.connect(&d.mac);
                         }
@@ -254,9 +254,9 @@ fn work(
                     continue;
                 }
                 set(&|v| v.on = true);
-                // Headphones do not come back by themselves, so ask the paired ones.
+                // Headphones and gamepads do not come back by themselves, so ask the paired ones.
                 for d in radio.devices() {
-                    if d.paired && !d.connected && d.kind == Kind::Audio {
+                    if d.paired && !d.connected && (d.kind == Kind::Audio || d.kind == Kind::Controller) {
                         set(&|v| v.busy = BtBusy::Connecting(d.name.clone()));
                         radio.connect(&d.mac);
                     }
@@ -452,6 +452,15 @@ pub struct SimBt {
 }
 
 impl SimBt {
+    pub fn with_paired(mac: &str) -> SimBt {
+        SimBt {
+            up: false,
+            searched: false,
+            paired: vec![mac.into()],
+            connected: Vec::new(),
+        }
+    }
+
     fn nearby() -> [(&'static str, &'static str, Kind); 3] {
         [
             ("AA:00:00:00:00:01", "8BitDo Pro 2", Kind::Controller),

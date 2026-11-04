@@ -25,6 +25,7 @@ impl Sync {
 pub trait TimeSync: Send {
     fn state(&self) -> Sync;
     fn set(&mut self, on: bool);
+    fn mark_synced(&mut self) {}
 }
 
 /// The one for this build: BaseOS's on the device, a pretend one anywhere else.
@@ -42,18 +43,29 @@ pub fn for_build() -> Box<dyn TimeSync> {
 #[derive(Default)]
 pub struct Pretend {
     on: bool,
+    synced: bool,
 }
 
 impl TimeSync for Pretend {
     fn state(&self) -> Sync {
-        match self.on {
-            true => Sync::Waiting,
-            false => Sync::Off,
+        match (self.on, self.synced) {
+            (false, _) => Sync::Off,
+            (true, false) => Sync::Waiting,
+            (true, true) => Sync::Synced,
         }
     }
 
     fn set(&mut self, on: bool) {
         self.on = on;
+        if !on {
+            self.synced = false;
+        }
+    }
+
+    fn mark_synced(&mut self) {
+        if self.on {
+            self.synced = true;
+        }
     }
 }
 
@@ -79,5 +91,9 @@ impl TimeSync for BaseOs {
         if !said.is_ok_and(|s| s.success()) {
             eprintln!("slot: timedatectl set-ntp failed");
         }
+    }
+
+    fn mark_synced(&mut self) {
+        let _ = std::fs::write("/run/baseos-ntp-synchronized", "1\n");
     }
 }

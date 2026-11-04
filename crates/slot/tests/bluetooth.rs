@@ -140,3 +140,16 @@ fn bluetooth_b_closes_overlay_back_to_quick_menu() {
     assert!(a.overlay_page().is_none());
     assert_eq!(a.quick_menu(), Some(QuickRow::BtDevices));
 }
+
+#[test]
+fn bluetooth_auto_reconnects_paired_controller_when_radio_turns_on() {
+    let bt = slot::bluetooth::Bluetooth::spawn(Box::new(slot::bluetooth::SimBt::with_paired(
+        "AA:00:00:00:00:01",
+    )));
+    bt.turn_on();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !bt.view().devices.iter().any(|d| d.mac == "AA:00:00:00:00:01" && d.connected) {
+        assert!(Instant::now() < deadline, "controller failed to auto-reconnect");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}

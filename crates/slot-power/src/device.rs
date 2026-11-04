@@ -109,6 +109,7 @@ impl DevicePlatform {
     }
 
     pub fn probe(sysfs: &Path, root: PathBuf) -> Self {
+        set_schedutil_governor(sysfs);
         let class = first_dir(&sysfs.join("class/backlight"), |d| {
             d.join("brightness").is_file()
         });
@@ -596,14 +597,11 @@ impl Platform for DevicePlatform {
     }
 
     fn set_clock(&mut self, secs: i64) {
-        ran(
-            "date",
-            Command::new("date").arg(format!("-s@{secs}")).status(),
-        );
-        ran(
-            "hwclock",
-            Command::new("hwclock").args(["-w", "-u"]).status(),
-        );
+        write_clock(secs);
+    }
+
+    fn set_clock_in_background(&mut self, secs: i64) {
+        std::thread::spawn(move || write_clock(secs));
     }
 
     fn relink_adb(&mut self) -> bool {
@@ -730,4 +728,27 @@ pub fn take_repair_result(file: &Path) -> Option<RepairResult> {
         "clean" => RepairResult::Clean,
         _ => RepairResult::Failed,
     })
+}
+
+fn write_clock(secs: i64) {
+    ran(
+        "date",
+        Command::new("date").arg(format!("-s@{secs}")).status(),
+    );
+    ran(
+        "hwclock",
+        Command::new("hwclock").args(["-w", "-u"]).status(),
+    );
+}
+
+fn set_schedutil_governor(sysfs: &Path) {
+    let cpufreq = sysfs.join("devices/system/cpu/cpufreq");
+    if let Ok(entries) = fs::read_dir(cpufreq) {
+        for entry in entries.flatten() {
+            let gov = entry.path().join("scaling_governor");
+            if gov.is_file() {
+                let _ = fs::write(&gov, "schedutil\n");
+            }
+        }
+    }
 }

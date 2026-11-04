@@ -150,3 +150,83 @@ fn only_pngs_are_picked() {
         "an upper case extension was skipped"
     );
 }
+
+fn on_shelf(d: &tempfile::TempDir, shelf: &str) -> slot::app::App {
+    let (platform, stem) = match shelf {
+        "gb" => (slot_store::Platform::Gb, "Tetris"),
+        "gbc" => (slot_store::Platform::Gbc, "Crystal"),
+        "nes" => (slot_store::Platform::Nes, "Mario"),
+        "snes" => (slot_store::Platform::Snes, "World"),
+        "ps1" => (slot_store::Platform::PlayStation, "Crash"),
+        "nds" => (slot_store::Platform::Nds, "Pokemon"),
+        _ => (slot_store::Platform::Gba, "Emerald"),
+    };
+    slot_store::write_slot_state(
+        d.path(),
+        &slot_store::SlotState {
+            clock_set: true,
+            wallpaper: slot_store::WallpaperPick::Shelf,
+            shelf: Some(shelf.into()),
+            shelf_cart: Some(slot_store::Recent {
+                platform,
+                stem: stem.into(),
+            }),
+            ..slot_store::SlotState::default()
+        },
+    )
+    .unwrap();
+    slot::app::App::boot(d.path())
+}
+
+fn all_shelves_card(names: &[&str]) -> tempfile::TempDir {
+    let (d, _) = papers(names);
+    common::write_gb_cart(&d, "Tetris", "TETRIS");
+    let gbc = d.path().join("Games").join(slot_store::Platform::Gbc.dir_name());
+    std::fs::create_dir_all(&gbc).unwrap();
+    std::fs::write(gbc.join("Crystal.gbc"), vec![0u8; 0x150]).unwrap();
+    let nes = d.path().join("Games").join(slot_store::Platform::Nes.dir_name());
+    std::fs::create_dir_all(&nes).unwrap();
+    std::fs::write(nes.join("Mario.nes"), vec![0u8; 0x100]).unwrap();
+    d
+}
+
+#[test]
+fn shelf_wallpaper_follows_the_platform() {
+    let d = all_shelves_card(&["GB.png", "GBC.png", "GBA.png", "NES.png"]);
+    for (shelf, file) in [
+        ("gb", "GB.png"),
+        ("gbc", "GBC.png"),
+        ("gba", "GBA.png"),
+        ("nes", "NES.png"),
+    ] {
+        assert_eq!(
+            on_shelf(&d, shelf).shown_wallpaper().as_deref(),
+            Some(file),
+            "on the {shelf} shelf"
+        );
+    }
+}
+
+#[test]
+fn shelf_wallpaper_ignores_case_and_shows_nothing_without_a_file() {
+    let d = all_shelves_card(&["gbc.PNG"]);
+    assert_eq!(
+        on_shelf(&d, "gbc").shown_wallpaper().as_deref(),
+        Some("gbc.PNG")
+    );
+    assert_eq!(on_shelf(&d, "gb").shown_wallpaper(), None);
+}
+
+#[test]
+fn shelf_wallpaper_changes_when_the_shelf_does() {
+    let d = all_shelves_card(&["GB.png", "GBC.png", "GBA.png", "NES.png"]);
+    let mut a = on_shelf(&d, "gba");
+    let first = a.shown_wallpaper();
+    a.apply(slot_input::Action::NextShelf);
+    for _ in 0..120 {
+        a.update(1.0 / 60.0);
+    }
+    let next = a.shown_wallpaper();
+    assert!(next.is_some());
+    assert_ne!(first, next);
+}

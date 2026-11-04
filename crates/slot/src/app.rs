@@ -139,6 +139,7 @@ const ALERT_HOLD: f32 = 0.45;
 const ALERT_GONE: f32 = 0.9;
 
 const CLOCK_FLOOR: i64 = 1_577_836_800;
+const CLOCK_DRIFT_SECS: i64 = 2;
 
 pub enum PendingUndo {
     Save {
@@ -436,6 +437,7 @@ pub struct App {
     ssh_help_face: Option<(TexId, u32, u32)>,
     web_help_face: Option<(TexId, u32, u32)>,
     pub ota: Option<crate::ota::OtaManager>,
+    net_time: crate::net_time::NetTime,
     game_bezel: Option<TexId>,
     bezel_column: Vec<u8>,
     in_game_menu: Option<QuickRow>,
@@ -449,6 +451,7 @@ pub struct App {
     blur: Option<TexId>,
     wallpaper: Option<TexId>,
     random_wallpaper: Option<Option<String>>,
+    shelf_wallpaper: Option<String>,
     battery_percent: slot_ui::Printed,
     bolt: Option<TexId>,
     hud_bolt: Option<TexId>,
@@ -673,6 +676,7 @@ impl App {
             ssh_help_face: None,
             web_help_face: None,
             ota: None,
+            net_time: crate::net_time::NetTime::new(std::sync::Arc::new(crate::sntp::fetch)),
             game_bezel: None,
             bezel_column: Vec::new(),
             in_game_menu: None,
@@ -685,6 +689,7 @@ impl App {
             blur: None,
             wallpaper: None,
             random_wallpaper: None,
+            shelf_wallpaper: None,
             battery_percent: slot_ui::Printed::default(),
             bolt: None,
             hud_bolt: None,
@@ -1609,8 +1614,41 @@ impl App {
         match self.resolved_wallpaper() {
             WallpaperPick::File(name) => Some(name),
             WallpaperPick::Random => self.random_wallpaper(),
+            WallpaperPick::Shelf => {
+                self.shelf_wallpaper = self.wallpaper_for_shelf();
+                self.shelf_wallpaper.clone()
+            }
             _ => None,
         }
+    }
+
+    pub fn shelf_wallpapers(&self) -> Vec<String> {
+        let files = self.wallpaper_files();
+        let mut picked = Vec::new();
+        for (rack, _) in &self.shelves {
+            for file in &files {
+                if file
+                    .rsplit_once('.')
+                    .is_some_and(|(stem, _)| stem.eq_ignore_ascii_case(&rack.key()))
+                    && !picked.contains(file)
+                {
+                    picked.push(file.clone());
+                }
+            }
+        }
+        picked
+    }
+
+    fn wallpaper_for_shelf(&self) -> Option<String> {
+        let rack = self.shelves.get(self.shelf_at)?.0;
+        let files = self.wallpaper_files();
+        files
+            .iter()
+            .find(|file| {
+                file.rsplit_once('.')
+                    .is_some_and(|(stem, _)| stem.eq_ignore_ascii_case(&rack.key()))
+            })
+            .cloned()
     }
 
     fn random_wallpaper(&mut self) -> Option<String> {
@@ -1629,12 +1667,13 @@ impl App {
         let mut choices = vec![
             WallpaperPick::None,
             WallpaperPick::Random,
+            WallpaperPick::Shelf,
             WallpaperPick::Default,
             WallpaperPick::Blur,
         ];
         choices.extend(self.wallpaper_files().into_iter().map(WallpaperPick::File));
         let key = self.resolved_wallpaper().key();
-        let at = choices.iter().position(|c| c.key() == key).unwrap_or(2);
+        let at = choices.iter().position(|c| c.key() == key).unwrap_or(3);
         let n = choices.len();
         let next = if right {
             (at + 1) % n
@@ -1660,7 +1699,8 @@ impl App {
             WallpaperPick::None => None,
             WallpaperPick::Default | WallpaperPick::Blur => blur,
             WallpaperPick::Random if !self.random_drawn() => blur,
-            WallpaperPick::File(_) | WallpaperPick::Random => own,
+            WallpaperPick::Shelf if self.shelf_wallpaper.is_none() => blur,
+            WallpaperPick::File(_) | WallpaperPick::Random | WallpaperPick::Shelf => own,
         }
     }
 
@@ -1670,8 +1710,9 @@ impl App {
             WallpaperPick::None => None,
             WallpaperPick::Default => ground,
             WallpaperPick::Random if !self.random_drawn() => ground,
+            WallpaperPick::Shelf if self.shelf_wallpaper.is_none() => ground,
             WallpaperPick::Blur => blur,
-            WallpaperPick::File(_) | WallpaperPick::Random => own,
+            WallpaperPick::File(_) | WallpaperPick::Random | WallpaperPick::Shelf => own,
         };
         draw_ground(self.canvas(), face, out);
         let alpha = tint_alpha(self.state.wallpaper_tint);
@@ -1690,6 +1731,7 @@ impl App {
         match self.state.wallpaper {
             WallpaperPick::File(_) => self.wallpaper.is_some(),
             WallpaperPick::Random => self.random_drawn() && self.wallpaper.is_some(),
+            WallpaperPick::Shelf => self.shelf_wallpaper.is_some() && self.wallpaper.is_some(),
             _ => false,
         }
     }
@@ -1697,7 +1739,7 @@ impl App {
     pub fn hidden_rows(&self) -> Vec<QuickRow> {
         let own = matches!(
             self.state.wallpaper,
-            WallpaperPick::File(_) | WallpaperPick::Random
+            WallpaperPick::File(_) | WallpaperPick::Random | WallpaperPick::Shelf
         );
         let mut hidden = self.extras_hidden();
         if !own {
@@ -4129,7 +4171,28 @@ impl App {
         self.timers();
     }
 
+    pub fn set_net_time_source(&mut self, source: crate::net_time::Source) {
+        self.net_time = crate::net_time::NetTime::new(source);
+    }
+
+    fn step_net_time(&mut self) {
+        let ready = self.time_sync() != crate::timesync::Sync::Off && crate::wifi::online();
+        let now = self.now();
+        let Some(utc) = self.net_time.step(ready, now) else {
+            return;
+        };
+        if let Some(power) = &mut self.power {
+            if (utc - power.now()).abs() >= CLOCK_DRIFT_SECS {
+                power.set_clock_in_background(utc);
+            }
+        }
+        if let Some(time) = self.overlay.network.time.as_mut() {
+            time.mark_synced();
+        }
+    }
+
     fn timers(&mut self) {
+        self.step_net_time();
         self.check_screensaver();
         self.play_hold();
         self.repeat_held_dir();

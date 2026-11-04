@@ -35,7 +35,7 @@ pub struct NetworkState {
     pub(super) bt_view: crate::bluetooth::BtView,
     pub(super) ssh: Option<Box<dyn crate::ssh::SshServer>>,
     pub(super) web: Option<crate::web::WebServer>,
-    time: Option<Box<dyn TimeSync>>,
+    pub(super) time: Option<Box<dyn TimeSync>>,
     /// What is being typed and what for, with what went wrong last.
     typing: Option<(Keyboard, Typed, Option<String>)>,
     /// The playing game's achievements as last asked for, and when.
@@ -201,7 +201,7 @@ impl App {
             .unwrap_or_default()
     }
 
-    fn time_sync(&self) -> Sync {
+    pub(super) fn time_sync(&self) -> Sync {
         self.overlay
             .network
             .time
