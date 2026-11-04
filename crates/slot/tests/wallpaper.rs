@@ -181,10 +181,16 @@ fn on_shelf(d: &tempfile::TempDir, shelf: &str) -> slot::app::App {
 fn all_shelves_card(names: &[&str]) -> tempfile::TempDir {
     let (d, _) = papers(names);
     common::write_gb_cart(&d, "Tetris", "TETRIS");
-    let gbc = d.path().join("Games").join(slot_store::Platform::Gbc.dir_name());
+    let gbc = d
+        .path()
+        .join("Games")
+        .join(slot_store::Platform::Gbc.dir_name());
     std::fs::create_dir_all(&gbc).unwrap();
     std::fs::write(gbc.join("Crystal.gbc"), vec![0u8; 0x150]).unwrap();
-    let nes = d.path().join("Games").join(slot_store::Platform::Nes.dir_name());
+    let nes = d
+        .path()
+        .join("Games")
+        .join(slot_store::Platform::Nes.dir_name());
     std::fs::create_dir_all(&nes).unwrap();
     std::fs::write(nes.join("Mario.nes"), vec![0u8; 0x100]).unwrap();
     d

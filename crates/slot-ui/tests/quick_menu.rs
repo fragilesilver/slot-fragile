@@ -138,7 +138,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Shader",
             "Card Shader",
             "Color Correction",
-            "Bezel",
+            "Overlay",
             "Motion Blur"
         ]
     );
@@ -149,7 +149,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Shader",
             "Card Shader",
             "Color Correction",
-            "Bezel",
+            "Overlay",
             "Motion Blur"
         ]
     );
@@ -161,9 +161,25 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Card Shader",
             "Color Correction",
             "Palettes",
-            "Bezel",
+            "Overlay",
             "Motion Blur"
         ]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_NES.map(QuickRow::label),
+        ["Scaling", "Shader", "Card Shader", "Overlay"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_SNES.map(QuickRow::label),
+        ["Scaling", "Shader", "Card Shader", "Overlay"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_PS.map(QuickRow::label),
+        ["Scaling", "Shader", "Card Shader", "Overlay"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_NDS.map(QuickRow::label),
+        ["Scaling", "Layout", "Shader", "Card Shader", "Overlay"]
     );
     assert_eq!(
         QuickRow::GAME.map(QuickRow::label),
@@ -712,6 +728,10 @@ fn long_value_is_clipped_and_marquee_scrolled() {
         gba_bezel: None,
         gb_bezel: None,
         gbc_bezel: None,
+        nes_bezel: None,
+        snes_bezel: None,
+        ps1_bezel: None,
+        nds_bezel: None,
         bezel: None,
         bound: None,
         named: Some(&named),

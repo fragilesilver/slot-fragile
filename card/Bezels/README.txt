@@ -1,25 +1,28 @@
-# Bezels
+# Overlays & Bezels
 
-Add .png files to GB or GBC. Pick one in Settings > Screen > Game Boy (or
-Game Boy Color) > Bezel.
+Add PNG overlay files to the system subfolder:
+  GBA/
+  GB/
+  GBC/
+  NES/
+  SNES/
+  PS/   (or PS1/)
+  NDS/
 
-Make it the size of the screen:
+Pick an overlay in Settings > Screen > <System> > Overlay, or in the in-game menu while playing.
 
-  Device         Size        Game shows at
-  RG SP          720 x 480   x 120, y 24, 480 x 432
-  RG34XX         720 x 480   x 120, y 24, 480 x 432
-  RG34XXSP       720 x 480   x 120, y 24, 480 x 432
-  RG35XXSP       640 x 480   x 107, y 48, 427 x 384
-  RG35XX Plus    640 x 480   x 107, y 48, 427 x 384
-  RG35XX-H       640 x 480   x 107, y 48, 427 x 384
-  RG35XX Pro     640 x 480   x 107, y 48, 427 x 384
-  RG28XX         640 x 480   x 107, y 48, 427 x 384
+There is NO coverage or alpha limit: transparent-window bezels, full-panel scanlines,
+CRT shadow masks, and pixel grids are all fully supported.
 
-The bezel is drawn over the game, so leave the game area transparent.
-Other sizes are scaled to fill and cropped from the centre. On the 640 x 480
-devices a 640 x 427 bezel covers only the game area, with black above and below.
+Make your overlay match your screen resolution:
+  640 x 480: RG35XX, RG35XX Plus, RG35XX-H, RG35XX Pro, RG35XXSP, RG28XX
+  720 x 480: RG34XX, RG34XXSP, RG SP
 
-Integer Scale (Settings > Screen > Game Boy > Integer Scale, on 640 x 480 screens) draws the
-game at exactly 3x: x 80, y 24, 480 x 432. A bezel shows with it only when the folder also has
-its 3x version, named like the bezel with " 3x" added, such as Classic.png and Classic 3x.png.
-The 3x version is not offered as a bezel of its own. Classic and Classic 3x come with Fragile.
+Companion files for Integer Scale:
+For non-native systems (GB, GBC, GBA), you can provide an integer companion file
+named "<Name> {k}x.png" (e.g. "Grid 2x.png" for GBA on 640x480, or "Classic 3x.png" for GB/GBC).
+The companion is used automatically whenever Integer Scale is enabled. Companions are hidden
+from the menu list.
+
+For native systems (NES, SNES, PS1, NDS), overlays are drawn when Integer Scale is off,
+and hidden when Integer Scale is enabled.

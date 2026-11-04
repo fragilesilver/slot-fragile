@@ -490,6 +490,7 @@ tasks:
       - cp -R card/System/* {{.OUT}}/System/
       - for d in Bezels Cheats Labels Wallpapers; do cp card/$d/README.txt {{.OUT}}/$d/; done
       - for p in GB GBC; do cp card/Bezels/$p/*.png {{.OUT}}/Bezels/$p/; done
+      - for p in GB GBC GBA NES SNES PS NDS; do [ -d card/Bezels/$p ] && cp -f card/Bezels/$p/* {{.OUT}}/Bezels/$p/ 2>/dev/null || true; done
       - cp card/Shaders/*.glsl card/Shaders/README.txt {{.OUT}}/Shaders/
       - file vendor/mgba_libretro.so | grep -q aarch64
       - file vendor/gpsp_libretro.so | grep -q aarch64

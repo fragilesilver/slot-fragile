@@ -64,11 +64,7 @@ pub struct SlotGame {
 pub type rc_hash_cdreader_open_track_handler =
     Option<unsafe extern "C" fn(path: *const c_char, track: u32) -> *mut c_void>;
 pub type rc_hash_cdreader_open_track_iterator_handler = Option<
-    unsafe extern "C" fn(
-        path: *const c_char,
-        track: u32,
-        iterator: *const c_void,
-    ) -> *mut c_void,
+    unsafe extern "C" fn(path: *const c_char, track: u32, iterator: *const c_void) -> *mut c_void,
 >;
 pub type rc_hash_cdreader_read_sector_handler = Option<
     unsafe extern "C" fn(

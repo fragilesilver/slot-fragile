@@ -36,8 +36,10 @@ pub struct Spec {
     pub shader: Shader,
     /// Whether its core can correct the colour of a handheld's LCD.
     pub colour_correction: bool,
-    /// Whether it has a default bezel and a Bezels folder of its own.
+    /// Whether it has a built-in default bezel (Game Boy family only).
     pub bezels: bool,
+    /// Whether it reads user overlay PNGs from Bezels/<dir>.
+    pub overlays: bool,
     /// Whether its games read L and R; when they do not, slot keeps the shoulders.
     pub shoulders: bool,
     /// Whether its games read L2 and R2; when they do, rewind and fast forward move to SELECT
@@ -68,6 +70,7 @@ const CONSOLE: Spec = Spec {
     shader: Shader::Off,
     colour_correction: false,
     bezels: false,
+    overlays: false,
     shoulders: false,
     triggers: false,
     turbo: true,
@@ -88,6 +91,7 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         shaders: &Shader::GBA,
         shader: Shader::Grid,
         colour_correction: true,
+        overlays: true,
         shoulders: true,
         link: true,
         ..CONSOLE
@@ -104,6 +108,7 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         shader: Shader::Simpletex,
         colour_correction: true,
         bezels: true,
+        overlays: true,
         ..CONSOLE
     },
     Spec {
@@ -118,6 +123,7 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         shader: Shader::Simpletex,
         colour_correction: true,
         bezels: true,
+        overlays: true,
         ..CONSOLE
     },
     // --- extras: the rows below are after cloudwithax/unslot's ---
@@ -127,6 +133,7 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         dir: "NES",
         extensions: &["nes", "unf", "unif"],
         cores: &[Core::Fceumm],
+        overlays: true,
         ..CONSOLE
     },
     Spec {
@@ -135,6 +142,7 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         dir: "SNES",
         extensions: &["sfc", "smc"],
         cores: &[Core::Snes9x, Core::Supafaust],
+        overlays: true,
         shoulders: true,
         turbo: false,
         ..CONSOLE
@@ -145,6 +153,7 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         dir: "PS",
         extensions: &["cue", "chd", "pbp", "m3u", "iso", "img"],
         cores: &[Core::PcsxRearmed],
+        overlays: true,
         shoulders: true,
         triggers: true,
         turbo: false,
@@ -165,6 +174,7 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         extensions: &["nds", "zip"],
         cores: &[Core::Dsperate],
         picture: (384, 480),
+        overlays: true,
         shoulders: true,
         triggers: true,
         turbo: false,
@@ -208,5 +218,18 @@ mod tests {
             assert_eq!(Platform::from_key(&p.key()), Some(p));
         }
         assert_eq!(Platform::from_key("nope"), None);
+    }
+
+    #[test]
+    fn bezels_and_overlays_are_set_correctly() {
+        for p in Platform::ALL {
+            let s = p.spec();
+            assert!(s.overlays, "{p:?} should support user overlays");
+            if p == Platform::Gb || p == Platform::Gbc {
+                assert!(s.bezels, "{p:?} should have default bezels");
+            } else {
+                assert!(!s.bezels, "{p:?} should not have default bezels");
+            }
+        }
     }
 }

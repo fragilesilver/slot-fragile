@@ -81,7 +81,9 @@ fn a_retroarch_srm_is_read_when_there_is_no_sav() {
     std::fs::create_dir_all(d.path().join("Saves/GBA")).unwrap();
     std::fs::write(d.path().join("Saves/GBA/Emerald.srm"), b"srm bytes").unwrap();
     assert_eq!(
-        persist::read_sav(d.path(), Platform::Gba, "Emerald").unwrap().as_deref(),
+        persist::read_sav(d.path(), Platform::Gba, "Emerald")
+            .unwrap()
+            .as_deref(),
         Some(&b"srm bytes"[..])
     );
 }
@@ -112,7 +114,9 @@ fn a_sav_wins_over_an_srm_when_both_exist() {
     std::fs::write(d.path().join("Saves/GBA/Emerald.srm"), b"srm bytes").unwrap();
     std::fs::write(d.path().join("Saves/GBA/Emerald.sav"), b"sav bytes").unwrap();
     assert_eq!(
-        persist::read_sav(d.path(), Platform::Gba, "Emerald").unwrap().as_deref(),
+        persist::read_sav(d.path(), Platform::Gba, "Emerald")
+            .unwrap()
+            .as_deref(),
         Some(&b"sav bytes"[..])
     );
 }

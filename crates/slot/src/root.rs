@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 
-pub const DIRS: [&str; 33] = [
+pub const DIRS: [&str; 34] = [
     "BIOS",
     "Bezels",
+    "Bezels/GBA",
     "Bezels/GB",
     "Bezels/GBC",
     "Cheats",
@@ -44,6 +45,11 @@ pub fn ensure(root: &Path) {
     for p in slot_store::Platform::ALL.into_iter().skip(3) {
         for top in ["Games", "Saves", "States", "Labels", "Cheats"] {
             let _ = std::fs::create_dir_all(root.join(top).join(p.spec().dir));
+        }
+    }
+    for p in slot_store::Platform::ALL {
+        if p.spec().overlays {
+            let _ = std::fs::create_dir_all(root.join("Bezels").join(p.spec().dir));
         }
     }
     if let Err(e) = slot_store::move_config(root) {

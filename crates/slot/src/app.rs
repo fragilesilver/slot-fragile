@@ -15,10 +15,11 @@ use slot_store::{
 use slot_ui::{
     board_from, board_zoom, draw_empty_slot, draw_footer, draw_ground, draw_slot_name, ease,
     footer_ink, grown, lid_at, lid_from, lift_of, on_board, repeat_gap, shelf_cart_at, ClockPicker,
-    Draw, FfState, GbShell, Guide, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice,
-    QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, ShotMode, ShotViewer,
-    SlotChrome, TexId, Toast, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HOP_LIFT, MOUTH_H,
-    REPEAT_DELAY_MS, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
+    Draw, FfState, GbShell, Guide, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids,
+    PowerChoice, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, ShotMode,
+    ShotViewer, SlotChrome, TexId, Toast, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE,
+    HOP_LIFT, MOUTH_H, REPEAT_DELAY_MS, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W,
+    TURN_PAD,
 };
 
 use crate::audio::Sfx;
@@ -433,7 +434,7 @@ pub struct App {
     quick_clock_faces: Option<[(TexId, u32, u32); 2]>,
     quick_wallpaper_faces: Option<[(TexId, u32, u32); 2]>,
     quick_palette_faces: Option<[(TexId, u32, u32); 2]>,
-    quick_bezel_faces: [Option<[(TexId, u32, u32); 2]>; 3],
+    quick_bezel_faces: [Option<[(TexId, u32, u32); 2]>; Platform::COUNT],
     ssh_help_face: Option<(TexId, u32, u32)>,
     web_help_face: Option<(TexId, u32, u32)>,
     pub ota: Option<crate::ota::OtaManager>,
@@ -672,7 +673,7 @@ impl App {
             quick_clock_faces: None,
             quick_wallpaper_faces: None,
             quick_palette_faces: None,
-            quick_bezel_faces: [None, None, None],
+            quick_bezel_faces: [None; Platform::COUNT],
             ssh_help_face: None,
             web_help_face: None,
             ota: None,
@@ -1074,7 +1075,10 @@ impl App {
     }
 
     pub fn in_game_hidden(&self) -> Vec<QuickRow> {
-        let no_bezel = !self.playing_platform().spec().bezels && !self.framed_panel();
+        let no_bezel = !self.playing_platform().spec().overlays
+            || (!self.playing_platform().spec().bezels
+                && !self.framed_panel()
+                && self.bezel_files(self.playing_platform()).is_empty());
         let mut hidden = Vec::new();
         if !self.palette_live {
             hidden.push(QuickRow::Palette);
@@ -1224,6 +1228,10 @@ impl App {
             (QuickRow::Bezel, Platform::Gba) => QuickRow::GbaBezel,
             (QuickRow::Bezel, Platform::Gb) => QuickRow::GbBezel,
             (QuickRow::Bezel, Platform::Gbc) => QuickRow::GbcBezel,
+            (QuickRow::Bezel, Platform::Nes) => QuickRow::NesBezel,
+            (QuickRow::Bezel, Platform::Snes) => QuickRow::SnesBezel,
+            (QuickRow::Bezel, Platform::PlayStation) => QuickRow::Ps1Bezel,
+            (QuickRow::Bezel, Platform::Nds) => QuickRow::NdsBezel,
             (QuickRow::CardShader, Platform::Gba) => QuickRow::CardShaderGba,
             (QuickRow::CardShader, Platform::Gb) => QuickRow::CardShaderGb,
             (QuickRow::CardShader, Platform::Gbc) => QuickRow::CardShaderGbc,
@@ -1339,6 +1347,10 @@ impl App {
             | QuickRow::GbBezel
             | QuickRow::GbcBezel
             | QuickRow::GbaBezel
+            | QuickRow::NesBezel
+            | QuickRow::SnesBezel
+            | QuickRow::Ps1Bezel
+            | QuickRow::NdsBezel
             | QuickRow::Bezel
             | QuickRow::General
             | QuickRow::ShelfPrev
@@ -1494,7 +1506,7 @@ impl App {
     }
 
     pub fn bezel_files(&self, platform: Platform) -> Vec<String> {
-        if platform == Platform::Gba && !self.framed_panel() {
+        if !platform.spec().overlays {
             return Vec::new();
         }
         self.root()
@@ -1745,8 +1757,20 @@ impl App {
         if !own {
             hidden.push(QuickRow::WallpaperTint);
         }
-        if !self.framed_panel() {
+        if !self.framed_panel() && self.bezel_files(Platform::Gba).is_empty() {
             hidden.push(QuickRow::GbaBezel);
+        }
+        if self.bezel_files(Platform::Nes).is_empty() {
+            hidden.push(QuickRow::NesBezel);
+        }
+        if self.bezel_files(Platform::Snes).is_empty() {
+            hidden.push(QuickRow::SnesBezel);
+        }
+        if self.bezel_files(Platform::PlayStation).is_empty() {
+            hidden.push(QuickRow::Ps1Bezel);
+        }
+        if self.bezel_files(Platform::Nds).is_empty() {
+            hidden.push(QuickRow::NdsBezel);
         }
         if !self.left_stick {
             hidden.push(QuickRow::LeftStick);
@@ -3166,6 +3190,10 @@ impl App {
             | QuickRow::GbBezel
             | QuickRow::GbcBezel
             | QuickRow::GbaBezel
+            | QuickRow::NesBezel
+            | QuickRow::SnesBezel
+            | QuickRow::Ps1Bezel
+            | QuickRow::NdsBezel
             | QuickRow::Bezel
             | QuickRow::ShelfPrev
             | QuickRow::ShelfNext
@@ -3314,11 +3342,22 @@ impl App {
             self.step_palette(right);
             return;
         }
-        if let QuickRow::GbaBezel | QuickRow::GbBezel | QuickRow::GbcBezel = row {
+        if let QuickRow::GbaBezel
+        | QuickRow::GbBezel
+        | QuickRow::GbcBezel
+        | QuickRow::NesBezel
+        | QuickRow::SnesBezel
+        | QuickRow::Ps1Bezel
+        | QuickRow::NdsBezel = row
+        {
             let platform = match row {
                 QuickRow::GbaBezel => Platform::Gba,
                 QuickRow::GbBezel => Platform::Gb,
-                _ => Platform::Gbc,
+                QuickRow::GbcBezel => Platform::Gbc,
+                QuickRow::NesBezel => Platform::Nes,
+                QuickRow::SnesBezel => Platform::Snes,
+                QuickRow::Ps1Bezel => Platform::PlayStation,
+                _ => Platform::Nds,
             };
             self.cycle_bezel(platform, right);
             self.persist();
@@ -3442,6 +3481,10 @@ impl App {
             | QuickRow::GbBezel
             | QuickRow::GbcBezel
             | QuickRow::GbaBezel
+            | QuickRow::NesBezel
+            | QuickRow::SnesBezel
+            | QuickRow::Ps1Bezel
+            | QuickRow::NdsBezel
             | QuickRow::Bezel
             | QuickRow::General
             | QuickRow::ShelfPrev
@@ -3584,9 +3627,7 @@ impl App {
             Platform::Gba => self.gba_shaders(),
             _ => platform.spec().shaders,
         };
-        let to = self
-            .platform_shader(platform)
-            .step(shaders, right);
+        let to = self.platform_shader(platform).step(shaders, right);
         self.set_platform_shader(platform, to);
         let said = match to {
             Shader::Off => Toast::ShaderOff,
@@ -4224,8 +4265,7 @@ impl App {
             self.card_check_at = self.now() + CARD_CHECK_MS;
             self.card_read_only = self.power.as_ref().is_some_and(|p| p.card_read_only());
         }
-        let failing =
-            self.card_writes.failing() || self.card_read_only || self.card_unread;
+        let failing = self.card_writes.failing() || self.card_read_only || self.card_unread;
         if failing != self.hud.alarmed() {
             eprintln!(
                 "slot: card: alarm {} (read-only {}, unread {})",
@@ -4624,6 +4664,10 @@ impl App {
                 gba_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gba)],
                 gb_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gb)],
                 gbc_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gbc)],
+                nes_bezel: self.quick_bezel_faces[bezel_slot(Platform::Nes)],
+                snes_bezel: self.quick_bezel_faces[bezel_slot(Platform::Snes)],
+                ps1_bezel: self.quick_bezel_faces[bezel_slot(Platform::PlayStation)],
+                nds_bezel: self.quick_bezel_faces[bezel_slot(Platform::Nds)],
                 bezel: None,
                 over_game: false,
                 footer_legends: true,
@@ -4796,7 +4840,10 @@ impl App {
                 gba_bezel: None,
                 gb_bezel: None,
                 gbc_bezel: None,
-                // Fragile: only the Game Boy family has bezel faces.
+                nes_bezel: None,
+                snes_bezel: None,
+                ps1_bezel: None,
+                nds_bezel: None,
                 bezel: self
                     .quick_bezel_faces
                     .get(bezel_slot(self.playing_platform()))

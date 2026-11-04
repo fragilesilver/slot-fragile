@@ -189,10 +189,15 @@ pub enum QuickRow {
     PlayNetwork,
     PlayGeneral,
     Update,
+    // --- extras: overlays ---
+    NesBezel,
+    SnesBezel,
+    Ps1Bezel,
+    NdsBezel,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 171] = [
+    pub const ALL: [QuickRow; 175] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -371,6 +376,10 @@ impl QuickRow {
         QuickRow::PlayNetwork,
         QuickRow::PlayGeneral,
         QuickRow::Update,
+        QuickRow::NesBezel,
+        QuickRow::SnesBezel,
+        QuickRow::Ps1Bezel,
+        QuickRow::NdsBezel,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -479,29 +488,33 @@ impl QuickRow {
     ];
 
     // --- extras: the screen pages of the systems Fragile adds ---
-    pub const SCREEN_NES: [QuickRow; 3] = [
+    pub const SCREEN_NES: [QuickRow; 4] = [
         QuickRow::IntegerNes,
         QuickRow::NesShader,
         QuickRow::CardShaderNes,
+        QuickRow::NesBezel,
     ];
 
-    pub const SCREEN_SNES: [QuickRow; 3] = [
+    pub const SCREEN_SNES: [QuickRow; 4] = [
         QuickRow::IntegerSnes,
         QuickRow::SnesShader,
         QuickRow::CardShaderSnes,
+        QuickRow::SnesBezel,
     ];
 
-    pub const SCREEN_PS: [QuickRow; 3] = [
+    pub const SCREEN_PS: [QuickRow; 4] = [
         QuickRow::IntegerPs,
         QuickRow::PsShader,
         QuickRow::CardShaderPs,
+        QuickRow::Ps1Bezel,
     ];
 
-    pub const SCREEN_NDS: [QuickRow; 4] = [
+    pub const SCREEN_NDS: [QuickRow; 5] = [
         QuickRow::IntegerNds,
         QuickRow::NdsLayout,
         QuickRow::NdsShader,
         QuickRow::CardShaderNds,
+        QuickRow::NdsBezel,
     ];
 
     pub const SCREEN_GBA: [QuickRow; 6] = [
@@ -603,19 +616,23 @@ impl QuickRow {
             | QuickRow::BlueLight
             | QuickRow::Saturation
             | QuickRow::Contrast => &QuickRow::SCREEN_GENERAL,
-            QuickRow::NesShader | QuickRow::IntegerNes | QuickRow::CardShaderNes => {
-                &QuickRow::SCREEN_NES
-            }
-            QuickRow::SnesShader | QuickRow::IntegerSnes | QuickRow::CardShaderSnes => {
-                &QuickRow::SCREEN_SNES
-            }
-            QuickRow::PsShader | QuickRow::IntegerPs | QuickRow::CardShaderPs => {
-                &QuickRow::SCREEN_PS
-            }
+            QuickRow::NesShader
+            | QuickRow::IntegerNes
+            | QuickRow::CardShaderNes
+            | QuickRow::NesBezel => &QuickRow::SCREEN_NES,
+            QuickRow::SnesShader
+            | QuickRow::IntegerSnes
+            | QuickRow::CardShaderSnes
+            | QuickRow::SnesBezel => &QuickRow::SCREEN_SNES,
+            QuickRow::PsShader
+            | QuickRow::IntegerPs
+            | QuickRow::CardShaderPs
+            | QuickRow::Ps1Bezel => &QuickRow::SCREEN_PS,
             QuickRow::NdsShader
             | QuickRow::IntegerNds
             | QuickRow::CardShaderNds
-            | QuickRow::NdsLayout => &QuickRow::SCREEN_NDS,
+            | QuickRow::NdsLayout
+            | QuickRow::NdsBezel => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
             | QuickRow::GbaBezel
@@ -1013,10 +1030,14 @@ impl QuickRow {
             QuickRow::ScreenGba => "Game Boy Advance",
             QuickRow::ScreenGbc => "Game Boy Color",
             QuickRow::ScreenGb => "Game Boy",
-            QuickRow::GbBezel => "Bezel",
-            QuickRow::GbcBezel => "Bezel",
-            QuickRow::GbaBezel => "Bezel",
-            QuickRow::Bezel => "Bezel",
+            QuickRow::GbBezel
+            | QuickRow::GbcBezel
+            | QuickRow::GbaBezel
+            | QuickRow::NesBezel
+            | QuickRow::SnesBezel
+            | QuickRow::Ps1Bezel
+            | QuickRow::NdsBezel
+            | QuickRow::Bezel => "Overlay",
         }
     }
 
@@ -1032,7 +1053,9 @@ impl QuickRow {
             QuickRow::ScreenGeneral => "Brightness, blue light, saturation and contrast.",
             QuickRow::Brightness | QuickRow::PlayBrightness => "Screen brightness level.",
             QuickRow::BlueLight | QuickRow::PlayBlueLight => "Warmth / blue light filter.",
-            QuickRow::Saturation | QuickRow::PlaySaturation => "Boost game colors beyond standard gamut.",
+            QuickRow::Saturation | QuickRow::PlaySaturation => {
+                "Boost game colors beyond standard gamut."
+            }
             QuickRow::Contrast | QuickRow::PlayContrast => "Contrast boost for richer dark tones.",
             QuickRow::Game | QuickRow::PlayGameplay => "Fast forward, rewind, turbo and saving.",
             QuickRow::Controls | QuickRow::PlayControls => "Remap buttons and shortcuts.",
@@ -1140,9 +1163,14 @@ impl QuickRow {
             | QuickRow::GbcColourCorrection
             | QuickRow::ColourCorrection => "Match the colours of the original screen.",
             QuickRow::GbPalettes | QuickRow::Palette => "Colours for original Game Boy games.",
-            QuickRow::GbaBezel | QuickRow::GbBezel | QuickRow::GbcBezel | QuickRow::Bezel => {
-                "Frame drawn around the game."
-            }
+            QuickRow::GbaBezel
+            | QuickRow::GbBezel
+            | QuickRow::GbcBezel
+            | QuickRow::NesBezel
+            | QuickRow::SnesBezel
+            | QuickRow::Ps1Bezel
+            | QuickRow::NdsBezel
+            | QuickRow::Bezel => "Draw a PNG overlay from Bezels/<SYS> over the game.",
             QuickRow::Resume => "Back to the game.",
             QuickRow::UndoSave => "Take back the save just written.",
             QuickRow::UndoLoad => "Return to the state before the load.",
@@ -1956,6 +1984,10 @@ pub struct QuickMenu<'a> {
     pub gba_bezel: Option<[(TexId, u32, u32); 2]>,
     pub gb_bezel: Option<[(TexId, u32, u32); 2]>,
     pub gbc_bezel: Option<[(TexId, u32, u32); 2]>,
+    pub nes_bezel: Option<[(TexId, u32, u32); 2]>,
+    pub snes_bezel: Option<[(TexId, u32, u32); 2]>,
+    pub ps1_bezel: Option<[(TexId, u32, u32); 2]>,
+    pub nds_bezel: Option<[(TexId, u32, u32); 2]>,
     pub bezel: Option<[(TexId, u32, u32); 2]>,
     pub bound: Option<&'a [Option<FacePair>]>,
     /// A value made of text slot only knows at run time, such as a file name, one per row in
@@ -2047,6 +2079,10 @@ impl QuickMenu<'_> {
                 QuickRow::GbaBezel => self.gba_bezel.map(|c| c[lit as usize]),
                 QuickRow::GbBezel => self.gb_bezel.map(|c| c[lit as usize]),
                 QuickRow::GbcBezel => self.gbc_bezel.map(|c| c[lit as usize]),
+                QuickRow::NesBezel => self.nes_bezel.map(|c| c[lit as usize]),
+                QuickRow::SnesBezel => self.snes_bezel.map(|c| c[lit as usize]),
+                QuickRow::Ps1Bezel => self.ps1_bezel.map(|c| c[lit as usize]),
+                QuickRow::NdsBezel => self.nds_bezel.map(|c| c[lit as usize]),
                 QuickRow::Bezel => self.bezel.map(|c| c[lit as usize]),
                 _ if self.named_face(row).is_some() => {
                     self.named_face(row).map(|c| c[lit as usize])
@@ -2210,9 +2246,7 @@ pub fn quick_window(selected: QuickRow, hidden: &[QuickRow]) -> (usize, usize) {
         return (0, count);
     }
     let at = selected.position(hidden);
-    let start = at
-        .saturating_sub(fits / 2)
-        .min(count - fits);
+    let start = at.saturating_sub(fits / 2).min(count - fits);
     (start, fits)
 }
 

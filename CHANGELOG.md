@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.9.5](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.5)
+
+- Overlays Across All Systems:
+  - Added custom PNG overlay and bezel support across all 7 supported systems (Game Boy Advance, Game Boy, Game Boy Color, NES, Super Nintendo, PlayStation, and Nintendo DS).
+  - Renderer has no coverage or alpha limits: transparent-window bezels, full-panel scanlines, CRT shadow masks, and fine pixel grids are all fully supported.
+  - Auto-created `Bezels/GBA`, `NES`, `SNES`, `PS`, and `NDS` folders on card initialization alongside dedicated per-system `README.txt` files detailing viewport coordinates and scaling alignment.
+  - Flexible directory alias matching: PlayStation bezels placed in `Bezels/PS1` automatically fall back and resolve cleanly alongside `Bezels/PS`.
+  - Generalized Integer Scale companion support: `{stem} {k}x.png` automatically switches into place when Integer Scale is enabled for non-native systems (2x for GBA on 640x480, 3x for GB/GBC), and remains hidden from the menu picker. Native systems automatically hide overlays when Integer Scale is active to prevent aspect distortion.
+  - Renamed menu row labels across all bezel and overlay options to `"Overlay"` with unified helper guidance.
+
 ## [1.9.4](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.4)
 
 - Nintendo DS Cartridge Scale & Authentic Cutout:

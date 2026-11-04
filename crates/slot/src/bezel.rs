@@ -5,8 +5,30 @@ use slot_store::{BezelPick, Platform};
 pub const BEZELS: &str = "System/bezels";
 pub const GAME_BEZELS: &str = "Bezels";
 
-pub fn list(root: &Path, platform: Platform) -> Vec<String> {
-    let dir = root.join(GAME_BEZELS).join(platform.dir_name());
+pub fn dir(root: &Path, platform: Platform) -> PathBuf {
+    let base = root.join(GAME_BEZELS).join(platform.dir_name());
+    if platform == Platform::PlayStation && !base.is_dir() {
+        let alt = root.join(GAME_BEZELS).join("PS1");
+        if alt.is_dir() {
+            return alt;
+        }
+    }
+    base
+}
+
+pub fn file_path(root: &Path, platform: Platform, name: &str) -> PathBuf {
+    let d = dir(root, platform);
+    let path = d.join(name);
+    if !path.is_file() && platform == Platform::PlayStation {
+        let alt = root.join(GAME_BEZELS).join("PS1").join(name);
+        if alt.is_file() {
+            return alt;
+        }
+    }
+    path
+}
+
+fn list_dir(dir: &Path) -> Vec<String> {
     let mut files: Vec<String> = std::fs::read_dir(dir)
         .ok()
         .into_iter()
@@ -26,20 +48,41 @@ pub fn list(root: &Path, platform: Platform) -> Vec<String> {
     files
 }
 
-/// The marker on a bezel made for Integer Scale: `Classic 3x.png` goes with `Classic.png`.
-const INTEGER_SUFFIX: &str = " 3x";
+pub fn list(root: &Path, platform: Platform) -> Vec<String> {
+    let dir = dir(root, platform);
+    let mut files = list_dir(&dir);
+    if platform == Platform::PlayStation && files.is_empty() {
+        let alt = root.join(GAME_BEZELS).join("PS1");
+        if alt.is_dir() {
+            files = list_dir(&alt);
+        }
+    }
+    files
+}
 
-/// The bezel a `3x` file goes with, or `None` for an ordinary bezel.
+/// The bezel a `{k}x` file goes with, or `None` for an ordinary bezel.
 pub fn integer_base(name: &str) -> Option<&str> {
     let stem = name
         .strip_suffix(".png")
         .or_else(|| name.strip_suffix(".PNG"))?;
-    stem.strip_suffix(INTEGER_SUFFIX)
+    let without_x = stem.strip_suffix('x').or_else(|| stem.strip_suffix('X'))?;
+    let space_idx = without_x.rfind(' ')?;
+    let k_str = &without_x[space_idx + 1..];
+    if space_idx > 0 && !k_str.is_empty() && k_str.chars().all(|c| c.is_ascii_digit()) {
+        Some(&stem[..space_idx])
+    } else {
+        None
+    }
 }
 
-/// The bezel drawn while Integer Scale is on: the picked file's `3x` version when the card has
+/// The bezel drawn while Integer Scale is on: the picked file's `{k}x` version when the card has
 /// one, otherwise none, since a bezel cut for the band would cover the bigger picture.
+/// Native systems have no fixed integer scale factor across all games/resolutions, so their
+/// overlay is hidden when Integer Scale is on.
 pub fn for_integer(root: &Path, platform: Platform, pick: BezelPick) -> BezelPick {
+    if platform.spec().native {
+        return BezelPick::None;
+    }
     let BezelPick::File(name) = pick else {
         return BezelPick::None;
     };
@@ -49,16 +92,29 @@ pub fn for_integer(root: &Path, platform: Platform, pick: BezelPick) -> BezelPic
     else {
         return BezelPick::None;
     };
-    let three = format!("{stem}{INTEGER_SUFFIX}.png");
-    match root
-        .join(GAME_BEZELS)
-        .join(platform.dir_name())
-        .join(&three)
-        .is_file()
-    {
-        true => BezelPick::File(three),
-        false => BezelPick::None,
+    let pic = platform.picture();
+    if pic.0 == 0 || pic.1 == 0 {
+        return BezelPick::None;
     }
+    let k = (640 / pic.0).min(480 / pic.1);
+    let dir = dir(root, platform);
+    let candidates = [
+        format!("{stem} {k}x.png"),
+        format!("{stem} {k}x.PNG"),
+        format!("{stem} {k}X.png"),
+        format!("{stem} {k}X.PNG"),
+    ];
+    for cand in candidates {
+        if dir.join(&cand).is_file() {
+            return BezelPick::File(cand);
+        }
+        if platform == Platform::PlayStation
+            && root.join(GAME_BEZELS).join("PS1").join(&cand).is_file()
+        {
+            return BezelPick::File(cand);
+        }
+    }
+    BezelPick::None
 }
 
 fn dims(path: &Path) -> Option<(u32, u32)> {

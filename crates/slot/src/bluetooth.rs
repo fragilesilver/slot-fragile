@@ -215,7 +215,10 @@ fn work(
                 } else {
                     set(&|v| v.on = true);
                     for d in radio.devices() {
-                        if d.paired && !d.connected && (d.kind == Kind::Audio || d.kind == Kind::Controller) {
+                        if d.paired
+                            && !d.connected
+                            && (d.kind == Kind::Audio || d.kind == Kind::Controller)
+                        {
                             set(&|v| v.busy = BtBusy::Connecting(d.name.clone()));
                             radio.connect(&d.mac);
                         }
@@ -256,7 +259,10 @@ fn work(
                 set(&|v| v.on = true);
                 // Headphones and gamepads do not come back by themselves, so ask the paired ones.
                 for d in radio.devices() {
-                    if d.paired && !d.connected && (d.kind == Kind::Audio || d.kind == Kind::Controller) {
+                    if d.paired
+                        && !d.connected
+                        && (d.kind == Kind::Audio || d.kind == Kind::Controller)
+                    {
                         set(&|v| v.busy = BtBusy::Connecting(d.name.clone()));
                         radio.connect(&d.mac);
                     }

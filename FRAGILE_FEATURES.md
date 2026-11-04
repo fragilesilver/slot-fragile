@@ -134,7 +134,7 @@ Fragile bundles optimized aarch64 cores tuned specifically for the Allwinner H70
   - CRT Scanlines: Authentic cathode-ray tube phosphor lines and aperture mask.
   - LCD Grid V2: Authentic handheld dot-matrix sub-pixel grid with adjustable grid strength.
   - GBA Color: Gamma and luminance correction reproducing the original non-backlit AGB-001 screen gamut.
-- **System Bezels**: Custom high-resolution decorative bezels filling letterbox areas on non-4:3 titles.
+- **Overlays & System Bezels**: Full PNG overlay and bezel support across all systems (GBA, GB, GBC, NES, SNES, PS1, NDS) with no coverage or alpha limit. Supports transparent-window bezels, full-panel scanlines, CRT shadow masks, and integer companion auto-switching (e.g. `{Name} {k}x.png`).
 - **Adaptive Frame Pacing**: Dynamic frame pacing engine with audio ring-buffer feedback preventing frame drops and micro-stutter.
 
 ---

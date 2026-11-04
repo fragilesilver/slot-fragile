@@ -36,7 +36,10 @@ pub fn console_for(rom_path: &Path, rom: &[u8]) -> u32 {
                                 continue;
                             };
                             let name = entry_name.to_ascii_lowercase();
-                            if name.ends_with(".nds") || name.ends_with(".srl") || name.ends_with(".dsi") {
+                            if name.ends_with(".nds")
+                                || name.ends_with(".srl")
+                                || name.ends_with(".dsi")
+                            {
                                 return NDS;
                             } else if name.ends_with(".gba") {
                                 return GBA;
@@ -44,11 +47,17 @@ pub fn console_for(rom_path: &Path, rom: &[u8]) -> u32 {
                                 return GBC;
                             } else if name.ends_with(".gb") {
                                 return GB;
-                            } else if name.ends_with(".nes") || name.ends_with(".unf") || name.ends_with(".fds") {
+                            } else if name.ends_with(".nes")
+                                || name.ends_with(".unf")
+                                || name.ends_with(".fds")
+                            {
                                 return NES;
                             } else if name.ends_with(".sfc") || name.ends_with(".smc") {
                                 return SNES;
-                            } else if name.ends_with(".cue") || name.ends_with(".chd") || name.ends_with(".pbp") {
+                            } else if name.ends_with(".cue")
+                                || name.ends_with(".chd")
+                                || name.ends_with(".pbp")
+                            {
                                 return PS1;
                             }
                         }

@@ -21,7 +21,7 @@ impl App {
         if !spec.colour_correction {
             hide(QuickRow::ColourCorrection);
         }
-        if spec.native && !spec.bezels {
+        if !spec.overlays {
             hide(QuickRow::Bezel);
         }
         if !matches!(

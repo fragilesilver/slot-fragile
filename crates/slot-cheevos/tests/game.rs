@@ -107,7 +107,10 @@ fn hashes_nds_rom_and_zipped_nds_rom_identically() {
     zip_writer.finish().unwrap();
 
     let zip_hash = hash_file(NDS, &zip_path);
-    assert_eq!(zip_hash, raw_hash, "zipped NDS hash must match raw NDS ROM hash");
+    assert_eq!(
+        zip_hash, raw_hash,
+        "zipped NDS hash must match raw NDS ROM hash"
+    );
 
     // Also verify console_for resolves NDS from inside the zip
     assert_eq!(console_for(&zip_path, &[]), NDS);

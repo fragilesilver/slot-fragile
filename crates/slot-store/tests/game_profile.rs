@@ -90,10 +90,7 @@ fn profiles_round_trip_through_the_card() {
         text.contains("GBA/Mother 3 (Japan).shader = lcd3x"),
         "{text}"
     );
-    assert!(
-        text.contains("GBA/Mother 3 (Japan).ff = 2"),
-        "{text}"
-    );
+    assert!(text.contains("GBA/Mother 3 (Japan).ff = 2"), "{text}");
     assert!(text.contains("GBA/Pokemon Emerald v1.0.1.ff = 6"), "{text}");
     assert_eq!(GameProfiles::read(d.path()), p);
 }
