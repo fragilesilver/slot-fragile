@@ -56,6 +56,7 @@ pub enum QuickRow {
     ShelfPrev,
     ShelfNext,
     ShelfFavorite,
+    ShelfForget,
     PlayControls,
     Shortcuts,
     GameUp,
@@ -197,7 +198,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 175] = [
+    pub const ALL: [QuickRow; 176] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -243,6 +244,7 @@ impl QuickRow {
         QuickRow::ShelfPrev,
         QuickRow::ShelfNext,
         QuickRow::ShelfFavorite,
+        QuickRow::ShelfForget,
         QuickRow::PlayControls,
         QuickRow::Shortcuts,
         QuickRow::GameUp,
@@ -418,10 +420,11 @@ impl QuickRow {
         QuickRow::ControlsInGame,
     ];
 
-    pub const SHELF_KEYS: [QuickRow; 5] = [
+    pub const SHELF_KEYS: [QuickRow; 6] = [
         QuickRow::ShelfPrev,
         QuickRow::ShelfNext,
         QuickRow::ShelfFavorite,
+        QuickRow::ShelfForget,
         // --- extras ---
         QuickRow::ShelfSearch,
         QuickRow::ShelfAddToList,
@@ -1013,6 +1016,7 @@ impl QuickRow {
             QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
+            | QuickRow::ShelfForget
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList => self.carousel_action().map_or("", CarouselAction::label),
             QuickRow::PlayScreen => "Screen",
@@ -1283,6 +1287,7 @@ impl QuickRow {
             QuickRow::ShelfPrev => CarouselAction::PreviousShelf,
             QuickRow::ShelfNext => CarouselAction::NextShelf,
             QuickRow::ShelfFavorite => CarouselAction::Favorite,
+            QuickRow::ShelfForget => CarouselAction::ForgetRecent,
             QuickRow::ShelfSearch => CarouselAction::Search,
             QuickRow::ShelfAddToList => CarouselAction::AddToList,
             _ => return None,

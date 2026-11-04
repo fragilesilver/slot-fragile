@@ -84,6 +84,13 @@ impl Table {
             .filter(|r| r.row != row && r.contexts.meets(mine.contexts))
             // Fragile: two of the consoles' buttons clash only on a pad that has both, and a
             // shortcut never with a pad's own X, Y, L2 or R2, which it gives way to in game.
+            // ShelfForget and ShelfSearch share X because ForgetRecent is only active on the
+            // Recents shelf while Search operates across other shelves.
+            .filter(|r| match (mine.row, r.row) {
+                (QuickRow::ShelfForget, QuickRow::ShelfSearch)
+                | (QuickRow::ShelfSearch, QuickRow::ShelfForget) => false,
+                _ => true,
+            })
             .filter(|r| match (mine.row.game_button(), r.row.game_button()) {
                 (Some(a), Some(b)) => slot_store::GameButton::on_one_pad(a, b),
                 (Some(g), None) | (None, Some(g)) => !slot_store::GameButton::EXTRA.contains(&g),
@@ -104,6 +111,7 @@ fn shelf_action(a: CarouselAction) -> Action {
         CarouselAction::PreviousShelf => Action::PreviousShelf,
         CarouselAction::NextShelf => Action::NextShelf,
         CarouselAction::Favorite => Action::Favorite,
+        CarouselAction::ForgetRecent => Action::ForgetRecent,
         CarouselAction::Search => Action::Search,
         CarouselAction::AddToList => Action::AddToList,
     }

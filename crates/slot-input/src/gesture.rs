@@ -59,6 +59,7 @@ pub enum Action {
     PreviousShelf,
     NextShelf,
     Favorite,
+    ForgetRecent,
     // --- extras ---
     Search,
     AddToList,

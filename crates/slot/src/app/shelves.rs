@@ -19,7 +19,7 @@ use slot_ui::{
 };
 
 use super::overlay::Overlay;
-use super::{App, Phase, Rack, FAVORITES_AT, LINK_LEGEND_Y};
+use super::{App, Phase, Rack, FAVORITES_AT, LINK_LEGEND_Y, RECENTS_AT};
 
 mod search;
 
@@ -148,8 +148,9 @@ pub(super) fn input(app: &mut App, action: Action) -> bool {
     if !c.stocked || !matches!(app.phase, Phase::Shelf) || app.core_picker.is_some() {
         return false;
     }
-    if let Some(b) = c.skip.take() {
+    if let Some(b) = c.skip {
         if action == Action::GbaDown(b) {
+            c.skip = None;
             return true;
         }
     }
@@ -172,7 +173,7 @@ pub(super) fn input(app: &mut App, action: Action) -> bool {
             .then(|| crate::input::device_btn(b.button))
     };
     match action {
-        Action::Search => {
+        Action::Search if app.shelf_at != RECENTS_AT => {
             app.overlay.shelves.skip = opener(CarouselAction::Search);
             search::open(app)
         }

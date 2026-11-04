@@ -111,11 +111,7 @@ fn open_named(
         if !path.exists() {
             continue;
         }
-        let before_init = match core {
-            Core::Gambatte => crate::gambatte::BEFORE_INIT,
-            _ => &[],
-        };
-        match LibretroCore::open_with_options(path, &bios, &saves, before_init) {
+        match LibretroCore::open_preset(path, &bios, &saves, init_options(core)) {
             Ok(mut opened) => {
                 apply_core_options(
                     &mut opened,
@@ -227,6 +223,13 @@ pub fn motion_blur_option(which: Core, on: bool) -> Option<(&'static str, &'stat
 pub fn sunlight_at(local_secs: i64) -> u8 {
     let from_noon = (local_secs.rem_euclid(86_400) / 60 - 720).abs();
     (SUNLIGHT_NOON * (360 - from_noon) / 360).max(0) as u8
+}
+
+fn init_options(core: Core) -> &'static [(&'static str, &'static str)] {
+    match core {
+        Core::Gambatte => &[("gambatte_gb_bootloader", "enabled")],
+        _ => &[],
+    }
 }
 
 pub fn apply_core_options(

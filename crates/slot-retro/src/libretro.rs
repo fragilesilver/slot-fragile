@@ -481,7 +481,20 @@ impl LibretroCore {
     }
 
     pub fn open_with(dylib: &Path, system_dir: &Path, save_dir: &Path) -> Result<Self, CoreError> {
-        Self::open_with_options(dylib, system_dir, save_dir, &[])
+        Self::open_preset(dylib, system_dir, save_dir, &[])
+    }
+
+    pub fn open_preset(
+        dylib: &Path,
+        system_dir: &Path,
+        save_dir: &Path,
+        preset: &[(&str, &str)],
+    ) -> Result<Self, CoreError> {
+        if LIVE.swap(true, Ordering::SeqCst) {
+            return Err(CoreError::Unsupported("a core is already open".into()));
+        }
+        Self::open_inner(dylib, system_dir, save_dir, preset)
+            .inspect_err(|_| LIVE.store(false, Ordering::SeqCst))
     }
 
     /// `open_with`, with options the core reads during `retro_init`, before anything could
@@ -492,11 +505,7 @@ impl LibretroCore {
         save_dir: &Path,
         before_init: &[(&str, &str)],
     ) -> Result<Self, CoreError> {
-        if LIVE.swap(true, Ordering::SeqCst) {
-            return Err(CoreError::Unsupported("a core is already open".into()));
-        }
-        Self::open_inner(dylib, system_dir, save_dir, before_init)
-            .inspect_err(|_| LIVE.store(false, Ordering::SeqCst))
+        Self::open_preset(dylib, system_dir, save_dir, before_init)
     }
 
     pub fn reported_system_dir(&self) -> String {
@@ -552,7 +561,7 @@ impl LibretroCore {
         dylib: &Path,
         system_dir: &Path,
         save_dir: &Path,
-        before_init: &[(&str, &str)],
+        preset: &[(&str, &str)],
     ) -> Result<Self, CoreError> {
         let lib = unsafe { Library::new(dylib) }.map_err(|e| CoreError::Load(e.to_string()))?;
         let api = unsafe { Api::load(&lib) }?;
@@ -578,15 +587,13 @@ impl LibretroCore {
             net: Link::default(),
             net_peer: None,
             audio_status: None,
-            options: std::collections::HashMap::new(),
+            options: preset
+                .iter()
+                .filter_map(|(k, v)| Some((k.to_string(), CString::new(*v).ok()?)))
+                .collect(),
             options_dirty: false,
             declared: std::collections::HashMap::new(),
         });
-        for (key, value) in before_init {
-            if let Ok(value) = CString::new(*value) {
-                host.options.insert(key.to_string(), value);
-            }
-        }
         unsafe {
             let _a = Active::bind(&mut host);
             (api.set_environment)(environment);

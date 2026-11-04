@@ -114,6 +114,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Previous Shelf",
             "Next Shelf",
             "Favorite",
+            "Remove Recent",
             "Search",
             "Add to List"
         ]

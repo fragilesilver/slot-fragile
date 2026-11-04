@@ -9,6 +9,14 @@
   - Flexible directory alias matching: PlayStation bezels placed in `Bezels/PS1` automatically fall back and resolve cleanly alongside `Bezels/PS`.
   - Generalized Integer Scale companion support: `{stem} {k}x.png` automatically switches into place when Integer Scale is enabled for non-native systems (2x for GBA on 640x480, 3x for GB/GBC), and remains hidden from the menu picker. Native systems automatically hide overlays when Integer Scale is active to prevent aspect distortion.
   - Renamed menu row labels across all bezel and overlay options to `"Overlay"` with unified helper guidance.
+- Upstream v1.14.0 Alignments:
+  - Gambatte BIOS Bootloader: Pre-configures Gambatte's bootloader option before core initialization so card-provided `BIOS/gb_bios.bin` boots with the authentic Game Boy chime, scrolling logo, and hardware intro.
+  - Remove from Recents with `X`: Pressing `X` on the Recents shelf removes the highlighted game from the recents list without deleting save data.
+- System Atmosphere & Quality of Life:
+  - Network Time auto-synchronization via SNTP whenever an active Wi-Fi connection is established.
+  - Dynamic shelf wallpapers: automatically loads per-platform and per-game custom backgrounds (`Wallpapers/<platform>.png` or `Wallpapers/<stem>.png`).
+  - Bluetooth LE controller persistence and reconnect daemon for paired controllers.
+  - CPU governor tuning (`schedutil` on multi-core platforms) for optimal battery runtime and performance.
 
 ## [1.9.4](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.4)
 

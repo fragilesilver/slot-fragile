@@ -1356,6 +1356,7 @@ impl App {
             | QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
+            | QuickRow::ShelfForget
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
@@ -2922,6 +2923,7 @@ impl App {
                 Action::PreviousShelf => self.switch_shelf(-1),
                 Action::NextShelf => self.switch_shelf(1),
                 Action::Favorite => self.toggle_favorite(),
+                Action::ForgetRecent if self.shelf_at == RECENTS_AT => self.forget_recent(),
                 Action::GbaDown(Btn::Up) => self.jump_letter(-1),
                 Action::GbaDown(Btn::Down) => self.jump_letter(1),
                 Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.shelf_mut().hold_left(now),
@@ -3198,6 +3200,7 @@ impl App {
             | QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
+            | QuickRow::ShelfForget
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
@@ -3490,6 +3493,7 @@ impl App {
             | QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
+            | QuickRow::ShelfForget
             | QuickRow::ShelfSearch
             | QuickRow::ShelfAddToList
             | QuickRow::PlayCheats
@@ -4418,6 +4422,26 @@ impl App {
         let shelf_at = self.shelf_at;
         self.restock_favorites();
         if self.shelf_at != shelf_at {
+            self.shelf_platform = slot_ui::Printed::default();
+            self.slot_letter = None;
+            self.shelf_named = None;
+            self.name_pending = true;
+        }
+        self.persist();
+    }
+
+    fn forget_recent(&mut self) {
+        let Some(cart) = self.shelf().carts.get(self.shelf().index) else {
+            return;
+        };
+        let (platform, stem) = (cart.platform, cart.stem.clone());
+        self.state.forget(platform, &stem);
+        let index = self.shelves[RECENTS_AT].1.index;
+        self.restock_recents();
+        let shelf = &mut self.shelves[RECENTS_AT].1;
+        if self.shelf_at == RECENTS_AT && !shelf.carts.is_empty() {
+            shelf.select(index.min(shelf.carts.len() - 1));
+        } else {
             self.shelf_platform = slot_ui::Printed::default();
             self.slot_letter = None;
             self.shelf_named = None;
