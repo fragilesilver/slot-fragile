@@ -13,6 +13,7 @@ pub enum Toast {
     ShotCaptured,
     ShotFailed,
     NeedsGpsp,
+    NeedsMgba,
     NoLink,
     LinkEnded,
     PeerEnded,
@@ -24,6 +25,7 @@ pub enum Toast {
     ShaderGrid,
     ShaderDot,
     ShaderSimpletex,
+    ShaderShimmerless,
     CardUnwritable,
     CardRepair,
     CardRepaired,
@@ -39,12 +41,13 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 20] = [
+    const FIXED: [Toast; 22] = [
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::ShotCaptured,
         Toast::ShotFailed,
         Toast::NeedsGpsp,
+        Toast::NeedsMgba,
         Toast::NoLink,
         Toast::LinkEnded,
         Toast::PeerEnded,
@@ -56,6 +59,7 @@ impl Toast {
         Toast::ShaderGrid,
         Toast::ShaderDot,
         Toast::ShaderSimpletex,
+        Toast::ShaderShimmerless,
         Toast::CardUnwritable,
         Toast::CardRepair,
         Toast::CardRepaired,
@@ -153,6 +157,7 @@ impl Toast {
             Toast::ShotCaptured => "Screenshot Captured",
             Toast::ShotFailed => "Screenshot Failed",
             Toast::NeedsGpsp => "Please switch to gpSP",
+            Toast::NeedsMgba => "Please switch to mGBA",
             Toast::NoLink => "No link support",
             Toast::LinkEnded => "Link ended",
             Toast::PeerEnded => "Link was ended",
@@ -164,6 +169,7 @@ impl Toast {
             Toast::ShaderGrid => "Shader: Grid",
             Toast::ShaderDot => "Shader: Dot",
             Toast::ShaderSimpletex => "Shader: Simpletex",
+            Toast::ShaderShimmerless => "Shader: Shimmerless",
             Toast::CardUnwritable => "Can't write to SD card",
             Toast::CardRepair => "Can't write to SD card",
             Toast::CardRepaired => "SD card repaired",
@@ -217,9 +223,9 @@ fn setting(toast: Toast) -> Setting {
             middle: OUT_H as f32 / 2.0,
         },
         false => Setting {
-            w: match toast.icon() {
-                Some(_) => WARNING_W,
-                None => TOAST_W,
+            w: match (toast.icon(), toast) {
+                (Some(_), _) | (_, Toast::NeedsMgba | Toast::PeerEnded) => WARNING_W,
+                _ => TOAST_W,
             },
             h: TOAST_H,
             px: TOAST_PX,

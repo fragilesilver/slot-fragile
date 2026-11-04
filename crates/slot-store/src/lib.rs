@@ -12,6 +12,7 @@ mod game_profile;
 pub mod gb;
 mod gb_palette;
 mod gba;
+mod guides;
 pub mod ini;
 mod label_style;
 mod platform;
@@ -42,6 +43,10 @@ pub use game_profile::{
 };
 pub use gb_palette::GbPalette;
 pub use gba::{header_clean, header_code, header_title, header_title_code};
+pub use guides::{
+    decode_guide, find_guide, read_guide, read_guide_spot, write_guide_spot, GuideSpot, GUIDES_DIR,
+    GUIDE_SPOTS_FILE,
+};
 pub use label_style::{LabelStyle, SCRAPED_LABELS};
 pub use platform::Platform;
 pub use ring::{StateEntry, StateRing, RING_MAX};
@@ -53,9 +58,10 @@ pub use shaders::{
 };
 pub use shots::{shot_stamp, ShotDir, ShotEntry, SCREENSHOTS_DIR};
 pub use slot_state::{
-    read_slot_state, write_slot_state, Appearance, BezelPick, Recent, Shader, SlotState,
-    WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, FF_SPEED_DEFAULT,
-    LID_OFF_MIN, RECENTS_MAX, UTC_OFFSET_MAX, UTC_OFFSET_MIN, VOLUME_MAX,
+    bezel_for_scale, bezel_scale, ff_speed_text, ff_speed_value, read_slot_state, write_slot_state,
+    Appearance, BezelPick, Recent, Scale, Shader, SlotState, WallpaperPick, WallpaperTint,
+    BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, FF_SPEEDS, FF_SPEED_DEFAULT, LID_OFF_MIN,
+    RECENTS_MAX, SATURATION_MAX, SUNLIGHT_MAX, UTC_OFFSET_MAX, UTC_OFFSET_MIN, VOLUME_MAX,
 };
 pub use spec::{Header, Spec};
 pub use stamp::{

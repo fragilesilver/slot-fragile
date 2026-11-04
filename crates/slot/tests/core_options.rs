@@ -283,3 +283,40 @@ fn mgba_always_answers_the_game_boy_player_logo() {
         );
     }
 }
+
+#[test]
+fn the_sunlight_follows_the_clock_dark_at_night_and_brightest_at_noon() {
+    let at = |h: i64, m: i64| slot::core::sunlight_at(h * 3600 + m * 60);
+    assert_eq!(at(0, 0), 0);
+    assert_eq!(at(5, 59), 0);
+    assert_eq!(at(6, 0), 0);
+    assert_eq!(at(9, 0), 4);
+    assert_eq!(at(12, 0), 8);
+    assert_eq!(at(15, 0), 4);
+    assert_eq!(at(18, 0), 0);
+    assert_eq!(at(23, 59), 0);
+    assert_eq!(slot::core::sunlight_at(3 * 86_400 + 12 * 3600), 8);
+    assert_eq!(slot::core::sunlight_at(-12 * 3600), 8);
+}
+
+#[test]
+fn mgba_takes_every_sunlight_level_slot_can_send() {
+    let _g = common::core_lock();
+    let path = dylib_for(Core::Mgba);
+    if !slot_retro::runs_here(&path) {
+        eprintln!("no mgba dylib on this host, skipping");
+        return;
+    }
+    let core = LibretroCore::open(&path).expect("open core");
+    let levels = core
+        .declared_options()
+        .get(slot::core::SUNLIGHT_OPTION)
+        .cloned()
+        .expect("mgba declares no solar sensor option");
+    for level in 0..=slot::core::SUNLIGHT_MAX {
+        assert!(
+            levels.contains(&level.to_string()),
+            "mgba has no sunlight level {level} in {levels:?}"
+        );
+    }
+}

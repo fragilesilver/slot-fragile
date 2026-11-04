@@ -4,7 +4,7 @@
 //! each console's Screen page, shown on every panel so upstream's page layouts hold; on a 3:2
 //! panel the setting changes nothing.
 
-use slot_store::{platform_settings, BezelPick, Platform, Scaling, Shader};
+use slot_store::{platform_settings, BezelPick, Platform, Scale, Scaling, Shader};
 use slot_ui::{QuickRow, QuickValue, Toast};
 
 use super::{App, VideoMode};
@@ -57,7 +57,10 @@ impl App {
     }
 
     pub(super) fn platform_shader(&self, platform: Platform) -> Shader {
-        platform_settings::shader(&self.state, &self.extras, platform)
+        match platform {
+            Platform::Gba => self.gba_shader(),
+            _ => platform_settings::shader(&self.state, &self.extras, platform),
+        }
     }
 
     pub(super) fn platform_colour(&self, platform: Platform) -> bool {
@@ -77,7 +80,7 @@ impl App {
         }
     }
 
-    pub(super) fn set_platform_bezel(&mut self, platform: Platform, to: BezelPick) {
+    pub fn set_platform_bezel(&mut self, platform: Platform, to: BezelPick) {
         platform_settings::set_bezel(&mut self.state, &mut self.extras, platform, to);
         if platform_settings::in_extras(platform) {
             self.save_extras();
@@ -102,6 +105,36 @@ impl App {
 
     pub fn integer_scale(&self, platform: Platform) -> bool {
         self.scaling(platform) == Scaling::Integer
+    }
+
+    pub fn resolved_scale(&self, platform: Platform) -> Scale {
+        if self.video_mode == VideoMode::Stretch {
+            return Scale::FullScreen;
+        }
+        if let Some(s) = self.extras.get(&format!("scale_{}", platform.key())) {
+            if let Some(scale) = Scale::parse(s) {
+                return scale;
+            }
+        }
+        let scaling = self.scaling(platform);
+        match scaling {
+            Scaling::Integer => Scale::Integer,
+            Scaling::Fill => Scale::FullScreen,
+            Scaling::Fit | Scaling::SharpFit => Scale::Fit,
+        }
+    }
+
+    pub fn set_scale(&mut self, platform: Platform, scale: Scale) {
+        self.extras
+            .set(&format!("scale_{}", platform.key()), Some(scale.name()));
+        self.set_scaling(
+            platform,
+            match scale {
+                Scale::SpFrame | Scale::Fit => Scaling::Fit,
+                Scale::Integer => Scaling::Integer,
+                Scale::FullScreen => Scaling::Fill,
+            },
+        );
     }
 
     /// Whether the game picture should fill the display frame completely.

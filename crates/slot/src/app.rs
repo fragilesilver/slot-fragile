@@ -9,12 +9,13 @@ use slot_retro::LinkChannel;
 use slot_store::{
     format_stamp, parse_stamp, read_slot_state, scan, write_slot_state, BezelPick, Cart, Core,
     GbPalette, Platform, Recent, Shader, ShotDir, ShotEntry, SlotState, StateEntry, StateRing,
-    WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX, VOLUME_MAX,
+    WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, FF_SPEEDS,
+    RING_MAX, SATURATION_MAX, SUNLIGHT_MAX, VOLUME_MAX,
 };
 use slot_ui::{
     board_from, board_zoom, draw_empty_slot, draw_footer, draw_ground, draw_slot_name, ease,
     footer_ink, grown, lid_at, lid_from, lift_of, on_board, repeat_gap, shelf_cart_at, ClockPicker,
-    Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice,
+    Draw, FfState, GbShell, Guide, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice,
     QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, ShotMode, ShotViewer,
     SlotChrome, TexId, Toast, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HOP_LIFT, MOUTH_H,
     REPEAT_DELAY_MS, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
@@ -413,9 +414,11 @@ pub struct App {
     nds_layout_pending: Option<String>,
     palette_live: bool,
     palette_pending: Option<GbPalette>,
+    sunlight_manual: Option<u8>,
     link_player: Option<u8>,
     platform: Platform,
     named_core: bool,
+    card_unread: bool,
     video_mode: VideoMode,
     link: Option<LinkSession>,
     sfx: Option<Sfx>,
@@ -434,6 +437,7 @@ pub struct App {
     web_help_face: Option<(TexId, u32, u32)>,
     pub ota: Option<crate::ota::OtaManager>,
     game_bezel: Option<TexId>,
+    bezel_column: Vec<u8>,
     in_game_menu: Option<QuickRow>,
     /// 0 while the pause footer is off the bottom, 1 when it sits in the carousel's place.
     footer: f32,
@@ -500,6 +504,10 @@ pub struct App {
     shot_opens: u64,
     shot_tick_face: Option<(TexId, u32, u32)>,
     delete_shot_text: Option<[(TexId, u32, u32); 2]>,
+    has_guide: bool,
+    guide: Option<(Guide, PathBuf)>,
+    guide_hint_faces: Vec<TexId>,
+    guide_help_face: Option<((TexId, u32, u32), TexId)>,
     extras: slot_store::ExtrasState,
     overlay: overlay::Overlays,
     /// A clamshell, whose sleep is the lid's. Without one, sleep is the power button's.
@@ -573,6 +581,10 @@ impl App {
             shot_opens: 0,
             shot_tick_face: None,
             delete_shot_text: None,
+            has_guide: false,
+            guide: None,
+            guide_hint_faces: Vec::new(),
+            guide_help_face: None,
             extras: slot_store::ExtrasState::default(),
             overlay: overlay::Overlays::default(),
             lid: true,
@@ -639,9 +651,11 @@ impl App {
             nds_layout_pending: None,
             palette_live: false,
             palette_pending: None,
+            sunlight_manual: None,
             link_player: None,
             platform: Platform::default(),
             named_core: false,
+            card_unread: false,
             video_mode: VideoMode::default(),
             link: None,
             sfx: None,
@@ -660,6 +674,7 @@ impl App {
             web_help_face: None,
             ota: None,
             game_bezel: None,
+            bezel_column: Vec::new(),
             in_game_menu: None,
             footer: 0.0,
             footer_row: None,
@@ -902,6 +917,7 @@ impl App {
             Phase::SetClock { .. } => true,
             Phase::QuickMenu { .. } => vertical,
             Phase::Shelf => vertical && self.core_picker.is_none(),
+            Phase::Polaroids { .. } if self.guide.is_some() => true,
             Phase::Polaroids { .. } => match self.shot_viewer.as_ref().map(ShotViewer::mode) {
                 Some(ShotMode::Grid) => true,
                 Some(ShotMode::Zoomed) => false,
@@ -1101,6 +1117,9 @@ impl App {
         if !self.has_shots || self.link_active() {
             hidden.push(QuickRow::Screenshots);
         }
+        if !self.has_guide || self.link_active() {
+            hidden.push(QuickRow::Guide);
+        }
         let offer = match self.undo_available(self.now()) {
             true => self.pending.as_ref().map(|(what, _)| what),
             false => None,
@@ -1118,6 +1137,7 @@ impl App {
         self.has_states = !self.entries().is_empty();
         let removing = self.shot_writer.removing();
         self.has_shots = self.shot_dir().is_some_and(|s| s.any(&removing));
+        self.has_guide = self.guide_file().is_some();
     }
 
     fn list_shots_later(&mut self) {
@@ -1182,6 +1202,10 @@ impl App {
 
     fn playing_row(&self, row: QuickRow) -> QuickRow {
         match (row, self.playing_platform()) {
+            (QuickRow::PlayBrightness, _) => QuickRow::Brightness,
+            (QuickRow::PlayBlueLight, _) => QuickRow::BlueLight,
+            (QuickRow::PlaySaturation, _) => QuickRow::Saturation,
+            (QuickRow::PlayContrast, _) => QuickRow::Contrast,
             (QuickRow::Shader, Platform::Gba) => QuickRow::GbaShader,
             (QuickRow::Shader, Platform::Gb) => QuickRow::GbShader,
             (QuickRow::Shader, Platform::Gbc) => QuickRow::GbcShader,
@@ -1219,7 +1243,12 @@ impl App {
             return value;
         }
         match row {
-            QuickRow::Shader | QuickRow::ColourCorrection => {
+            QuickRow::Shader
+            | QuickRow::ColourCorrection
+            | QuickRow::PlayBrightness
+            | QuickRow::PlayBlueLight
+            | QuickRow::PlaySaturation
+            | QuickRow::PlayContrast => {
                 // Fragile: a system with no row of its own for it (the NES has no colour
                 // correction) has no value, rather than asking itself forever.
                 let own = self.playing_row(row);
@@ -1228,6 +1257,20 @@ impl App {
                 }
                 self.quick_value(own)
             }
+            QuickRow::Brightness => Some(QuickValue::level(self.state.brightness)),
+            QuickRow::BlueLight => Some(match self.state.blue_light {
+                0 => QuickValue::Off,
+                n => QuickValue::level(n),
+            }),
+            QuickRow::Saturation => Some(match self.state.saturation {
+                0 => QuickValue::Off,
+                n => QuickValue::level(n),
+            }),
+            QuickRow::Contrast => Some(match self.state.contrast {
+                0 => QuickValue::Off,
+                n => QuickValue::level(n),
+            }),
+            QuickRow::ScreenGeneral => None,
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
             QuickRow::FastForwardSound => Some(QuickValue::flag(self.state.ff_sound)),
             QuickRow::GbaColourCorrection => {
@@ -1238,7 +1281,7 @@ impl App {
                 Some(QuickValue::flag(self.state.colour_correction_gbc))
             }
             QuickRow::GbPalettes => Some(QuickValue::flag(self.state.gb_palettes)),
-            QuickRow::GbaShader => Some(shader_value(self.state.shader_gba)),
+            QuickRow::GbaShader => Some(shader_value(self.gba_shader())),
             QuickRow::GbShader => Some(shader_value(self.state.shader_gb)),
             QuickRow::GbcShader => Some(shader_value(self.state.shader_gbc)),
             QuickRow::Rumble => Some(QuickValue::flag(self.state.rumble)),
@@ -1363,7 +1406,10 @@ impl App {
             | QuickRow::ScShaderNext
             | QuickRow::ScShaderBack
             | QuickRow::ScFastForward
+            | QuickRow::ScFastForwardToggle
             | QuickRow::ScRewind
+            | QuickRow::ScSunlightUp
+            | QuickRow::ScSunlightDown
             | QuickRow::Controls
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame
@@ -1392,6 +1438,8 @@ impl App {
             | QuickRow::MotionBlurGbc
             | QuickRow::ControlsGuide
             | QuickRow::PlayGuide
+            | QuickRow::Guide
+            | QuickRow::ScGuide
             | QuickRow::Bluetooth
             | QuickRow::BtDevices
             | QuickRow::SshPower
@@ -1441,13 +1489,12 @@ impl App {
     }
 
     pub fn bezel_files(&self, platform: Platform) -> Vec<String> {
-        match platform.spec().bezels {
-            false => Vec::new(),
-            true => self
-                .root()
-                .map(|root| crate::bezel::list(root, platform))
-                .unwrap_or_default(),
+        if platform == Platform::Gba && !self.framed_panel() {
+            return Vec::new();
         }
+        self.root()
+            .map(|root| crate::bezel::list(root, platform))
+            .unwrap_or_default()
     }
 
     fn bezel_choices(&self, platform: Platform) -> Vec<BezelPick> {
@@ -1458,16 +1505,29 @@ impl App {
         if self.framed_panel() {
             choices.push(BezelPick::Ags102);
         }
-        choices.extend(self.bezel_files(platform).into_iter().map(BezelPick::File));
+        let scale = self.resolved_scale(platform);
+        choices.extend(
+            self.bezel_files(platform)
+                .into_iter()
+                .filter(|name| slot_store::bezel_scale(name).is_none_or(|s| s == scale))
+                .map(BezelPick::File),
+        );
         choices
     }
 
     pub fn resolved_bezel(&self, platform: Platform) -> BezelPick {
         let pick = self.platform_bezel(platform);
-        match self.bezel_choices(platform).contains(&pick) {
-            true => pick,
-            false => BezelPick::None,
+        let choices = self.bezel_choices(platform);
+        if choices.contains(&pick) {
+            return pick;
         }
+        let BezelPick::File(name) = pick else {
+            return BezelPick::None;
+        };
+        slot_store::bezel_for_scale(&name, self.resolved_scale(platform))
+            .map(BezelPick::File)
+            .filter(|swapped| choices.contains(swapped))
+            .unwrap_or(BezelPick::None)
     }
 
     fn cycle_bezel(&mut self, platform: Platform, right: bool) {
@@ -1485,12 +1545,40 @@ impl App {
     }
 
     pub fn sp_frame(&self) -> bool {
-        self.resolved_bezel(self.playing_platform()) == BezelPick::Ags102
-            && self.integer_picture().is_none()
+        self.resolved_scale(self.playing_platform()) == slot_store::Scale::SpFrame
+            || (self.resolved_bezel(self.playing_platform()) == BezelPick::Ags102
+                && self.integer_picture().is_none())
+    }
+
+    pub fn picture_on_top(&self) -> bool {
+        if self.sp_frame() {
+            return true;
+        }
+        matches!(
+            self.resolved_bezel(self.playing_platform()),
+            BezelPick::File(_)
+        ) && self.shown_game_bezel().is_some()
+            && !self.fills_frame()
+            && slot_gfx::hole_on_top(&self.bezel_column, self.panel, self.picture_in_band())
+    }
+
+    fn picture_in_band(&self) -> (f32, f32) {
+        match self.source_rect() == slot_gfx::WHOLE_TEXTURE {
+            true => {
+                let rows = self.playing_platform().picture().1 as f32;
+                let src = slot_gfx::SRC_H as f32;
+                ((src - rows) / 2.0 / src, rows / src)
+            }
+            false => (0.0, 1.0),
+        }
     }
 
     pub fn set_game_bezel(&mut self, tex: Option<TexId>) {
         self.game_bezel = tex;
+    }
+
+    pub fn set_bezel_column(&mut self, column: Vec<u8>) {
+        self.bezel_column = column;
     }
 
     pub fn shown_game_bezel(&self) -> Option<TexId> {
@@ -1902,6 +1990,14 @@ impl App {
 
     pub fn set_named_core(&mut self, named: bool) {
         self.named_core = named;
+    }
+
+    /// The card failed to read this game's save or resume. Neither is written until the cart
+    /// goes in again, the resume is not the core's to refuse and is left where it is rather
+    /// than filed away, and the card alarm stays up meanwhile. Unlike a failed write, no later
+    /// successful write clears it.
+    pub fn set_card_unread(&mut self, unread: bool) {
+        self.card_unread = unread;
     }
 
     pub fn set_video_mode(&mut self, mode: VideoMode) {
@@ -2797,10 +2893,12 @@ impl App {
                     self.shot_wanted = true
                 }
                 Action::LoadState => self.load_newest(),
+                Action::Guide => self.open_guide(),
                 Action::RewindStart if !self.may_rewind() => self.refuse(),
                 Action::FfStart if !self.may_fast_forward() => self.refuse(),
                 _ => {}
             },
+            Phase::Polaroids { .. } if self.guide.is_some() => self.guide_input(action),
             Phase::Polaroids { .. } if self.shot_viewer.is_some() => self.shot_input(action),
             Phase::Polaroids { .. } => match action {
                 Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.flick(Polaroids::left),
@@ -2903,6 +3001,7 @@ impl App {
             }
             QuickRow::States => self.open_states(),
             QuickRow::Screenshots => self.open_shots(),
+            QuickRow::Guide => self.open_guide(),
             QuickRow::ExitGame => self.eject(),
             _ => {
                 if let Some(child) = row.child() {
@@ -2962,6 +3061,7 @@ impl App {
             }
             QuickRow::About => self.phase = Phase::About,
             QuickRow::Screen
+            | QuickRow::ScreenGeneral
             | QuickRow::Game
             | QuickRow::ScreenGba
             | QuickRow::ScreenGbc
@@ -2982,7 +3082,15 @@ impl App {
                     self.phase = Phase::QuickMenu { row };
                 }
             }
-            QuickRow::EjectSave
+            QuickRow::Brightness
+            | QuickRow::BlueLight
+            | QuickRow::Saturation
+            | QuickRow::Contrast
+            | QuickRow::PlayBrightness
+            | QuickRow::PlayBlueLight
+            | QuickRow::PlaySaturation
+            | QuickRow::PlayContrast
+            | QuickRow::EjectSave
             | QuickRow::Turbo
             | QuickRow::Rewind
             | QuickRow::FastForward
@@ -3082,7 +3190,10 @@ impl App {
             | QuickRow::ScShaderNext
             | QuickRow::ScShaderBack
             | QuickRow::ScFastForward
+            | QuickRow::ScFastForwardToggle
             | QuickRow::ScRewind
+            | QuickRow::ScSunlightUp
+            | QuickRow::ScSunlightDown
             | QuickRow::LidOff
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
@@ -3109,6 +3220,8 @@ impl App {
             | QuickRow::MotionBlurGbc
             | QuickRow::ControlsGuide
             | QuickRow::PlayGuide
+            | QuickRow::Guide
+            | QuickRow::ScGuide
             | QuickRow::Bluetooth
             | QuickRow::BtDevices
             | QuickRow::SshPower
@@ -3127,6 +3240,32 @@ impl App {
     fn change_setting(&mut self, row: QuickRow, right: bool) {
         let row = self.playing_row(row);
         if self.change_extra(row, right) || self.change_profile(row, right) {
+            return;
+        }
+        if let QuickRow::Saturation | QuickRow::Contrast = row {
+            let (level, max) = match row {
+                QuickRow::Saturation => (&mut self.state.saturation, SATURATION_MAX),
+                _ => (&mut self.state.contrast, CONTRAST_MAX),
+            };
+            *level = match right {
+                true => up(*level, 1, max),
+                false => level.saturating_sub(1),
+            };
+            self.persist_soon();
+            return;
+        }
+        if let QuickRow::Brightness | QuickRow::BlueLight = row {
+            let (kind, now, max) = match row {
+                QuickRow::Brightness => {
+                    (HudKind::Brightness, self.state.brightness, BRIGHTNESS_MAX)
+                }
+                _ => (HudKind::BlueLight, self.state.blue_light, BLUE_LIGHT_MAX),
+            };
+            let to = match right {
+                true => up(now, 1, max),
+                false => now.saturating_sub(1),
+            };
+            self.set_level(kind, to);
             return;
         }
         if row == QuickRow::Palette {
@@ -3175,6 +3314,7 @@ impl App {
             self.persist();
             return;
         }
+        let gba_shaders = self.gba_shaders();
         let s = &mut self.state;
         match row {
             QuickRow::FastForward => {
@@ -3198,7 +3338,7 @@ impl App {
                 self.colour_pending = Some(self.colour_correction());
             }
             QuickRow::GbaShader => {
-                let to = s.shader_gba.step(&Shader::GBA, right);
+                let to = s.shader_gba.step(gba_shaders, right);
                 if to == s.shader_gba {
                     return;
                 }
@@ -3226,7 +3366,16 @@ impl App {
             QuickRow::GbPalettes => s.gb_palettes = !s.gb_palettes,
             QuickRow::Theme => s.appearance = s.appearance.toggle(),
             QuickRow::WallpaperTint => s.wallpaper_tint = s.wallpaper_tint.step(right),
-            QuickRow::Wallpaper
+            QuickRow::ScreenGeneral
+            | QuickRow::Brightness
+            | QuickRow::BlueLight
+            | QuickRow::Saturation
+            | QuickRow::Contrast
+            | QuickRow::PlayBrightness
+            | QuickRow::PlayBlueLight
+            | QuickRow::PlaySaturation
+            | QuickRow::PlayContrast
+            | QuickRow::Wallpaper
             | QuickRow::Recents
             | QuickRow::ShowTitles
             | QuickRow::DateTime
@@ -3323,7 +3472,10 @@ impl App {
             | QuickRow::ScShaderNext
             | QuickRow::ScShaderBack
             | QuickRow::ScFastForward
+            | QuickRow::ScFastForwardToggle
             | QuickRow::ScRewind
+            | QuickRow::ScSunlightUp
+            | QuickRow::ScSunlightDown
             | QuickRow::Controls
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame
@@ -3353,6 +3505,8 @@ impl App {
             | QuickRow::MotionBlurGbc
             | QuickRow::ControlsGuide
             | QuickRow::PlayGuide
+            | QuickRow::Guide
+            | QuickRow::ScGuide
             | QuickRow::Bluetooth
             | QuickRow::BtDevices
             | QuickRow::SshPower
@@ -3384,9 +3538,13 @@ impl App {
             return;
         }
         let platform = self.playing_platform();
+        let shaders = match platform {
+            Platform::Gba => self.gba_shaders(),
+            _ => platform.spec().shaders,
+        };
         let to = self
             .platform_shader(platform)
-            .step(platform.spec().shaders, right);
+            .step(shaders, right);
         self.set_platform_shader(platform, to);
         let said = match to {
             Shader::Off => Toast::ShaderOff,
@@ -3394,6 +3552,7 @@ impl App {
             Shader::Grid => Toast::ShaderGrid,
             Shader::Dot => Toast::ShaderDot,
             Shader::Simpletex => Toast::ShaderSimpletex,
+            Shader::Shimmerless => Toast::ShaderShimmerless,
         };
         self.persist();
         self.hud.toast(said, self.now());
@@ -3445,6 +3604,10 @@ impl App {
             self.hud.toast(said, self.now());
             return true;
         }
+        if let Action::SunlightUp | Action::SunlightDown = action {
+            self.step_sunlight(action == Action::SunlightUp);
+            return true;
+        }
         let s = &self.state;
         let (kind, value) = match action {
             Action::BrightnessUp => (HudKind::Brightness, up(s.brightness, 1, BRIGHTNESS_MAX)),
@@ -3458,25 +3621,33 @@ impl App {
         if kind == HudKind::Volume {
             self.remember_volume();
         }
+        let unmuted = kind == HudKind::Volume && std::mem::take(self.muted_mut());
+        let moved = self.set_level(kind, value);
+        let (shown, now) = (self.hud_value(kind, value), self.now());
+        self.hud.show(kind, shown, self.muted(), now);
+        if unmuted && !moved {
+            self.persist_soon();
+        }
+        true
+    }
+
+    fn set_level(&mut self, kind: HudKind, value: u8) -> bool {
         let level = match kind {
             HudKind::Brightness => &mut self.state.brightness,
             HudKind::BlueLight => &mut self.state.blue_light,
             HudKind::Volume if self.headphones => &mut self.state.volume_hp,
             HudKind::Volume => &mut self.state.volume,
-            HudKind::Rewind => return false,
+            HudKind::Rewind | HudKind::Sunlight => return false,
         };
         let moved = *level != value;
         *level = value;
-        let unmuted = kind == HudKind::Volume && std::mem::take(self.muted_mut());
-        let (shown, now) = (self.hud_value(kind, value), self.now());
-        self.hud.show(kind, shown, self.muted(), now);
         if let (HudKind::Brightness, Some(power)) = (kind, &mut self.power) {
             power.set_backlight(value);
         }
-        if moved || unmuted {
+        if moved {
             self.persist_soon();
         }
-        true
+        moved
     }
 
     fn remember_volume(&mut self) {
@@ -3534,8 +3705,61 @@ impl App {
         self.state.blue_light
     }
 
+    pub fn saturation(&self) -> u8 {
+        self.state.saturation
+    }
+
+    pub fn contrast(&self) -> u8 {
+        self.state.contrast
+    }
+
     pub fn brightness(&self) -> u8 {
         self.state.brightness
+    }
+
+    pub fn gba_shaders(&self) -> &'static [Shader] {
+        let (w, h) = self.panel;
+        if w > 0 && w * 2 == h * 3 {
+            &Shader::GBA_3_2
+        } else {
+            &Shader::GBA
+        }
+    }
+
+    pub fn gba_shader(&self) -> Shader {
+        match self.gba_shaders().contains(&self.state.shader_gba) {
+            true => self.state.shader_gba,
+            false => Shader::Off,
+        }
+    }
+
+    pub fn sunlight(&self) -> Option<u8> {
+        if self.core != Core::Mgba
+            || self.seated_cart().is_none()
+            || self.playing_platform() != Platform::Gba
+        {
+            return None;
+        }
+        Some(
+            self.sunlight_manual
+                .unwrap_or_else(|| crate::core::sunlight_at(self.wall_secs())),
+        )
+    }
+
+    fn step_sunlight(&mut self, brighter: bool) {
+        if self.seated_cart().is_none() || self.playing_platform() != Platform::Gba {
+            return;
+        }
+        let Some(now) = self.sunlight() else {
+            self.hud.toast(Toast::NeedsMgba, self.now());
+            return;
+        };
+        let to = match brighter {
+            true => up(now, 1, SUNLIGHT_MAX),
+            false => now.saturating_sub(1),
+        };
+        self.sunlight_manual = Some(to);
+        self.hud.show(HudKind::Sunlight, to, false, self.now());
     }
 
     pub fn volume(&self) -> u8 {
@@ -3556,6 +3780,10 @@ impl App {
         } else {
             &mut self.state.volume
         }
+    }
+
+    pub fn headphones(&self) -> bool {
+        self.headphones
     }
 
     pub fn muted(&self) -> bool {
@@ -3933,12 +4161,14 @@ impl App {
             self.card_check_at = self.now() + CARD_CHECK_MS;
             self.card_read_only = self.power.as_ref().is_some_and(|p| p.card_read_only());
         }
-        let failing = self.card_writes.failing() || self.card_read_only;
+        let failing =
+            self.card_writes.failing() || self.card_read_only || self.card_unread;
         if failing != self.hud.alarmed() {
             eprintln!(
-                "slot: card: alarm {} (read-only {})",
+                "slot: card: alarm {} (read-only {}, unread {})",
                 if failing { "on" } else { "off" },
-                self.card_read_only
+                self.card_read_only,
+                self.card_unread
             );
             self.log_card(failing);
         }
@@ -4152,7 +4382,7 @@ impl App {
         let Some(snapshot) = &self.snapshot else {
             return;
         };
-        if snapshot.resume_trusted() {
+        if snapshot.resume_trusted() || self.card_unread {
             return;
         }
         if !self.named_core {
@@ -4425,6 +4655,18 @@ impl App {
                 self.chrome(cart, 0.0, out);
             }
             Phase::Playing { .. } => self.push_game(out),
+            Phase::Polaroids { .. } if self.guide.is_some() => {
+                if let Some((g, _)) = &self.guide {
+                    g.draw(
+                        self.canvas(),
+                        self.battery,
+                        self.battery_percent,
+                        self.hud_bolt,
+                        self.shelf_clock,
+                        out,
+                    );
+                }
+            }
             Phase::Polaroids { .. } if self.shot_viewer.is_some() => {
                 if let Some(v) = &self.shot_viewer {
                     v.draw(
@@ -5201,6 +5443,7 @@ impl App {
         self.play_held = None;
         self.refusal = None;
         self.refused_from = None;
+        self.sunlight_manual = None;
         if let Some(mark) = &self.loading {
             mark.set(&cart);
             self.marked = true;
@@ -5248,6 +5491,7 @@ impl App {
         };
         self.end_link();
         self.close_game_menu();
+        self.shut_guide();
         self.flush_eject(&cart);
         self.pending = None;
         self.refusal = None;
@@ -5311,6 +5555,7 @@ impl App {
             _ => None,
         };
         let row = self.album_row();
+        self.shut_guide();
         self.shot_viewer = None;
         if std::mem::take(&mut self.states_from_menu) {
             self.in_game_menu = Some(row);
@@ -5871,6 +6116,7 @@ impl App {
             self.end_link();
         }
         self.close_game_menu();
+        self.save_guide_spot();
         self.remember_shelf();
         self.powering_off = true;
         self.act_at = self.now() + SHUTDOWN_SHOW_MS;
@@ -6033,6 +6279,7 @@ impl App {
         };
         let cart = std::mem::take(cart);
         let row = self.album_row();
+        self.shut_guide();
         self.polaroids = None;
         self.shot_viewer = None;
         self.delete_prompt = false;
@@ -6103,6 +6350,9 @@ impl App {
     }
 
     fn album_row(&self) -> QuickRow {
+        if self.guide.is_some() {
+            return QuickRow::Guide;
+        }
         match self.shot_viewer {
             Some(_) => QuickRow::Screenshots,
             None => QuickRow::States,
@@ -6172,6 +6422,113 @@ impl App {
 
     pub fn shot_opens(&self) -> u64 {
         self.shot_opens
+    }
+
+    fn guide_file(&self) -> Option<PathBuf> {
+        let (Some(root), Some(cart)) = (&self.root, self.seated_cart()) else {
+            return None;
+        };
+        slot_store::find_guide(root, cart.platform, &cart.stem)
+    }
+
+    fn open_guide(&mut self) {
+        if self.link_active() {
+            return self.refuse();
+        }
+        let (Some(root), Some(path)) = (self.root.clone(), self.guide_file()) else {
+            self.has_guide = false;
+            return self.refuse();
+        };
+        let lines = match slot_store::read_guide(&path) {
+            Ok(lines) => lines,
+            Err(e) => {
+                eprintln!("slot: guide: {}: {e}", path.display());
+                return self.refuse();
+            }
+        };
+        let Phase::Playing { cart } = &mut self.phase else {
+            return;
+        };
+        let cart = std::mem::take(cart);
+        self.states_from_menu = self.in_game_menu.take().is_some();
+        let spot = slot_store::read_guide_spot(&root, &path);
+        let mut guide = Guide::new(lines, spot, self.canvas());
+        guide.set_hint_faces(self.guide_hint_faces.clone());
+        if let Some((face, title)) = self.guide_help_face {
+            guide.set_help_face(face, title);
+        }
+        self.guide = Some((guide, path));
+        self.phase = Phase::Polaroids { cart };
+    }
+
+    fn shut_guide(&mut self) {
+        self.save_guide_spot();
+        self.guide = None;
+    }
+
+    fn save_guide_spot(&self) {
+        let (Some((guide, path)), Some(root)) = (&self.guide, &self.root) else {
+            return;
+        };
+        if let Err(e) = slot_store::write_guide_spot(root, path, guide.spot()) {
+            eprintln!("slot: guide: {}: {e}", path.display());
+        }
+    }
+
+    fn guide_input(&mut self, action: Action) {
+        let canvas = self.canvas();
+        if action == Action::Guide {
+            return self.close_polaroids();
+        }
+        let Some((g, _)) = &mut self.guide else {
+            return;
+        };
+        let pressed = match action {
+            Action::QuickMenu => return g.toggle_help(),
+            Action::GbaDown(b) => b,
+            _ => return,
+        };
+        if g.help() {
+            if pressed == Btn::B {
+                g.toggle_help();
+            }
+            return;
+        }
+        match pressed {
+            Btn::Up => g.scroll(-1, canvas),
+            Btn::Down => g.scroll(1, canvas),
+            Btn::Left => g.pan(-1, canvas),
+            Btn::Right => g.pan(1, canvas),
+            Btn::L1 => g.page(-1, canvas),
+            Btn::R1 => g.page(1, canvas),
+            Btn::A => {
+                g.zoom_by(1, canvas);
+            }
+            Btn::B => {
+                g.zoom_by(-1, canvas);
+            }
+            Btn::X => g.toggle_wrap(canvas),
+            Btn::Y => self.close_polaroids(),
+            _ => {}
+        }
+    }
+
+    pub fn guide(&self) -> Option<&Guide> {
+        self.guide.as_ref().map(|(g, _)| g)
+    }
+
+    pub fn set_guide_page_face(&mut self, tex: TexId, view: slot_ui::GuideView) {
+        if let Some((g, _)) = &mut self.guide {
+            g.set_page_face(tex, view);
+        }
+    }
+
+    pub fn set_guide_hint_faces(&mut self, faces: Vec<TexId>) {
+        self.guide_hint_faces = faces;
+    }
+
+    pub fn set_guide_help_face(&mut self, face: (TexId, u32, u32), title: TexId) {
+        self.guide_help_face = Some((face, title));
     }
 
     fn load_selected(&mut self) {
@@ -6553,6 +6910,7 @@ pub(crate) fn shader_value(shader: Shader) -> QuickValue {
         Shader::Grid => QuickValue::Grid,
         Shader::Dot => QuickValue::Dot,
         Shader::Simpletex => QuickValue::Simpletex,
+        Shader::Shimmerless => QuickValue::Shimmerless,
     }
 }
 

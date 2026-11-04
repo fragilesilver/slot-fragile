@@ -37,6 +37,7 @@ pub struct Session {
     prefetch: Prefetch,
     reloading: bool,
     driven: bool,
+    sunlight_sent: Option<u8>,
 }
 
 impl Session {
@@ -63,6 +64,7 @@ impl Session {
             prefetch: Prefetch::default(),
             reloading: false,
             driven: false,
+            sunlight_sent: None,
         };
         // A game left running comes straight back. Its core loads on its own thread, so start it
         // now and let the card read overlap the rest of the boot. Waiting for the first update
@@ -296,6 +298,7 @@ impl Session {
 
     pub fn update(&mut self, dt: f32) {
         self.bridge_link(|app| app.update(dt));
+        self.sink.hold_open(self.app.headphones());
         if let Some(emu) = &self.emu {
             emu.set_volume(self.app.output_volume());
         }
@@ -326,6 +329,12 @@ impl Session {
                     emu.set_option(key, value);
                     recoloured = true;
                 }
+            }
+        }
+        if let (Some(level), Some(emu)) = (self.app.sunlight(), &self.emu) {
+            if self.sunlight_sent != Some(level) {
+                emu.set_option(crate::core::SUNLIGHT_OPTION, &level.to_string());
+                self.sunlight_sent = Some(level);
             }
         }
         if let Some(emu) = &self.emu {
@@ -495,7 +504,7 @@ impl Session {
 
     fn sync_speed(&self) {
         if let Some(emu) = &self.emu {
-            emu.set_fast_steps(u32::from(self.app.ff_speed()));
+            emu.set_fast_quarters(u32::from(self.app.ff_speed()));
             emu.set_ff_sound(self.app.ff_sound());
             emu.set_ff_pitch(self.app.ff_pitch());
             emu.set_speed(
@@ -529,8 +538,11 @@ impl Session {
         }
         let stem = match self.app.phase() {
             Phase::Shelf => {
+                // The cart is out, so there is nothing left to protect: the next insert reads
+                // both files afresh.
                 self.opening = None;
                 self.emu = None;
+                self.app.set_card_unread(false);
                 return;
             }
             Phase::Inserting { cart, .. } => cart.clone(),
@@ -594,9 +606,10 @@ impl Session {
         let join = std::thread::Builder::new()
             .name("slot-open".into())
             .spawn(move || {
-                let resume = (!clean)
-                    .then(|| persist::read_resume(&root, platform, core, &stem))
-                    .flatten();
+                let resume = match clean {
+                    true => Ok(None),
+                    false => persist::read_resume(&root, platform, core, &stem),
+                };
                 launch("resume state read");
                 let palette = crate::core::palette_for(chosen, platform, &rom, player);
                 let palette_live = crate::core::takes_palette(platform, &rom, player);
@@ -635,15 +648,29 @@ impl Session {
         // Fragile: the built-in BIOS note, for a disc system with no BIOS on the card.
         self.app.core_opened(loaded.platform, loaded.opened.named);
         let ring = self.sink.ring();
-        let (core, rom, sav, resume) = (loaded.opened.core, loaded.rom, loaded.sav, loaded.resume);
+        let (sav, sav_unread) = card_read("save", loaded.sav);
+        let (resume, resume_unread) = card_read("resume", loaded.resume);
+        let (core, rom) = (loaded.opened.core, loaded.rom);
         let emu = match loaded.player.filter(|_| loaded.platform.spec().link) {
             Some(p) => EmuHandle::spawn_linked(core, rom, ring, sav, resume, p),
             None => EmuHandle::spawn(core, rom, ring, sav, resume),
         };
+        // A file the card failed to read is still the player's: the game starts without it, and
+        // nothing is written over it until the cart goes in again. The save and the resume go
+        // together, because every mGBA state carries the save inside it: a resume written now
+        // would bring a blank save back over the real one, and saves written while the resume
+        // is unread would be rolled back by the older copy inside it once it reads again.
+        let unread = sav_unread || resume_unread;
+        if unread {
+            emu.refuse_save_ram();
+            emu.refuse_resume();
+        }
+        self.app.set_card_unread(unread);
         emu.set_volume(self.app.output_volume());
         emu.set_driven(self.driven);
         self.app.set_snapshot(Box::new(emu.snapshot()));
         self.emu = Some(emu);
+        self.sunlight_sent = None;
         true
     }
 
@@ -686,8 +713,19 @@ struct Loaded {
     platform: Platform,
     player: Option<u8>,
     palette_live: bool,
-    sav: Option<Vec<u8>>,
-    resume: Option<Vec<u8>>,
+    sav: std::io::Result<Option<Vec<u8>>>,
+    resume: std::io::Result<Option<Vec<u8>>>,
+}
+
+/// What a card read gave the core, and whether the read failed (as opposed to finding nothing).
+fn card_read(what: &str, read: std::io::Result<Option<Vec<u8>>>) -> (Option<Vec<u8>>, bool) {
+    match read {
+        Ok(bytes) => (bytes, false),
+        Err(e) => {
+            eprintln!("slot: {what} read: {e}; leaving it alone until the cart goes in again");
+            (None, true)
+        }
+    }
 }
 
 struct Opening {

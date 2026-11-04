@@ -67,6 +67,15 @@ impl Scaling {
             (Scaling::Integer, false) => Scaling::SharpFit,
         }
     }
+
+    pub fn bezel_suffix(self) -> &'static str {
+        match self {
+            Scaling::Fit => "_fit",
+            Scaling::Integer => "_integer",
+            Scaling::Fill => "_fullscreen",
+            Scaling::SharpFit => "_fit",
+        }
+    }
 }
 
 pub fn scaling_key(platform: Platform) -> String {

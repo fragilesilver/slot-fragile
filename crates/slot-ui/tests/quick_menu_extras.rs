@@ -11,6 +11,7 @@ fn pages() -> Vec<&'static [QuickRow]> {
         &QuickRow::CONTROLS,
         &QuickRow::SHORTCUTS,
         &QuickRow::SCREEN,
+        &QuickRow::SCREEN_GENERAL,
         &QuickRow::SCREEN_GBA,
         &QuickRow::SCREEN_GBC,
         &QuickRow::SCREEN_GB,

@@ -102,6 +102,18 @@ fn the_rewind_bar_is_held_open_rather_than_fading() {
 }
 
 #[test]
+fn the_sunlight_bar_shows_its_icon_and_reads_against_ten() {
+    assert_eq!(HudKind::Sunlight.icon(0, false, false), Icon::Sunlight);
+    assert_eq!(HudKind::Sunlight.icon(8, false, false), Icon::Sunlight);
+    let full = fill(HudKind::Brightness, 9);
+    assert_eq!(fill(HudKind::Sunlight, 10), full);
+    assert!(
+        (fill(HudKind::Sunlight, 5) - full / 2.0).abs() < 1.0,
+        "sunlight 5 is not half the bar"
+    );
+}
+
+#[test]
 fn an_empty_rewind_buffer_still_draws_an_empty_bar() {
     let mut h = Hud::new();
     h.show(HudKind::Rewind, 0, false, 0);

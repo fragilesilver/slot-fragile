@@ -35,13 +35,16 @@ fn ota_version_comparison_logic() {
     let cur = Version::current();
     assert_eq!(cur.major, 1);
     assert_eq!(cur.minor, 9);
-    assert_eq!(cur.patch, 3);
+    assert_eq!(cur.patch, 4);
 
     let v200 = Version::parse("v2.0.0").unwrap();
     assert!(v200 > cur);
 
+    let v194 = Version::parse("1.9.4").unwrap();
+    assert_eq!(v194, cur);
+
     let v193 = Version::parse("1.9.3").unwrap();
-    assert_eq!(v193, cur);
+    assert!(v193 < cur);
 
     let v192 = Version::parse("1.9.2").unwrap();
     assert!(v192 < cur);
@@ -132,18 +135,18 @@ fn ota_live_release_manifest_and_updater() {
     if let Ok(resp) = resp {
         let body = resp.into_string().unwrap();
         let info = parse_release_manifest(&body).expect("manifest should parse");
-        assert_eq!(info.version, "1.9.3");
+        assert_eq!(info.version, "1.9.4");
         assert!(info
             .download_url
-            .contains("fragilesilver/slot-fragile/releases/download/v1.9.3/slot"));
+            .contains("fragilesilver/slot-fragile/releases/download/v1.9.4/slot"));
         assert_eq!(
             info.sha256.as_deref(),
-            Some("fbd4e2e625b03c7ccbebd8b908f05f1e016b0b67219d93a7268ce23bdfaf9a20")
+            Some("23fbe237b387eaf0555e21941e5ed5dcd96dad71d8783f6fb46d317401504be4")
         );
 
-        // If an older device (e.g. running v1.9.2) checks for updates:
+        // If an older device (e.g. running v1.9.3) checks for updates:
         let rem = Version::parse(&info.version).unwrap();
-        let old = Version::parse("1.9.2").unwrap();
+        let old = Version::parse("1.9.3").unwrap();
         assert!(rem > old);
         let avail_status = OtaStatus::Available {
             version: info.version.clone(),
@@ -151,9 +154,9 @@ fn ota_live_release_manifest_and_updater() {
             sha256: info.sha256.clone(),
             size: info.size,
         };
-        assert_eq!(avail_status.menu_text(), "v1.9.3 ready");
+        assert_eq!(avail_status.menu_text(), "v1.9.4 ready");
 
-        // Test live check using OtaManager on the current version (1.9.3)
+        // Test live check using OtaManager on the current version (1.9.4)
         mgr.check_for_updates();
         let mut waited = 0;
         while mgr.status().is_busy() && waited < 100 {

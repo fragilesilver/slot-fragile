@@ -26,7 +26,7 @@ use std::path::Path;
 use crate::label_style::LabelStyle;
 use crate::platform::Platform;
 use crate::scaling::Scaling;
-use crate::slot_state::{Shader, SlotState, FF_SPEEDS};
+use crate::slot_state::{ff_speed_text, ff_speed_value, Shader, SlotState};
 
 pub const GAME_PROFILES_FILE: &str = "Config/game_profiles.txt";
 
@@ -182,11 +182,7 @@ impl GameProfiles {
                     .filter(|s| allowed_shaders(platform).contains(s))
                     .map(ProfileField::Shader),
                 "colour" => flag(&value).map(ProfileField::Colour),
-                "ff" => value
-                    .parse::<u8>()
-                    .ok()
-                    .filter(|f| FF_SPEEDS.contains(f))
-                    .map(ProfileField::FfSpeed),
+                "ff" => ff_speed_value(&value).map(ProfileField::FfSpeed),
                 "ffsound" => flag(&value).map(ProfileField::FfSound),
                 "label" => LabelStyle::parse(&value)
                     .filter(|s| LabelStyle::of(platform).contains(s))
@@ -248,7 +244,7 @@ impl GameProfiles {
                 out.push_str(&format!("{game}.colour = {}\n", flag_str(on)));
             }
             if let Some(f) = p.ff_speed {
-                out.push_str(&format!("{game}.ff = {f}\n"));
+                out.push_str(&format!("{game}.ff = {}\n", ff_speed_text(f)));
             }
             if let Some(on) = p.ff_sound {
                 out.push_str(&format!("{game}.ffsound = {}\n", flag_str(on)));

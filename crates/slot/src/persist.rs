@@ -1,3 +1,4 @@
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use slot_store::{atomic_write, read_slot_state, write_slot_state, Core, Platform, StateRing};
@@ -51,7 +52,7 @@ pub fn eject(
 
 pub fn write_sav(root: &Path, platform: Platform, stem: &str, sav: &[u8]) -> std::io::Result<bool> {
     let path = sav_path(root, platform, stem);
-    if let Some(old) = read_sav(root, platform, stem) {
+    if let Ok(Some(old)) = read_sav(root, platform, stem) {
         if old == sav {
             return Ok(false);
         }
@@ -63,24 +64,54 @@ pub fn write_sav(root: &Path, platform: Platform, stem: &str, sav: &[u8]) -> std
     Ok(true)
 }
 
-pub fn read_sav(root: &Path, platform: Platform, stem: &str) -> Option<Vec<u8>> {
-    std::fs::read(sav_path(root, platform, stem))
-        .or_else(|_| {
-            std::fs::read(
-                crate::root::saves_dir(root)
-                    .join(platform.dir_name())
-                    .join(format!("{stem}.srm")),
-            )
-        })
-        .ok()
+/// The game's battery save: `Ok(None)` only when there is none on the card. A save that is
+/// there but fails to read is an error, never "no save", so it is not replaced by a blank one.
+pub fn read_sav(root: &Path, platform: Platform, stem: &str) -> std::io::Result<Option<Vec<u8>>> {
+    let srm = crate::root::saves_dir(root)
+        .join(platform.dir_name())
+        .join(format!("{stem}.srm"));
+    for path in [sav_path(root, platform, stem), srm] {
+        match std::fs::read(&path) {
+            Ok(bytes) if bytes.starts_with(RZIP_MAGIC) => return unrzip(&bytes).map(Some),
+            Ok(bytes) => return Ok(Some(bytes)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(None)
 }
 
-pub fn read_resume(root: &Path, platform: Platform, core: Core, stem: &str) -> Option<Vec<u8>> {
+const RZIP_MAGIC: &[u8] = b"#RZIPv\x01#";
+
+fn unrzip(bytes: &[u8]) -> std::io::Result<Vec<u8>> {
+    let bad = || std::io::Error::new(std::io::ErrorKind::InvalidData, "bad rzip save");
+    let total = bytes.get(12..20).ok_or_else(bad)?;
+    let total = u64::from_le_bytes(total.try_into().map_err(|_| bad())?);
+    let mut rest = &bytes[20..];
+    let mut out = Vec::new();
+    while let Some((len, body)) = rest.split_first_chunk::<4>() {
+        let len = u32::from_le_bytes(*len) as usize;
+        let chunk = body.get(..len).ok_or_else(bad)?;
+        flate2::read::ZlibDecoder::new(chunk).read_to_end(&mut out)?;
+        rest = &body[len..];
+    }
+    if out.len() as u64 == total {
+        Ok(out)
+    } else {
+        Err(bad())
+    }
+}
+
+/// The game's resume state: `Ok(None)` only when there is none on the card.
+pub fn read_resume(
+    root: &Path,
+    platform: Platform,
+    core: Core,
+    stem: &str,
+) -> std::io::Result<Option<Vec<u8>>> {
     StateRing::new(root, platform, core, stem)
         .read_resume()
-        .ok()
-        .flatten()
-        .filter(|s| !s.is_empty())
+        .map(|opt| opt.filter(|s| !s.is_empty()))
 }
 
 fn sav_path(root: &Path, platform: Platform, stem: &str) -> PathBuf {

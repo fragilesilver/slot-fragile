@@ -25,4 +25,6 @@ impl std::error::Error for AudioError {}
 pub trait AudioSink: Send {
     fn open(&mut self, sample_rate: u32) -> Result<(), AudioError>;
     fn ring(&self) -> Arc<Ring>;
+    fn close(&mut self) {}
+    fn hold_open(&self, _held: bool) {}
 }

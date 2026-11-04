@@ -73,7 +73,7 @@ fn profiles_round_trip_through_the_card() {
         "Mother 3 (Japan)",
         ProfileField::Colour(false),
     );
-    p.set(Platform::Gba, "Mother 3 (Japan)", ProfileField::FfSpeed(2));
+    p.set(Platform::Gba, "Mother 3 (Japan)", ProfileField::FfSpeed(8));
     p.set(
         Platform::Gba,
         "Mother 3 (Japan)",
@@ -82,12 +82,16 @@ fn profiles_round_trip_through_the_card() {
     p.set(
         Platform::Gba,
         "Pokemon Emerald v1.0.1",
-        ProfileField::FfSpeed(6),
+        ProfileField::FfSpeed(24),
     );
     p.write(d.path()).unwrap();
     let text = std::fs::read_to_string(d.path().join(GAME_PROFILES_FILE)).unwrap();
     assert!(
         text.contains("GBA/Mother 3 (Japan).shader = lcd3x"),
+        "{text}"
+    );
+    assert!(
+        text.contains("GBA/Mother 3 (Japan).ff = 2"),
         "{text}"
     );
     assert!(text.contains("GBA/Pokemon Emerald v1.0.1.ff = 6"), "{text}");

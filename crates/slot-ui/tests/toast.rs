@@ -52,13 +52,14 @@ fn a_failed_shot_says_so_beside_the_alert() {
 fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     let all = Toast::all();
     assert_eq!(
-        all[..20],
+        all[..22],
         [
             Toast::StateSaved,
             Toast::StateLoaded,
             Toast::ShotCaptured,
             Toast::ShotFailed,
             Toast::NeedsGpsp,
+            Toast::NeedsMgba,
             Toast::NoLink,
             Toast::LinkEnded,
             Toast::PeerEnded,
@@ -70,6 +71,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
             Toast::ShaderGrid,
             Toast::ShaderDot,
             Toast::ShaderSimpletex,
+            Toast::ShaderShimmerless,
             Toast::CardUnwritable,
             Toast::CardRepair,
             Toast::CardRepaired,
@@ -79,7 +81,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     );
     let palettes = GbPalette::all().count();
     assert_eq!(
-        all[20..20 + palettes],
+        all[22..22 + palettes],
         GbPalette::all().map(Toast::Palette).collect::<Vec<_>>()[..],
         "the palette banners do not follow the fixed ones in palette order"
     );
@@ -95,7 +97,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         "Fragile's banners are not last"
     );
     assert_eq!(
-        all[20 + palettes..all.len() - extras.len()],
+        all[22 + palettes..all.len() - extras.len()],
         QuickRow::ALL
             .into_iter()
             .filter(|r| r.binds())

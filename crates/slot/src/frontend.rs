@@ -56,6 +56,7 @@ pub struct Frontend {
     core_built: Option<String>,
     undo_tex: Option<TexId>,
     switcher: Switcher,
+    guide_page: GuidePage,
     clocks: Clocks,
     about: AboutFace,
     quick_clock: QuickClock,
@@ -205,6 +206,7 @@ impl Frontend {
             core_built: None,
             undo_tex: None,
             switcher: Switcher::default(),
+            guide_page: GuidePage::default(),
             clocks: Clocks::default(),
             about: AboutFace::default(),
             quick_clock: QuickClock::default(),
@@ -287,6 +289,24 @@ impl Frontend {
             })
             .collect();
         self.session.app_mut().set_shot_hint_faces(shot_hints);
+        let guide_hints = slot_ui::GUIDE_HINTS
+            .iter()
+            .chain([&slot_ui::GUIDE_HELP_HINT])
+            .map(|&(key, label)| {
+                let f = hint_face(key, label);
+                compositor.create_texture(f.w, f.h, &f.rgba)
+            })
+            .collect();
+        self.session.app_mut().set_guide_hint_faces(guide_hints);
+        let help = slot_ui::guide_help_face();
+        let help = (
+            compositor.create_texture(help.w, help.h, &help.rgba),
+            help.w,
+            help.h,
+        );
+        let title = title_face(slot_ui::GUIDE_HELP_TITLE);
+        let title = compositor.create_texture(title.w, title.h, &title.rgba);
+        self.session.app_mut().set_guide_help_face(help, title);
         let tick = slot_ui::tick_cap_face();
         let tick = (
             compositor.create_texture(tick.w, tick.h, &tick.rgba),
@@ -592,6 +612,8 @@ impl Frontend {
 
     pub fn compose(&mut self, compositor: &mut Compositor) {
         compositor.set_blue_light(self.session.app().blue_light());
+        compositor.set_saturation(self.session.app().saturation());
+        compositor.set_contrast(self.session.app().contrast());
         compositor.set_picture(self.session.app().picture_rect());
         compositor.set_screen_effect(match self.session.app().screen_shader() {
             slot_store::Shader::Off => ScreenEffect::None,
@@ -599,6 +621,7 @@ impl Frontend {
             slot_store::Shader::Grid => ScreenEffect::Grid,
             slot_store::Shader::Dot => ScreenEffect::Dot,
             slot_store::Shader::Simpletex => ScreenEffect::Simpletex,
+            slot_store::Shader::Shimmerless => ScreenEffect::Shimmerless,
         });
         compositor.set_shake(self.session.app().screen_shake());
         compositor.set_screen_power(self.session.app().screen_power());
@@ -633,7 +656,7 @@ impl Frontend {
         sync_wallpaper(self.session.app_mut(), compositor, &mut self.wallpaper);
         sync_game_bezel(self.session.app_mut(), compositor, &mut self.game_bezel);
         compositor.set_game_bezel(self.session.app().shown_game_bezel());
-        compositor.set_sp_frame(self.session.app().sp_frame());
+        compositor.set_sp_frame(self.session.app().picture_on_top());
         compositor.set_integer_scale(self.session.app().integer_picture());
         // Fragile: whole, square pixels for a system drawn at its own size.
         compositor.set_native_whole(self.session.app().integer_native());
@@ -694,6 +717,7 @@ impl Frontend {
             },
             &mut self.switcher,
         );
+        sync_guide(self.session.app_mut(), compositor, &mut self.guide_page);
         self.draws.clear();
         self.session.app().draw(&mut self.draws);
         let canvas_w = self.session.app().canvas().w;
@@ -1078,6 +1102,28 @@ fn sync_switcher(app: &mut App, compositor: &mut Compositor, texes: Faces, state
     sync_gallery(app, compositor, state);
 }
 
+#[derive(Default)]
+struct GuidePage {
+    tex: Option<TexId>,
+    shown: Option<slot_ui::GuideView>,
+    glyphs: slot_ui::GuideGlyphs,
+}
+
+fn sync_guide(app: &mut App, compositor: &mut Compositor, state: &mut GuidePage) {
+    let canvas = app.canvas();
+    let Some(guide) = app.guide() else {
+        state.shown = None;
+        return;
+    };
+    let view = guide.view(canvas);
+    if state.shown != Some(view) {
+        let face = guide.render(canvas, &mut state.glyphs);
+        let tex = upload(compositor, &mut state.tex, face);
+        state.shown = Some(view);
+        app.set_guide_page_face(tex, view);
+    }
+}
+
 fn close_gallery(app: &mut App, state: &mut Switcher) {
     if let Some(loader) = &mut state.loader {
         loader.cancel();
@@ -1325,6 +1371,11 @@ fn sync_game_bezel(app: &mut App, compositor: &mut Compositor, state: &mut Bezel
                 })
                 .and_then(|path| game_bezel_face(&path, w, h)),
         };
+        app.set_bezel_column(
+            rgba.as_deref()
+                .map(|rgba| slot_gfx::bezel_column(rgba, (w, h)))
+                .unwrap_or_default(),
+        );
         let tex = rgba.map(|rgba| match state.tex {
             Some(id) => {
                 compositor.update_texture(id, w, h, &rgba);

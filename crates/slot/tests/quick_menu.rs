@@ -247,16 +247,18 @@ fn fast_forward_steps_through_its_speeds_wraps_at_both_ends_and_saves_each_one()
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::FastForward);
     for (btn, want) in [
-        (Btn::Left, 4),
-        (Btn::Left, 3),
-        (Btn::Left, 2),
-        (Btn::Left, 0),
+        (Btn::Left, 16),
+        (Btn::Left, 12),
+        (Btn::Left, 8),
         (Btn::Left, 6),
+        (Btn::Left, 0),
+        (Btn::Left, 24),
         (Btn::Right, 0),
-        (Btn::Right, 2),
-        (Btn::Right, 3),
-        (Btn::Right, 4),
         (Btn::Right, 6),
+        (Btn::Right, 8),
+        (Btn::Right, 12),
+        (Btn::Right, 16),
+        (Btn::Right, 24),
         (Btn::Right, 0),
     ] {
         press(&mut a, btn);
@@ -365,8 +367,9 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
     let (_d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::Screen);
     press(&mut a, Btn::A);
-    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenGba));
+    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenGeneral));
     for want in [
+        QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
         // Fragile: the systems it adds.
@@ -374,6 +377,7 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
         QuickRow::ScreenSnes,
         QuickRow::ScreenPs,
         QuickRow::ScreenNds,
+        QuickRow::ScreenGeneral,
         QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
@@ -422,7 +426,9 @@ fn each_platform_keeps_its_own_shader_wraps_and_starts_on_grid_and_simpletex() {
     );
     for (btn, want, shown) in [
         (Btn::Right, Shader::Dot, QuickValue::Dot),
+        (Btn::Right, Shader::Shimmerless, QuickValue::Shimmerless),
         (Btn::Right, Shader::Off, QuickValue::Off),
+        (Btn::Left, Shader::Shimmerless, QuickValue::Shimmerless),
         (Btn::Left, Shader::Dot, QuickValue::Dot),
         (Btn::Left, Shader::Grid, QuickValue::Grid),
         (Btn::Left, Shader::Lcd3x, QuickValue::Lcd3x),
@@ -456,7 +462,7 @@ fn each_platform_keeps_its_own_shader_wraps_and_starts_on_grid_and_simpletex() {
     let s = read_slot_state(d.path());
     assert_eq!(
         (s.shader_gba, s.shader_gb, s.shader_gbc),
-        (Shader::Off, Shader::Grid, Shader::Off)
+        (Shader::Off, Shader::Grid, Shader::Shimmerless)
     );
 }
 
@@ -1472,4 +1478,98 @@ fn fast_forward_mode_sits_under_pitch_and_saves_to_extras() {
     press(&mut a, Btn::Left);
     assert_eq!(a.ff_mode(), slot_store::FfMode::Hold);
     assert_eq!(slot_store::read_extras(d.path()).get("ff_mode"), None);
+}
+
+#[test]
+fn saturation_steps_off_to_nine_and_reaches_the_card() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::Saturation);
+    assert_eq!(a.saturation(), 0);
+    assert_eq!(a.quick_value(QuickRow::Saturation), Some(QuickValue::Off));
+    press(&mut a, Btn::Right);
+    assert_eq!(a.saturation(), 1);
+    assert_eq!(
+        a.quick_value(QuickRow::Saturation),
+        Some(QuickValue::Level1)
+    );
+    press(&mut a, Btn::Left);
+    press(&mut a, Btn::Left);
+    assert_eq!(a.saturation(), 0);
+    for _ in 0..12 {
+        press(&mut a, Btn::Right);
+    }
+    assert_eq!(a.saturation(), 9);
+    a.flush_state();
+    assert_eq!(read_slot_state(d.path()).saturation, 9);
+}
+
+#[test]
+fn contrast_steps_off_to_nine_on_its_own_and_reaches_the_card() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::Contrast);
+    assert_eq!(a.contrast(), 0);
+    assert_eq!(a.quick_value(QuickRow::Contrast), Some(QuickValue::Off));
+    press(&mut a, Btn::Right);
+    assert_eq!(a.contrast(), 1);
+    assert_eq!(a.quick_value(QuickRow::Contrast), Some(QuickValue::Level1));
+    press(&mut a, Btn::Left);
+    press(&mut a, Btn::Left);
+    assert_eq!(a.contrast(), 0);
+    for _ in 0..12 {
+        press(&mut a, Btn::Right);
+    }
+    assert_eq!(a.contrast(), 9);
+    assert_eq!(a.saturation(), 0, "contrast moved saturation");
+    a.flush_state();
+    let s = read_slot_state(d.path());
+    assert_eq!((s.contrast, s.saturation), (9, 0));
+}
+
+#[test]
+fn gba_skips_shimmerless_on_a_three_by_two_panel_and_keeps_it_on_four_by_three() {
+    let (d, mut a, _) = on_carousel();
+    a.set_panel((720, 480));
+    open_at(&mut a, QuickRow::GbaShader);
+    press(&mut a, Btn::Right);
+    assert_eq!(a.quick_value(QuickRow::GbaShader), Some(QuickValue::Dot));
+    press(&mut a, Btn::Right);
+    assert_eq!(a.quick_value(QuickRow::GbaShader), Some(QuickValue::Off));
+    assert_eq!(read_slot_state(d.path()).shader_gba, Shader::Off);
+    press(&mut a, Btn::Left);
+    assert_eq!(read_slot_state(d.path()).shader_gba, Shader::Dot);
+
+    a.set_panel((640, 480));
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        a.quick_value(QuickRow::GbaShader),
+        Some(QuickValue::Shimmerless)
+    );
+}
+
+#[test]
+fn game_boy_keeps_shimmerless_on_a_three_by_two_panel() {
+    let (_d, mut a, _) = on_carousel();
+    a.set_panel((720, 480));
+    open_at(&mut a, QuickRow::GbShader);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        a.quick_value(QuickRow::GbShader),
+        Some(QuickValue::Shimmerless)
+    );
+}
+
+#[test]
+fn a_saved_gba_shimmerless_reads_as_off_on_three_by_two_and_survives_on_the_card() {
+    let (d, mut a, _) = on_carousel_with(SlotState {
+        shader_gba: Shader::Shimmerless,
+        ..SlotState::default()
+    });
+    a.set_panel((720, 480));
+    assert_eq!(a.quick_value(QuickRow::GbaShader), Some(QuickValue::Off));
+    assert_eq!(read_slot_state(d.path()).shader_gba, Shader::Shimmerless);
+    a.set_panel((640, 480));
+    assert_eq!(
+        a.quick_value(QuickRow::GbaShader),
+        Some(QuickValue::Shimmerless)
+    );
 }
