@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/resources/banner.png" width="100%" alt="Fragile. A bespoke, skeuomorphic frontend for Anbernic handheld consoles.">
+<img src=".github/resources/banner.jpg" width="100%" alt="Fragile. A bespoke, skeuomorphic frontend for Anbernic handheld consoles.">
 
 <a href="LICENSE"><img src="https://img.shields.io/github/license/fragilesilver/slot-fragile?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="License"></a>
 <a href="https://github.com/fragilesilver/slot-fragile/stargazers"><img src="https://img.shields.io/github/stars/fragilesilver/slot-fragile?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="Stars"></a>
