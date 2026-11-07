@@ -33,6 +33,8 @@ impl App {
         if self.playing_platform() != Platform::Nds {
             hide(QuickRow::PlayNdsLayout);
             hide(QuickRow::ThisNdsLayout);
+            hide(QuickRow::PlayNdsStylus);
+            hide(QuickRow::ThisNdsStylus);
         }
         let pad = self.game_pad();
         for row in QuickRow::CONTROLS {

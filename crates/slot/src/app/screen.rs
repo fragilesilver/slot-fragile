@@ -196,6 +196,9 @@ impl App {
             || row == QuickRow::NdsLayout
             || row == QuickRow::PlayNdsLayout
             || row == QuickRow::ThisNdsLayout
+            || row == QuickRow::NdsStylus
+            || row == QuickRow::PlayNdsStylus
+            || row == QuickRow::ThisNdsStylus
             || Self::integer_row_platform(row).is_some()
         {
             // Drawn from `named_value`, since a file name or scaling has no ready-made face.
@@ -259,6 +262,14 @@ impl App {
         }
         if row == QuickRow::NdsLayout || row == QuickRow::PlayNdsLayout {
             self.step_nds_layout(false, right);
+            return true;
+        }
+        if row == QuickRow::ThisNdsStylus {
+            self.step_nds_stylus(true, right);
+            return true;
+        }
+        if row == QuickRow::NdsStylus || row == QuickRow::PlayNdsStylus {
+            self.step_nds_stylus(false, right);
             return true;
         }
         if let Some(platform) = card_shader_row_platform(row) {
@@ -362,6 +373,12 @@ impl App {
         {
             return Some(self.nds_layout());
         }
+        if row == QuickRow::NdsStylus
+            || row == QuickRow::PlayNdsStylus
+            || row == QuickRow::ThisNdsStylus
+        {
+            return Some(self.nds_stylus());
+        }
         if let Some(platform) = Self::integer_row_platform(row) {
             return Some(self.scaling(platform).text().to_string());
         }
@@ -408,6 +425,50 @@ impl App {
             self.nds_layout_pending = Some(next);
         }
     }
+
+    pub fn nds_stylus(&self) -> String {
+        if let Some((Platform::Nds, stem)) = self.seated_game() {
+            if let Some(ref stylus) = self.profiles.get(Platform::Nds, &stem).nds_stylus {
+                return stylus.clone();
+            }
+        }
+        self.extras
+            .get(NDS_STYLUS_KEY)
+            .map(str::to_string)
+            .unwrap_or_else(|| "Hold L2".into())
+    }
+
+    pub fn nds_stylus_core_value(&self) -> &'static str {
+        nds_stylus_to_core(&self.nds_stylus())
+    }
+
+    pub fn step_nds_stylus(&mut self, is_this_game: bool, right: bool) {
+        let current = self.nds_stylus();
+        let at = NDS_STYLUS_MODES
+            .iter()
+            .position(|&m| m == current)
+            .unwrap_or(0);
+        let n = NDS_STYLUS_MODES.len();
+        let next_idx = if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        };
+        let next = NDS_STYLUS_MODES[next_idx].to_string();
+
+        if is_this_game
+            || (self.seated_cart().is_some() && self.game_profile().nds_stylus.is_some())
+        {
+            self.set_own(slot_store::ProfileField::NdsStylus(next.clone()));
+        } else {
+            self.extras.set(NDS_STYLUS_KEY, Some(&next));
+            self.save_extras();
+        }
+
+        if self.playing_platform() == Platform::Nds {
+            self.nds_stylus_pending = Some(nds_stylus_to_core(&next).to_string());
+        }
+    }
 }
 
 pub const NDS_LAYOUTS: [&str; 6] = [
@@ -419,4 +480,15 @@ pub const NDS_LAYOUTS: [&str; 6] = [
     "Picture in Picture",
 ];
 
+pub const NDS_STYLUS_MODES: [&str; 3] = ["Hold L2", "D-Pad", "Off"];
+
+pub fn nds_stylus_to_core(mode: &str) -> &'static str {
+    match mode {
+        "D-Pad" => "D-Pad",
+        "Off" => "Off",
+        _ => "Hold L2 + D-Pad",
+    }
+}
+
 const NDS_LAYOUT_KEY: &str = "nds_layout";
+const NDS_STYLUS_KEY: &str = "nds_stylus";

@@ -46,6 +46,7 @@ pub struct GameProfile {
     pub scaling: Option<Scaling>,
     pub card_shader: Option<String>,
     pub nds_layout: Option<String>,
+    pub nds_stylus: Option<String>,
 }
 
 /// One change to a game's profile.
@@ -59,6 +60,7 @@ pub enum ProfileField {
     Scaling(Scaling),
     CardShader(String),
     NdsLayout(String),
+    NdsStylus(String),
 }
 
 /// The settings a game actually runs with: its own where it has them, the defaults elsewhere.
@@ -85,6 +87,7 @@ impl GameProfile {
             ProfileField::Scaling(scaling) => self.scaling = Some(scaling),
             ProfileField::CardShader(shader) => self.card_shader = Some(shader),
             ProfileField::NdsLayout(layout) => self.nds_layout = Some(layout),
+            ProfileField::NdsStylus(stylus) => self.nds_stylus = Some(stylus),
         }
     }
 
@@ -190,6 +193,7 @@ impl GameProfiles {
                 "scaling" => Scaling::parse(&value).map(ProfileField::Scaling),
                 "card_shader" => Some(ProfileField::CardShader(value)),
                 "nds_layout" => Some(ProfileField::NdsLayout(value)),
+                "nds_stylus" => Some(ProfileField::NdsStylus(value)),
                 _ => None,
             };
             if let Some(field) = field {
@@ -260,6 +264,9 @@ impl GameProfiles {
             }
             if let Some(nds_layout) = &p.nds_layout {
                 out.push_str(&format!("{game}.nds_layout = {nds_layout}\n"));
+            }
+            if let Some(nds_stylus) = &p.nds_stylus {
+                out.push_str(&format!("{game}.nds_stylus = {nds_stylus}\n"));
             }
         }
         out

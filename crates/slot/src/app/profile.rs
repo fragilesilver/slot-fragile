@@ -117,6 +117,7 @@ impl App {
                     self.colour_pending = Some(self.colour_correction());
                     if platform == Platform::Nds {
                         self.nds_layout_pending = Some(self.nds_layout());
+                        self.nds_stylus_pending = Some(self.nds_stylus_core_value().to_string());
                     }
                     self.own_label_cleared();
                 }
@@ -138,6 +139,7 @@ impl App {
                 self.set_own(ProfileField::Scaling(to));
             }
             QuickRow::ThisNdsLayout => self.step_nds_layout(true, right),
+            QuickRow::ThisNdsStylus => self.step_nds_stylus(true, right),
             QuickRow::ThisCardShader => {
                 self.step_own_card_shader(right);
             }

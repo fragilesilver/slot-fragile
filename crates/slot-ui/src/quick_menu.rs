@@ -195,10 +195,14 @@ pub enum QuickRow {
     SnesBezel,
     Ps1Bezel,
     NdsBezel,
+    // --- extras: nds stylus ---
+    NdsStylus,
+    PlayNdsStylus,
+    ThisNdsStylus,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 176] = [
+    pub const ALL: [QuickRow; 179] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -382,6 +386,9 @@ impl QuickRow {
         QuickRow::SnesBezel,
         QuickRow::Ps1Bezel,
         QuickRow::NdsBezel,
+        QuickRow::NdsStylus,
+        QuickRow::PlayNdsStylus,
+        QuickRow::ThisNdsStylus,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -512,9 +519,10 @@ impl QuickRow {
         QuickRow::Ps1Bezel,
     ];
 
-    pub const SCREEN_NDS: [QuickRow; 5] = [
+    pub const SCREEN_NDS: [QuickRow; 6] = [
         QuickRow::IntegerNds,
         QuickRow::NdsLayout,
+        QuickRow::NdsStylus,
         QuickRow::NdsShader,
         QuickRow::CardShaderNds,
         QuickRow::NdsBezel,
@@ -585,9 +593,10 @@ impl QuickRow {
         QuickRow::PlayGuide,
     ];
 
-    pub const PLAY_SCREEN: [QuickRow; 13] = [
+    pub const PLAY_SCREEN: [QuickRow; 14] = [
         QuickRow::Scaling,
         QuickRow::PlayNdsLayout,
+        QuickRow::PlayNdsStylus,
         QuickRow::Shader,
         QuickRow::CardShader,
         QuickRow::ShaderSettings,
@@ -635,6 +644,7 @@ impl QuickRow {
             | QuickRow::IntegerNds
             | QuickRow::CardShaderNds
             | QuickRow::NdsLayout
+            | QuickRow::NdsStylus
             | QuickRow::NdsBezel => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
@@ -703,6 +713,7 @@ impl QuickRow {
             | QuickRow::PlayGuide => &QuickRow::SETTINGS,
             QuickRow::ThisScaling
             | QuickRow::ThisNdsLayout
+            | QuickRow::ThisNdsStylus
             | QuickRow::ThisShader
             | QuickRow::ThisCardShader
             | QuickRow::ThisColour
@@ -715,6 +726,7 @@ impl QuickRow {
             r if r.carousel_action().is_some() => &QuickRow::SHELF_KEYS,
             QuickRow::Scaling
             | QuickRow::PlayNdsLayout
+            | QuickRow::PlayNdsStylus
             | QuickRow::Shader
             | QuickRow::ColourCorrection
             | QuickRow::Palette
@@ -900,6 +912,7 @@ impl QuickRow {
             QuickRow::ScreenPs => "PlayStation",
             QuickRow::ScreenNds => "Nintendo DS",
             QuickRow::NdsLayout | QuickRow::PlayNdsLayout | QuickRow::ThisNdsLayout => "Layout",
+            QuickRow::NdsStylus | QuickRow::PlayNdsStylus | QuickRow::ThisNdsStylus => "Stylus",
             QuickRow::GbaColourCorrection => "Color Correction",
             QuickRow::GbColourCorrection => "Color Correction",
             QuickRow::GbcColourCorrection => "Color Correction",
@@ -1123,6 +1136,7 @@ impl QuickRow {
             QuickRow::ThisScaling => "Scaling mode for this game only.",
             QuickRow::ThisCardShader => "Card shader for this game only.",
             QuickRow::ThisNdsLayout => "Screen layout for this game only.",
+            QuickRow::ThisNdsStylus => "Stylus control mode for this game only.",
             QuickRow::ThisColour => "Color correction for this game only.",
             QuickRow::ThisFfSpeed => "Fast forward speed for this game only.",
             QuickRow::ThisFfSound => "Fast forward sound for this game only.",
@@ -1146,6 +1160,9 @@ impl QuickRow {
             | QuickRow::NdsShader => "Built-in screen effect drawn over the game.",
             QuickRow::NdsLayout | QuickRow::PlayNdsLayout => {
                 "How the dual DS screens are arranged and sized."
+            }
+            QuickRow::NdsStylus | QuickRow::PlayNdsStylus => {
+                "Control the stylus (L2 + START toggles D-Pad mode)."
             }
             QuickRow::CardShader
             | QuickRow::CardShaderGba

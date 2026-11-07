@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.9.6](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.6)
+
+- Nintendo DS Core Upgrade (DSperate v3.3.0+):
+  - Upgraded DSperate core to upstream v3.3.0+, incorporating multi-threaded 3D geometry and rendering with asynchronous command FIFO queue for smoother 3D framerates.
+  - Zero-copy ROM loading (`need_fullpath = true`) bypassing full ROM memory duplication for fast startup.
+  - Firmware dump size validation and resilient FreeBIOS fallback: detects corrupted or non-standard firmware dumps (restricting valid dumps strictly to 128 KB, 256 KB, or 512 KB) and automatically falls back to clean FreeBIOS execution rather than hard-freezing.
+  - Slot-2 hardware emulation: adds GBA cartridge passthrough and Rumble Pak simulation support.
+  - Accurate CPAD analog controls with game-specific analog sensitivity curves and database lookup.
+  - SRAM / Save pre-seeding: automatically sizes initial flash memory arrays to existing `.sav`/`.srm` files to eliminate save-truncation across emulator cores.
+- NDS D-Pad / Stylus Control & In-Game Toggle:
+  - Added in-game chorded hotkey (`Hold L2 + START`) to instantly toggle the physical D-Pad between normal Nintendo DS directional inputs and virtual touchscreen stylus navigation.
+  - New Stylus menu options in Quick Menu and per-game Profile (`Hold L2`, `D-Pad`, and `Off`).
+  - Intelligent reticle auto-hide: when `Stylus` is set to `Off` or inactive, the virtual touch reticle is completely hidden from the display for pristine gameplay visuals.
+- Baked-in Bezel Design Kit:
+  - Pre-packaged comprehensive Bezel Design Kit across all 7 systems directly on the distribution image under `Bezels/`.
+  - Includes layered Adobe Photoshop (`.psd`) templates with labeled artboards, pixel-perfect viewport guides, and cutouts for 640×480 and 720×480 handheld displays.
+  - Complete with high-resolution PNG viewport guide overlays (`_Templates/`) and sample overlay presets (`Sample.png`, `Sample 2x/3x.png`) for GBA, GB, GBC, NES, SNES, PS, and NDS.
+
 ## [1.9.5](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.5)
 
 - Overlays Across All Systems:

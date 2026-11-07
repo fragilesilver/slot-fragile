@@ -180,7 +180,14 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SCREEN_NDS.map(QuickRow::label),
-        ["Scaling", "Layout", "Shader", "Card Shader", "Overlay"]
+        [
+            "Scaling",
+            "Layout",
+            "Stylus",
+            "Shader",
+            "Card Shader",
+            "Overlay"
+        ]
     );
     assert_eq!(
         QuickRow::GAME.map(QuickRow::label),
@@ -482,6 +489,7 @@ fn the_in_game_pages_hold_their_rows_in_order() {
         [
             QuickRow::Scaling,
             QuickRow::PlayNdsLayout,
+            QuickRow::PlayNdsStylus,
             QuickRow::Shader,
             QuickRow::CardShader,
             QuickRow::ShaderSettings,
@@ -574,6 +582,7 @@ fn a_hidden_palette_and_bezel_leave_two_screen_rows() {
     let hidden = [
         QuickRow::Scaling,
         QuickRow::PlayNdsLayout,
+        QuickRow::PlayNdsStylus,
         QuickRow::Palette,
         QuickRow::Bezel,
         QuickRow::CardShader,
@@ -615,6 +624,7 @@ fn screen_rows_in_game_sit_in_a_panel_at_the_bottom() {
     let hidden = [
         QuickRow::Scaling,
         QuickRow::PlayNdsLayout,
+        QuickRow::PlayNdsStylus,
         QuickRow::Palette,
         QuickRow::CardShader,
         QuickRow::ShaderSettings,

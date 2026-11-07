@@ -35,13 +35,16 @@ fn ota_version_comparison_logic() {
     let cur = Version::current();
     assert_eq!(cur.major, 1);
     assert_eq!(cur.minor, 9);
-    assert_eq!(cur.patch, 5);
+    assert_eq!(cur.patch, 6);
 
     let v200 = Version::parse("v2.0.0").unwrap();
     assert!(v200 > cur);
 
+    let v196 = Version::parse("1.9.6").unwrap();
+    assert_eq!(v196, cur);
+
     let v195 = Version::parse("1.9.5").unwrap();
-    assert_eq!(v195, cur);
+    assert!(v195 < cur);
 
     let v194 = Version::parse("1.9.4").unwrap();
     assert!(v194 < cur);
@@ -167,10 +170,10 @@ fn ota_live_release_manifest_and_updater() {
             waited += 1;
         }
 
-        // Running local version checking against remote release -> UpToDate(SLOT_RELEASE)
+        // Running local version checking against remote release -> UpToDate
         assert_eq!(
             mgr.status(),
-            OtaStatus::UpToDate(slot::build_info::SLOT_RELEASE.into())
+            OtaStatus::UpToDate(info.version.clone())
         );
         assert_eq!(mgr.status().menu_text(), "Up to date");
     }
