@@ -195,14 +195,17 @@ pub enum QuickRow {
     SnesBezel,
     Ps1Bezel,
     NdsBezel,
-    // --- extras: nds stylus ---
+    // --- extras: nds stylus & mic ---
     NdsStylus,
     PlayNdsStylus,
     ThisNdsStylus,
+    NdsMic,
+    PlayNdsMic,
+    ThisNdsMic,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 179] = [
+    pub const ALL: [QuickRow; 182] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -389,6 +392,9 @@ impl QuickRow {
         QuickRow::NdsStylus,
         QuickRow::PlayNdsStylus,
         QuickRow::ThisNdsStylus,
+        QuickRow::NdsMic,
+        QuickRow::PlayNdsMic,
+        QuickRow::ThisNdsMic,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -519,10 +525,11 @@ impl QuickRow {
         QuickRow::Ps1Bezel,
     ];
 
-    pub const SCREEN_NDS: [QuickRow; 6] = [
+    pub const SCREEN_NDS: [QuickRow; 7] = [
         QuickRow::IntegerNds,
         QuickRow::NdsLayout,
         QuickRow::NdsStylus,
+        QuickRow::NdsMic,
         QuickRow::NdsShader,
         QuickRow::CardShaderNds,
         QuickRow::NdsBezel,
@@ -593,10 +600,11 @@ impl QuickRow {
         QuickRow::PlayGuide,
     ];
 
-    pub const PLAY_SCREEN: [QuickRow; 14] = [
+    pub const PLAY_SCREEN: [QuickRow; 15] = [
         QuickRow::Scaling,
         QuickRow::PlayNdsLayout,
         QuickRow::PlayNdsStylus,
+        QuickRow::PlayNdsMic,
         QuickRow::Shader,
         QuickRow::CardShader,
         QuickRow::ShaderSettings,
@@ -645,6 +653,7 @@ impl QuickRow {
             | QuickRow::CardShaderNds
             | QuickRow::NdsLayout
             | QuickRow::NdsStylus
+            | QuickRow::NdsMic
             | QuickRow::NdsBezel => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
@@ -714,6 +723,7 @@ impl QuickRow {
             QuickRow::ThisScaling
             | QuickRow::ThisNdsLayout
             | QuickRow::ThisNdsStylus
+            | QuickRow::ThisNdsMic
             | QuickRow::ThisShader
             | QuickRow::ThisCardShader
             | QuickRow::ThisColour
@@ -727,6 +737,7 @@ impl QuickRow {
             QuickRow::Scaling
             | QuickRow::PlayNdsLayout
             | QuickRow::PlayNdsStylus
+            | QuickRow::PlayNdsMic
             | QuickRow::Shader
             | QuickRow::ColourCorrection
             | QuickRow::Palette
@@ -913,6 +924,7 @@ impl QuickRow {
             QuickRow::ScreenNds => "Nintendo DS",
             QuickRow::NdsLayout | QuickRow::PlayNdsLayout | QuickRow::ThisNdsLayout => "Layout",
             QuickRow::NdsStylus | QuickRow::PlayNdsStylus | QuickRow::ThisNdsStylus => "Stylus",
+            QuickRow::NdsMic | QuickRow::PlayNdsMic | QuickRow::ThisNdsMic => "Microphone",
             QuickRow::GbaColourCorrection => "Color Correction",
             QuickRow::GbColourCorrection => "Color Correction",
             QuickRow::GbcColourCorrection => "Color Correction",
@@ -1137,6 +1149,7 @@ impl QuickRow {
             QuickRow::ThisCardShader => "Card shader for this game only.",
             QuickRow::ThisNdsLayout => "Screen layout for this game only.",
             QuickRow::ThisNdsStylus => "Stylus control mode for this game only.",
+            QuickRow::ThisNdsMic => "Microphone input for this game only.",
             QuickRow::ThisColour => "Color correction for this game only.",
             QuickRow::ThisFfSpeed => "Fast forward speed for this game only.",
             QuickRow::ThisFfSound => "Fast forward sound for this game only.",
@@ -1162,7 +1175,10 @@ impl QuickRow {
                 "How the dual DS screens are arranged and sized."
             }
             QuickRow::NdsStylus | QuickRow::PlayNdsStylus => {
-                "Control the stylus (L2 + START toggles D-Pad mode)."
+                "Move stylus with L2, Right/Left Stick, or D-Pad."
+            }
+            QuickRow::NdsMic | QuickRow::PlayNdsMic => {
+                "Microphone button: Auto (opposite stick) or custom."
             }
             QuickRow::CardShader
             | QuickRow::CardShaderGba

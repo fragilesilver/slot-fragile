@@ -415,6 +415,7 @@ pub struct App {
     colour_pending: Option<bool>,
     nds_layout_pending: Option<String>,
     nds_stylus_pending: Option<String>,
+    nds_mic_pending: Option<String>,
     palette_live: bool,
     palette_pending: Option<GbPalette>,
     sunlight_manual: Option<u8>,
@@ -655,6 +656,7 @@ impl App {
             colour_pending: None,
             nds_layout_pending: None,
             nds_stylus_pending: None,
+            nds_mic_pending: None,
             palette_live: false,
             palette_pending: None,
             sunlight_manual: None,
@@ -1385,6 +1387,9 @@ impl App {
             | QuickRow::NdsStylus
             | QuickRow::PlayNdsStylus
             | QuickRow::ThisNdsStylus
+            | QuickRow::NdsMic
+            | QuickRow::PlayNdsMic
+            | QuickRow::ThisNdsMic
             | QuickRow::CardShader
             | QuickRow::ShaderSettings
             | QuickRow::GameX
@@ -2725,6 +2730,10 @@ impl App {
         self.nds_stylus_pending.take()
     }
 
+    pub fn take_nds_mic(&mut self) -> Option<String> {
+        self.nds_mic_pending.take()
+    }
+
     pub fn gb_palette(&self) -> Option<GbPalette> {
         self.state.gb_palettes.then_some(self.state.gb_palette)
     }
@@ -3232,6 +3241,9 @@ impl App {
             | QuickRow::NdsStylus
             | QuickRow::PlayNdsStylus
             | QuickRow::ThisNdsStylus
+            | QuickRow::NdsMic
+            | QuickRow::PlayNdsMic
+            | QuickRow::ThisNdsMic
             | QuickRow::CardShader
             | QuickRow::ShaderSettings
             | QuickRow::GameX
@@ -3532,6 +3544,9 @@ impl App {
             | QuickRow::NdsStylus
             | QuickRow::PlayNdsStylus
             | QuickRow::ThisNdsStylus
+            | QuickRow::NdsMic
+            | QuickRow::PlayNdsMic
+            | QuickRow::ThisNdsMic
             | QuickRow::CardShader
             | QuickRow::ShaderSettings
             | QuickRow::GameX

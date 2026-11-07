@@ -111,6 +111,8 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::ThisNdsLayout,
             QuickRow::PlayNdsStylus,
             QuickRow::ThisNdsStylus,
+            QuickRow::PlayNdsMic,
+            QuickRow::ThisNdsMic,
             // Fragile: buttons the GBA's pad does not have.
             QuickRow::GameX,
             QuickRow::GameY,
@@ -144,6 +146,8 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::ThisNdsLayout,
             QuickRow::PlayNdsStylus,
             QuickRow::ThisNdsStylus,
+            QuickRow::PlayNdsMic,
+            QuickRow::ThisNdsMic,
             // Fragile: buttons the GBA's pad does not have.
             QuickRow::GameX,
             QuickRow::GameY,

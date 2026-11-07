@@ -35,6 +35,8 @@ impl App {
             hide(QuickRow::ThisNdsLayout);
             hide(QuickRow::PlayNdsStylus);
             hide(QuickRow::ThisNdsStylus);
+            hide(QuickRow::PlayNdsMic);
+            hide(QuickRow::ThisNdsMic);
         }
         let pad = self.game_pad();
         for row in QuickRow::CONTROLS {

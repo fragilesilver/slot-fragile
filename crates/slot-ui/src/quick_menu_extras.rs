@@ -34,10 +34,11 @@ pub fn bluetooth_legend_faces(ink: [u8; 3]) -> [UndoFace; 5] {
 
 impl QuickRow {
     /// In game, Settings → This Game: the settings this one game keeps for itself.
-    pub const THIS_GAME: [QuickRow; 10] = [
+    pub const THIS_GAME: [QuickRow; 11] = [
         QuickRow::ThisScaling,
         QuickRow::ThisNdsLayout,
         QuickRow::ThisNdsStylus,
+        QuickRow::ThisNdsMic,
         QuickRow::ThisShader,
         QuickRow::ThisCardShader,
         QuickRow::ThisColour,

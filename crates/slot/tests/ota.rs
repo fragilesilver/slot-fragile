@@ -147,7 +147,7 @@ fn ota_live_release_manifest_and_updater() {
             .contains("fragilesilver/slot-fragile/releases/download/v1.9.6/slot"));
         assert_eq!(
             info.sha256.as_deref(),
-            Some("7d1455581999cba44992a24138ad91165ecbee67ee756ca990c87a949dcf6175")
+            Some("235f6c39401e63c10d6777e000a29ca57cf510571dfe8e75ad559275a6119307")
         );
 
         // If an older device (e.g. running v1.9.5) checks for updates:

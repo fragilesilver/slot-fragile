@@ -376,6 +376,12 @@ impl Session {
                 recoloured = true;
             }
         }
+        if let Some(mic) = self.app.take_nds_mic() {
+            if let Some(emu) = &self.emu {
+                emu.set_option("dsperate_mic_button", &mic);
+                recoloured = true;
+            }
+        }
         if recoloured && self.held() && !self.app.link_active() {
             if let Some(emu) = &self.emu {
                 emu.refresh();
@@ -574,9 +580,11 @@ impl Session {
                 if self.app.playing_platform() == slot_store::Platform::Nds {
                     let layout = self.app.nds_layout();
                     let stylus = self.app.nds_stylus_core_value();
+                    let mic = self.app.nds_mic_core_value();
                     if let Some(emu) = &self.emu {
                         emu.set_option("dsperate_layout", &layout);
                         emu.set_option("dsperate_stylus_control", stylus);
+                        emu.set_option("dsperate_mic_button", mic);
                     }
                 }
                 self.app.on_core_ready()

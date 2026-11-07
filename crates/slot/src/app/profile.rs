@@ -140,6 +140,7 @@ impl App {
             }
             QuickRow::ThisNdsLayout => self.step_nds_layout(true, right),
             QuickRow::ThisNdsStylus => self.step_nds_stylus(true, right),
+            QuickRow::ThisNdsMic => self.step_nds_mic(true, right),
             QuickRow::ThisCardShader => {
                 self.step_own_card_shader(right);
             }

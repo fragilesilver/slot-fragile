@@ -199,6 +199,9 @@ impl App {
             || row == QuickRow::NdsStylus
             || row == QuickRow::PlayNdsStylus
             || row == QuickRow::ThisNdsStylus
+            || row == QuickRow::NdsMic
+            || row == QuickRow::PlayNdsMic
+            || row == QuickRow::ThisNdsMic
             || Self::integer_row_platform(row).is_some()
         {
             // Drawn from `named_value`, since a file name or scaling has no ready-made face.
@@ -270,6 +273,14 @@ impl App {
         }
         if row == QuickRow::NdsStylus || row == QuickRow::PlayNdsStylus {
             self.step_nds_stylus(false, right);
+            return true;
+        }
+        if row == QuickRow::ThisNdsMic {
+            self.step_nds_mic(true, right);
+            return true;
+        }
+        if row == QuickRow::NdsMic || row == QuickRow::PlayNdsMic {
+            self.step_nds_mic(false, right);
             return true;
         }
         if let Some(platform) = card_shader_row_platform(row) {
@@ -379,6 +390,12 @@ impl App {
         {
             return Some(self.nds_stylus());
         }
+        if row == QuickRow::NdsMic
+            || row == QuickRow::PlayNdsMic
+            || row == QuickRow::ThisNdsMic
+        {
+            return Some(self.nds_mic());
+        }
         if let Some(platform) = Self::integer_row_platform(row) {
             return Some(self.scaling(platform).text().to_string());
         }
@@ -469,6 +486,50 @@ impl App {
             self.nds_stylus_pending = Some(nds_stylus_to_core(&next).to_string());
         }
     }
+
+    pub fn nds_mic(&self) -> String {
+        if let Some((Platform::Nds, stem)) = self.seated_game() {
+            if let Some(ref mic) = self.profiles.get(Platform::Nds, &stem).nds_mic {
+                return mic.clone();
+            }
+        }
+        self.extras
+            .get(NDS_MIC_KEY)
+            .map(str::to_string)
+            .unwrap_or_else(|| "Auto".into())
+    }
+
+    pub fn nds_mic_core_value(&self) -> &'static str {
+        nds_mic_to_core(&self.nds_mic())
+    }
+
+    pub fn step_nds_mic(&mut self, is_this_game: bool, right: bool) {
+        let current = self.nds_mic();
+        let at = NDS_MIC_MODES
+            .iter()
+            .position(|&m| m == current)
+            .unwrap_or(0);
+        let n = NDS_MIC_MODES.len();
+        let next_idx = if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        };
+        let next = NDS_MIC_MODES[next_idx].to_string();
+
+        if is_this_game
+            || (self.seated_cart().is_some() && self.game_profile().nds_mic.is_some())
+        {
+            self.set_own(slot_store::ProfileField::NdsMic(next.clone()));
+        } else {
+            self.extras.set(NDS_MIC_KEY, Some(&next));
+            self.save_extras();
+        }
+
+        if self.playing_platform() == Platform::Nds {
+            self.nds_mic_pending = Some(nds_mic_to_core(&next).to_string());
+        }
+    }
 }
 
 pub const NDS_LAYOUTS: [&str; 6] = [
@@ -480,15 +541,30 @@ pub const NDS_LAYOUTS: [&str; 6] = [
     "Picture in Picture",
 ];
 
-pub const NDS_STYLUS_MODES: [&str; 3] = ["Hold L2", "D-Pad", "Off"];
+pub const NDS_STYLUS_MODES: [&str; 5] = ["Hold L2", "Right Stick", "Left Stick", "D-Pad", "Off"];
 
 pub fn nds_stylus_to_core(mode: &str) -> &'static str {
     match mode {
+        "Right Stick" => "Right Analog",
+        "Left Stick" => "Left Analog",
         "D-Pad" => "D-Pad",
         "Off" => "Off",
         _ => "Hold L2 + D-Pad",
     }
 }
 
+pub const NDS_MIC_MODES: [&str; 5] = ["Auto", "L3", "R3", "Hold L2", "Off"];
+
+pub fn nds_mic_to_core(mode: &str) -> &'static str {
+    match mode {
+        "L3" => "L3",
+        "R3" => "R3",
+        "Hold L2" => "L2",
+        "Off" => "Off",
+        _ => "Auto",
+    }
+}
+
 const NDS_LAYOUT_KEY: &str = "nds_layout";
 const NDS_STYLUS_KEY: &str = "nds_stylus";
+const NDS_MIC_KEY: &str = "nds_mic";
