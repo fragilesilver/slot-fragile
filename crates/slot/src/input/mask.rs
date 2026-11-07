@@ -26,10 +26,16 @@ impl Pad {
     }
 
     pub fn mask(&self, controls: &Controls) -> ButtonMask {
-        let bits = GameButton::ALL
+        let mut bits = GameButton::ALL
             .into_iter()
             .filter(|g| self.pressed(controls, *g))
             .fold(0, |bits, g| bits | bit(g));
+        if self.held.contains(&Btn::L3) {
+            bits |= ButtonMask::L3;
+        }
+        if self.held.contains(&Btn::R3) {
+            bits |= ButtonMask::R3;
+        }
         ButtonMask(bits)
     }
 
@@ -46,10 +52,16 @@ impl Pad {
 
     /// The extra buttons the playing system's pad has (`GameButton::of`), held now. Fragile's.
     pub fn extra_mask(&self, controls: &Controls, pad: &[GameButton]) -> ButtonMask {
-        let bits = GameButton::EXTRA
+        let mut bits = GameButton::EXTRA
             .into_iter()
             .filter(|g| pad.contains(g) && self.pressed(controls, *g))
             .fold(0, |bits, g| bits | bit(g));
+        if self.held.contains(&Btn::L3) {
+            bits |= ButtonMask::L3;
+        }
+        if self.held.contains(&Btn::R3) {
+            bits |= ButtonMask::R3;
+        }
         ButtonMask(bits)
     }
 

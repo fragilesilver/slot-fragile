@@ -431,7 +431,7 @@ unsafe extern "C" fn input_state(port: c_uint, device: c_uint, _index: c_uint, i
                 _ if id < 16 => ((input >> id) & 1) as i16,
                 _ => 0,
             },
-            DEVICE_ANALOG => match id {
+            DEVICE_ANALOG if _index == 0 => match id {
                 DEVICE_ID_ANALOG_X => {
                     if (input & ButtonMask::RIGHT) != 0 {
                         32767

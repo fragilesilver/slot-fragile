@@ -9,10 +9,12 @@
   - Slot-2 hardware emulation: adds GBA cartridge passthrough and Rumble Pak simulation support.
   - Accurate CPAD analog controls with game-specific analog sensitivity curves and database lookup.
   - SRAM / Save pre-seeding: automatically sizes initial flash memory arrays to existing `.sav`/`.srm` files to eliminate save-truncation across emulator cores.
-- NDS D-Pad / Stylus Control & In-Game Toggle:
-  - Added in-game chorded hotkey (`Hold L2 + START`) to instantly toggle the physical D-Pad between normal Nintendo DS directional inputs and virtual touchscreen stylus navigation.
-  - New Stylus menu options in Quick Menu and per-game Profile (`Hold L2`, `D-Pad`, and `Off`).
-  - Intelligent reticle auto-hide: when `Stylus` is set to `Off` or inactive, the virtual touch reticle is completely hidden from the display for pristine gameplay visuals.
+- NDS Stylus & Analog Stick Navigation:
+  - Dual Analog Stick & D-Pad Stylus Navigation: Left Analog Stick or Right Analog Stick smoothly navigates the virtual touchscreen stylus, with physical stick clicks (**L3** or **R3**) triggering touch tap and hold-to-drag.
+  - Coexists with **Hold L2 + D-Pad** (with **R2** tap/drag) for classic D-Pad touch control.
+  - Dedicated Stylus menu options in Quick Menu and per-game Profile (`Hold L2`, `D-Pad`, and `Off`).
+  - Immediate and Timed Reticle Auto-Hide: the touch reticle vanishes instantly when releasing L2 in Hold L2 mode, auto-hides after 60 frames (1 second) of inactivity during stick or D-Pad movement, and never displays when Stylus is set to `Off`.
+  - Clean input pass-through: removed experimental `L2 + START` combo to prevent any disruption to in-game DS start/pause buttons.
 - Baked-in Bezel Design Kit:
   - Pre-packaged comprehensive Bezel Design Kit across all 7 systems directly on the distribution image under `Bezels/`.
   - Includes layered Adobe Photoshop (`.psd`) templates with labeled artboards, pixel-perfect viewport guides, and cutouts for 640×480 and 720×480 handheld displays.

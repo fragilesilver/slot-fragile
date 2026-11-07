@@ -135,6 +135,8 @@ pub fn code_to_btn(code: u16) -> Option<Btn> {
         0x138 => Btn::Menu,
         0x13a => Btn::L2,
         0x13b => Btn::R2,
+        0x13d => Btn::L3,
+        0x13e => Btn::R3,
         115 => Btn::VolUp,
         114 => Btn::VolDown,
         116 => Btn::Power,
@@ -142,9 +144,9 @@ pub fn code_to_btn(code: u16) -> Option<Btn> {
     })
 }
 
-const WANTED: [u16; 15] = [
-    0x130, 0x131, 0x132, 0x133, 0x134, 0x135, 0x136, 0x137, 0x138, 0x13a, 0x13b, 0x162, 115, 114,
-    116,
+const WANTED: [u16; 17] = [
+    0x130, 0x131, 0x132, 0x133, 0x134, 0x135, 0x136, 0x137, 0x138, 0x13a, 0x13b, 0x13d, 0x13e,
+    0x162, 115, 114, 116,
 ];
 
 pub use slot_power::has_bit;

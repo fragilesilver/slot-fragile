@@ -12,6 +12,8 @@ pub enum Btn {
     R1,
     L2,
     R2,
+    L3,
+    R3,
     Start,
     Select,
     Menu,
