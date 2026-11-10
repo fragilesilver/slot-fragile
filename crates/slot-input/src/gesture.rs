@@ -63,6 +63,7 @@ pub enum Action {
     // --- extras ---
     Search,
     AddToList,
+    UnlockKidMode,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
@@ -167,6 +168,7 @@ pub struct Gestures {
     r2_refused: bool,
     r2_last_release: Option<Millis>,
     rewinding: bool,
+    kid_unlock_fired: bool,
 }
 
 pub fn anywhere(action: Action) -> bool {
@@ -237,6 +239,9 @@ impl Gestures {
                 self.deferred.retain(|x| *x != b);
                 self.consumed.retain(|x| *x != b);
                 self.held.retain(|(h, _)| *h != b);
+                if matches!(b, Btn::Start | Btn::Select | Btn::L2 | Btn::R2) {
+                    self.kid_unlock_fired = false;
+                }
             }
         }
     }
@@ -300,14 +305,26 @@ impl Gestures {
     pub fn feed(&mut self, ev: RawEvent, now: Millis) -> Vec<Action> {
         match ev {
             RawEvent::Down(b) => {
-                let out = self.down(b, now);
+                let mut out = self.down(b, now);
                 if !self.pressed.contains(&b) {
                     self.pressed.push(b);
+                }
+                if !self.kid_unlock_fired
+                    && self.pressed.contains(&Btn::Start)
+                    && self.pressed.contains(&Btn::Select)
+                    && self.pressed.contains(&Btn::L2)
+                    && self.pressed.contains(&Btn::R2)
+                {
+                    self.kid_unlock_fired = true;
+                    out.push(Action::UnlockKidMode);
                 }
                 out
             }
             RawEvent::Up(b) => {
                 self.pressed.retain(|x| *x != b);
+                if matches!(b, Btn::Start | Btn::Select | Btn::L2 | Btn::R2) {
+                    self.kid_unlock_fired = false;
+                }
                 self.up(b, now)
             }
         }

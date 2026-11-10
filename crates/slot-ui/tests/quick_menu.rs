@@ -94,6 +94,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Game Titles",
             "Favorites",
             "Start Shelf",
+            "Kid Mode",
             "Clock",
             "Battery Badge",
             "Lid Power Off",
@@ -201,7 +202,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Turbo Buttons",
             "Rumble",
             "Left Stick as D-Pad",
-            "Auto Save on Eject"
+            "Auto Save on Eject",
+            "Auto Load State",
         ]
     );
     let opens: Vec<QuickRow> = QuickRow::ALL.into_iter().filter(|r| r.opens()).collect();
@@ -343,6 +345,10 @@ fn the_values_read_as_the_menu_prints_them() {
             "NDS",
             "Hold",
             "Toggle",
+            "Always",
+            "Power On",
+            "One Shelf",
+            "Shelves",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);

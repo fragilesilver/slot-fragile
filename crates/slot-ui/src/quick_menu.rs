@@ -202,10 +202,12 @@ pub enum QuickRow {
     NdsMic,
     PlayNdsMic,
     ThisNdsMic,
+    AutoLoad,
+    KidMode,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 182] = [
+    pub const ALL: [QuickRow; 184] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -395,6 +397,8 @@ impl QuickRow {
         QuickRow::NdsMic,
         QuickRow::PlayNdsMic,
         QuickRow::ThisNdsMic,
+        QuickRow::AutoLoad,
+        QuickRow::KidMode,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -407,7 +411,7 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const GENERAL: [QuickRow; 15] = [
+    pub const GENERAL: [QuickRow; 16] = [
         QuickRow::Theme,
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
@@ -415,6 +419,7 @@ impl QuickRow {
         QuickRow::ShowTitles,
         QuickRow::ShowFavorites,
         QuickRow::StartShelf,
+        QuickRow::KidMode,
         QuickRow::ClockFormat,
         QuickRow::BatteryBadge,
         QuickRow::LidOff,
@@ -563,7 +568,7 @@ impl QuickRow {
         QuickRow::MotionBlurGb,
     ];
 
-    pub const GAME: [QuickRow; 9] = [
+    pub const GAME: [QuickRow; 10] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::FastForwardPitch,
@@ -573,6 +578,7 @@ impl QuickRow {
         QuickRow::Rumble,
         QuickRow::LeftStick,
         QuickRow::EjectSave,
+        QuickRow::AutoLoad,
     ];
 
     pub const PLAY: [QuickRow; 11] = [
@@ -681,6 +687,7 @@ impl QuickRow {
             | QuickRow::Rumble
             | QuickRow::LeftStick
             | QuickRow::EjectSave
+            | QuickRow::AutoLoad
             | QuickRow::FastForwardPitch
             | QuickRow::FastForwardMode => &QuickRow::GAME,
             QuickRow::Wallpaper
@@ -692,6 +699,7 @@ impl QuickRow {
             | QuickRow::LidOff
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
+            | QuickRow::KidMode
             | QuickRow::ClockFormat
             | QuickRow::SleepOff
             | QuickRow::Screensaver
@@ -930,6 +938,8 @@ impl QuickRow {
             QuickRow::GbcColourCorrection => "Color Correction",
             QuickRow::Game => "Gameplay",
             QuickRow::EjectSave => "Auto Save on Eject",
+            QuickRow::AutoLoad => "Auto Load State",
+            QuickRow::KidMode => "Kid Mode",
             QuickRow::Turbo => "Turbo Buttons",
             QuickRow::Rewind => "Rewind",
             QuickRow::GbPalettes => "Palettes",
@@ -1106,6 +1116,8 @@ impl QuickRow {
             QuickRow::Rumble => "Vibrate when a game asks for rumble.",
             QuickRow::LeftStick => "Steer with the left stick as well as the D-Pad.",
             QuickRow::EjectSave => "Save a state when you leave a game.",
+            QuickRow::AutoLoad => "Resume where you left off when starting a game.",
+            QuickRow::KidMode => "Lock down shelves and settings for kids.",
             QuickRow::Theme => "Dark or light look for the whole frontend.",
             QuickRow::Wallpaper => "Picture behind the shelf.",
             QuickRow::WallpaperTint => "Darken the wallpaper so carts stand out.",
@@ -1397,10 +1409,14 @@ pub enum QuickValue {
     NdsShelf,
     Hold,
     Toggle,
+    Always,
+    PowerOn,
+    OneShelf,
+    Shelves,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 50] = [
+    pub const ALL: [QuickValue; 54] = [
         QuickValue::Speed1_5,
         QuickValue::Speed2,
         QuickValue::Speed3,
@@ -1451,6 +1467,10 @@ impl QuickValue {
         QuickValue::NdsShelf,
         QuickValue::Hold,
         QuickValue::Toggle,
+        QuickValue::Always,
+        QuickValue::PowerOn,
+        QuickValue::OneShelf,
+        QuickValue::Shelves,
     ];
 
     pub const LEVELS: [QuickValue; 10] = [
@@ -1531,6 +1551,10 @@ impl QuickValue {
             QuickValue::NdsShelf => "NDS",
             QuickValue::Hold => "Hold",
             QuickValue::Toggle => "Toggle",
+            QuickValue::Always => "Always",
+            QuickValue::PowerOn => "Power On",
+            QuickValue::OneShelf => "One Shelf",
+            QuickValue::Shelves => "Shelves",
         }
     }
 

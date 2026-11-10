@@ -1089,3 +1089,22 @@ fn ff_mode_toggle_with_select_chord_latches_and_toggles() {
     assert_eq!(g.feed(Up(R2), 1100), vec![]);
     assert_eq!(g.feed(Up(Select), 1150), vec![]);
 }
+
+#[test]
+fn kid_mode_unlock_chord_emits_unlock_action() {
+    let mut g = Gestures::new();
+    g.feed(Down(Start), 0);
+    g.feed(Down(Select), 50);
+    g.feed(Down(L2), 100);
+    let actions = g.feed(Down(R2), 150);
+    assert!(actions.contains(&UnlockKidMode));
+
+    // Holding does not repeat
+    let next = g.feed(Down(Btn::A), 200);
+    assert!(!next.contains(&UnlockKidMode));
+
+    // Releasing and pressing again rearms
+    g.feed(Up(R2), 300);
+    let actions2 = g.feed(Down(R2), 400);
+    assert!(actions2.contains(&UnlockKidMode));
+}

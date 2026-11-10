@@ -20,12 +20,12 @@ fn game_boy_games_start_on_gambatte_and_gba_games_on_mgba() {
         core_for_platform(d.path(), "Emerald", Platform::Gba),
         Core::Mgba
     );
-    slot_store::write_selected_core(d.path(), "Tetris", Core::Mgba).unwrap();
+    slot_store::write_selected_core(d.path(), Platform::Gb, "Tetris", Core::Mgba).unwrap();
     assert_eq!(
         core_for_platform(d.path(), "Tetris", Platform::Gb),
         Core::Mgba
     );
-    slot_store::write_selected_core(d.path(), "Emerald", Core::Gambatte).unwrap();
+    slot_store::write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Gambatte).unwrap();
     assert_eq!(
         core_for_platform(d.path(), "Emerald", Platform::Gba),
         Core::Mgba,

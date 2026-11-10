@@ -277,3 +277,28 @@ fn other_shortcuts_may_still_share_a_binding() {
     keys.set(Shortcut::FastForwardToggle, None);
     assert_eq!(keys.get(Shortcut::FastForward), plain(Device::L1));
 }
+
+#[test]
+fn platform_controls_read_and_write_independently_and_fall_back_to_global() {
+    use slot_store::{has_platform_controls, read_controls_for, reset_controls_for, write_controls_for, Platform};
+    let d = card();
+    assert_eq!(read_controls_for(d.path(), Platform::Gba), Controls::default());
+    assert!(!has_platform_controls(d.path(), Platform::Gba));
+
+    let mut global = Controls::default();
+    global.set_game(GameButton::A, plain(Device::B));
+    write_controls(d.path(), &global).unwrap();
+    assert_eq!(read_controls_for(d.path(), Platform::Gba), global);
+    assert_eq!(read_controls_for(d.path(), Platform::Snes), global);
+
+    let mut snes = Controls::default();
+    snes.set_game(GameButton::X, plain(Device::Y));
+    write_controls_for(d.path(), Platform::Snes, &snes).unwrap();
+    assert!(has_platform_controls(d.path(), Platform::Snes));
+    assert_eq!(read_controls_for(d.path(), Platform::Snes), snes);
+    assert_eq!(read_controls_for(d.path(), Platform::Gba), global);
+
+    reset_controls_for(d.path(), Platform::Snes).unwrap();
+    assert!(!has_platform_controls(d.path(), Platform::Snes));
+    assert_eq!(read_controls_for(d.path(), Platform::Snes), global);
+}

@@ -76,7 +76,7 @@ impl App {
         }
     }
 
-    fn playing(&self) -> bool {
+    pub(super) fn playing(&self) -> bool {
         matches!(self.phase, Phase::Playing { .. } | Phase::Inserting { .. })
     }
 

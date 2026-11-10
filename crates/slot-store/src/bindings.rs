@@ -629,6 +629,37 @@ pub fn write_controls(root: &Path, c: &Controls) -> std::io::Result<()> {
     write(&root.join("Config").join(CONTROLS_FILE), &c.text())
 }
 
+fn platform_controls_file(platform: Platform) -> String {
+    format!("controls_{}.txt", platform.dir_name().to_ascii_lowercase())
+}
+
+pub fn has_platform_controls(root: &Path, platform: Platform) -> bool {
+    root.join("Config").join(platform_controls_file(platform)).is_file()
+}
+
+pub fn read_controls_for(root: &Path, platform: Platform) -> Controls {
+    let specific = root.join("Config").join(platform_controls_file(platform));
+    if let Ok(text) = std::fs::read_to_string(specific) {
+        return Controls::parse(&text);
+    }
+    read_controls(root)
+}
+
+pub fn write_controls_for(root: &Path, platform: Platform, c: &Controls) -> std::io::Result<()> {
+    write(
+        &root.join("Config").join(platform_controls_file(platform)),
+        &c.text(),
+    )
+}
+
+pub fn reset_controls_for(root: &Path, platform: Platform) -> std::io::Result<()> {
+    let path = root.join("Config").join(platform_controls_file(platform));
+    if path.exists() {
+        let _ = std::fs::remove_file(path);
+    }
+    Ok(())
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum CarouselAction {
     PreviousShelf,

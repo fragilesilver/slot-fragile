@@ -9,7 +9,10 @@ use slot_store::{Core, GbPalette};
 
 /// Read during `retro_init`, so it is given before the core starts rather than after: the boot
 /// logo plays when the card has the boot ROM.
-pub const BEFORE_INIT: &[(&str, &str)] = &[("gambatte_gb_bootloader", "enabled")];
+pub const BEFORE_INIT: &[(&str, &str)] = &[
+    ("gambatte_gb_bootloader", "enabled"),
+    ("gambatte_rumble_level", "10"),
+];
 
 pub fn colour_option(on: bool) -> (&'static str, &'static str) {
     (

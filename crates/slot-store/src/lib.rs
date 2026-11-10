@@ -25,10 +25,12 @@ mod shots;
 mod slot_state;
 mod spec;
 mod stamp;
+pub mod sweep;
 
 pub use atomic::atomic_write;
 pub use bindings::{
-    read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
+    has_platform_controls, read_carousel, read_controls, read_controls_for, read_shortcuts,
+    reset_controls_for, write_carousel, write_controls, write_controls_for, write_shortcuts,
     Binding, CarouselAction, CarouselKeys, Controls, Device, GameButton, Modifier, Shortcut,
     ShortcutKeys,
 };
@@ -59,11 +61,13 @@ pub use shaders::{
 pub use shots::{shot_stamp, ShotDir, ShotEntry, SCREENSHOTS_DIR};
 pub use slot_state::{
     bezel_for_scale, bezel_scale, ff_speed_text, ff_speed_value, read_slot_state, write_slot_state,
-    Appearance, BezelPick, Recent, Scale, Shader, SlotState, WallpaperPick, WallpaperTint,
-    BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, FF_SPEEDS, FF_SPEED_DEFAULT, LID_OFF_MIN,
-    RECENTS_MAX, SATURATION_MAX, SUNLIGHT_MAX, UTC_OFFSET_MAX, UTC_OFFSET_MIN, VOLUME_MAX,
+    Appearance, AutoLoad, BezelPick, KidMode, Recent, Scale, Shader, SlotState, WallpaperPick,
+    WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, FF_SPEEDS, FF_SPEED_DEFAULT,
+    KID_SHELF_ALL, LID_OFF_MIN, RECENTS_MAX, SATURATION_MAX, SUNLIGHT_MAX, UTC_OFFSET_MAX,
+    UTC_OFFSET_MIN, VOLUME_MAX,
 };
 pub use spec::{Header, Spec};
 pub use stamp::{
     civil_from_days, days_from_civil, days_in_month, format_stamp, parse_stamp, stamp_now,
 };
+pub use sweep::{clean_filename, sweep_names};

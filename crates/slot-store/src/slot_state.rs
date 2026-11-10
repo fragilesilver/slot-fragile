@@ -206,6 +206,94 @@ impl BezelPick {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum AutoLoad {
+    #[default]
+    Always,
+    PowerOn,
+    Never,
+}
+
+impl AutoLoad {
+    pub const ALL: [AutoLoad; 3] = [AutoLoad::Always, AutoLoad::PowerOn, AutoLoad::Never];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            AutoLoad::Always => "1",
+            AutoLoad::PowerOn => "power",
+            AutoLoad::Never => "0",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<AutoLoad> {
+        match value.trim() {
+            "1" | "true" | "always" => Some(AutoLoad::Always),
+            "power" | "power_on" => Some(AutoLoad::PowerOn),
+            "0" | "false" | "never" => Some(AutoLoad::Never),
+            _ => None,
+        }
+    }
+
+    pub fn on_insert(self) -> bool {
+        self == AutoLoad::Always
+    }
+
+    pub fn at_power_on(self) -> bool {
+        self != AutoLoad::Never
+    }
+
+    pub fn step(self, right: bool) -> AutoLoad {
+        let n = AutoLoad::ALL.len();
+        let at = AutoLoad::ALL.iter().position(|a| *a == self).unwrap_or(0);
+        AutoLoad::ALL[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum KidMode {
+    #[default]
+    Off,
+    OneShelf,
+    Shelves,
+}
+
+impl KidMode {
+    pub const ALL: [KidMode; 3] = [KidMode::Off, KidMode::OneShelf, KidMode::Shelves];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            KidMode::Off => "off",
+            KidMode::OneShelf => "one",
+            KidMode::Shelves => "shelves",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<KidMode> {
+        match value.trim() {
+            "off" | "0" | "false" => Some(KidMode::Off),
+            "one" => Some(KidMode::OneShelf),
+            "shelves" | "1" | "true" => Some(KidMode::Shelves),
+            _ => None,
+        }
+    }
+
+    pub fn step(self, right: bool) -> KidMode {
+        let n = KidMode::ALL.len();
+        let at = KidMode::ALL.iter().position(|k| *k == self).unwrap_or(0);
+        KidMode::ALL[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+    }
+}
+
+pub const KID_SHELF_ALL: &str = "all";
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub enum Scale {
     SpFrame,
     Integer,
@@ -309,6 +397,7 @@ pub struct SlotState {
     pub shader_gba: Shader,
     pub shader_gb: Shader,
     pub shader_gbc: Shader,
+    pub auto_load: AutoLoad,
     pub eject_save: bool,
     pub turbo: bool,
     pub rewind: bool,
@@ -328,6 +417,8 @@ pub struct SlotState {
     pub favorites: Vec<Recent>,
     pub shelf: Option<String>,
     pub shelf_cart: Option<Recent>,
+    pub kid_mode: KidMode,
+    pub kid_shelf: String,
 }
 
 impl SlotState {
@@ -455,6 +546,7 @@ impl Default for SlotState {
             shader_gba: Shader::Grid,
             shader_gb: Shader::Simpletex,
             shader_gbc: Shader::Simpletex,
+            auto_load: AutoLoad::Always,
             eject_save: true,
             turbo: true,
             rewind: true,
@@ -474,6 +566,8 @@ impl Default for SlotState {
             favorites: Vec::new(),
             shelf: None,
             shelf_cart: None,
+            kid_mode: KidMode::Off,
+            kid_shelf: KID_SHELF_ALL.to_string(),
         }
     }
 }
@@ -569,6 +663,9 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("bezel_gba={}\n", s.bezel_gba.key()));
     text.push_str(&format!("bezel_gb={}\n", s.bezel_gb.key()));
     text.push_str(&format!("bezel_gbc={}\n", s.bezel_gbc.key()));
+    text.push_str(&format!("auto_load={}\n", s.auto_load.key()));
+    text.push_str(&format!("kid_mode={}\n", s.kid_mode.key()));
+    text.push_str(&format!("kid_shelf={}\n", s.kid_shelf));
     text.push_str(&format!("shelf={}\n", s.shelf.as_deref().unwrap_or("")));
     text.push_str(&format!(
         "shelf_cart={}\n",
@@ -606,6 +703,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut shader_gba = None;
     let mut shader_gb = None;
     let mut shader_gbc = None;
+    let mut auto_load = None;
     let mut eject_save = None;
     let mut turbo = None;
     let mut rewind = None;
@@ -623,6 +721,8 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut bezel_gbc = None;
     let mut shelf = None;
     let mut shelf_cart = None;
+    let mut kid_mode = None;
+    let mut kid_shelf = None;
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
             continue;
@@ -648,6 +748,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "colour_correction_gb" => colour_correction_gb = flag(value),
             "colour_correction_gbc" => colour_correction_gbc = flag(value),
             "shader_gba" => shader_gba = Shader::parse(value).filter(|s| Shader::GBA.contains(s)),
+            "auto_load" => auto_load = AutoLoad::parse(value),
             "eject_save" => eject_save = flag(value),
             "turbo" => turbo = flag(value),
             "rewind" => rewind = flag(value),
@@ -665,6 +766,8 @@ fn parse(text: &str) -> Option<SlotState> {
             "bezel_gbc" => bezel_gbc = Some(BezelPick::parse(value)),
             "shelf" => shelf = Some(value.to_string()).filter(|v| !v.is_empty()),
             "shelf_cart" => shelf_cart = recent_value(value),
+            "kid_mode" => kid_mode = KidMode::parse(value),
+            "kid_shelf" => kid_shelf = Some(value.to_string()).filter(|v| !v.is_empty()),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             "shader_gbc" => shader_gbc = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             _ => {}
@@ -701,6 +804,7 @@ fn parse(text: &str) -> Option<SlotState> {
         shader_gba: shader_gba.unwrap_or(fallback.shader_gba),
         shader_gb: shader_gb.unwrap_or(fallback.shader_gb),
         shader_gbc: shader_gbc.or(shader_gb).unwrap_or(fallback.shader_gbc),
+        auto_load: auto_load.unwrap_or(fallback.auto_load),
         eject_save: eject_save.unwrap_or(fallback.eject_save),
         turbo: turbo.unwrap_or(fallback.turbo),
         rewind: rewind.unwrap_or(fallback.rewind),
@@ -720,6 +824,8 @@ fn parse(text: &str) -> Option<SlotState> {
         favorites: Vec::new(),
         shelf,
         shelf_cart,
+        kid_mode: kid_mode.unwrap_or(fallback.kid_mode),
+        kid_shelf: kid_shelf.unwrap_or_else(|| fallback.kid_shelf.clone()),
     })
 }
 

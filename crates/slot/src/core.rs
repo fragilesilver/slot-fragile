@@ -227,7 +227,10 @@ pub fn sunlight_at(local_secs: i64) -> u8 {
 
 fn init_options(core: Core) -> &'static [(&'static str, &'static str)] {
     match core {
-        Core::Gambatte => &[("gambatte_gb_bootloader", "enabled")],
+        Core::Gambatte => &[
+            ("gambatte_gb_bootloader", "enabled"),
+            ("gambatte_rumble_level", "10"),
+        ],
         _ => &[],
     }
 }

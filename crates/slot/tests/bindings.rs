@@ -113,7 +113,7 @@ fn y_asks_before_resetting_the_buttons_and_b_keeps_them() {
     assert_eq!(a.in_game_menu(), Some(QuickRow::GameA));
     assert_eq!(a.controls().game(GameButton::A), Binding::plain(Device::X));
     assert_eq!(
-        read_controls(d.path()).game(GameButton::A),
+        slot_store::read_controls_for(d.path(), slot_store::Platform::Gba).game(GameButton::A),
         Binding::plain(Device::X)
     );
 }
@@ -143,7 +143,10 @@ fn a_on_the_reset_prompt_resets_every_button_and_nothing_else() {
     assert!(!a.reset_prompt());
     assert_eq!(a.in_game_menu(), Some(QuickRow::GameA));
     assert_eq!(a.controls(), Controls::default());
-    assert_eq!(read_controls(d.path()), Controls::default());
+    assert_eq!(
+        slot_store::read_controls_for(d.path(), slot_store::Platform::Gba),
+        Controls::default()
+    );
     assert_eq!(read_shortcuts(d.path()), keys);
 }
 
@@ -184,24 +187,31 @@ fn reset_all_on_the_shortcut_and_shelf_pages_resets_only_that_page() {
 }
 
 #[test]
-fn a_change_in_game_is_saved_at_once_for_every_game() {
+fn a_change_in_game_is_saved_for_its_platform_and_leaves_other_platforms_alone() {
     let (d, mut a) = playing("Emerald");
     in_game_at(&mut a, QuickRow::GameA);
     bind(&mut a, &[RawEvent::Down(Btn::X)]);
     assert_eq!(
-        read_controls(d.path()).game(GameButton::A),
+        slot_store::read_controls_for(d.path(), slot_store::Platform::Gba).game(GameButton::A),
         Binding::plain(Device::X)
     );
     write_gb_cart(&d, "Tetris", "TETRIS");
-    for stem in ["Fusion", "Tetris"] {
-        assert_eq!(
-            app_playing_in(d.path(), stem)
-                .controls()
-                .game(GameButton::A),
-            Binding::plain(Device::X),
-            "{stem}"
-        );
-    }
+    // Fusion is GBA, so it has Emerald's GBA controls
+    assert_eq!(
+        app_playing_in(d.path(), "Fusion")
+            .controls()
+            .game(GameButton::A),
+        Binding::plain(Device::X),
+        "Fusion"
+    );
+    // Tetris is Game Boy, so it has default GB controls, unaffected by GBA's remapping
+    assert_eq!(
+        app_playing_in(d.path(), "Tetris")
+            .controls()
+            .game(GameButton::A),
+        Binding::plain(Device::A),
+        "Tetris"
+    );
 }
 
 #[test]

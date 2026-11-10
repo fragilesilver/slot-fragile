@@ -107,8 +107,8 @@ fn core_names_round_trip() {
 #[test]
 fn writing_a_core_creates_the_file_when_absent() {
     let d = root_with(None);
-    slot_store::write_selected_core(d.path(), "Emerald", Core::Gpsp).unwrap();
-    assert_eq!(core_for(d.path(), "Emerald"), Core::Gpsp);
+    slot_store::write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Gpsp).unwrap();
+    assert_eq!(core_for_platform(d.path(), "Emerald", Platform::Gba), Core::Gpsp);
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn writing_a_core_replaces_that_carts_line_and_leaves_the_rest_alone() {
         "Emerald = mgba\n",
         "Metroid Fusion = gpsp\n",
     )));
-    slot_store::write_selected_core(d.path(), "Emerald", Core::Gpsp).unwrap();
+    slot_store::write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Gpsp).unwrap();
 
     let text = std::fs::read_to_string(d.path().join("Config/selected_core.txt")).unwrap();
     assert!(
@@ -130,8 +130,8 @@ fn writing_a_core_replaces_that_carts_line_and_leaves_the_rest_alone() {
         text.contains("Metroid Fusion = gpsp"),
         "another cart's entry was lost"
     );
-    assert_eq!(core_for(d.path(), "Emerald"), Core::Gpsp);
-    assert_eq!(core_for(d.path(), "Metroid Fusion"), Core::Gpsp);
+    assert_eq!(core_for_platform(d.path(), "Emerald", Platform::Gba), Core::Gpsp);
+    assert_eq!(core_for_platform(d.path(), "Metroid Fusion", Platform::Gba), Core::Gpsp);
     assert_eq!(
         text.matches("Emerald").count(),
         1,
@@ -142,16 +142,16 @@ fn writing_a_core_replaces_that_carts_line_and_leaves_the_rest_alone() {
 #[test]
 fn writing_a_core_appends_a_cart_the_file_has_never_seen() {
     let d = root_with(Some("Emerald = gpsp\n"));
-    slot_store::write_selected_core(d.path(), "Drill Dozer", Core::Gpsp).unwrap();
-    assert_eq!(core_for(d.path(), "Emerald"), Core::Gpsp);
-    assert_eq!(core_for(d.path(), "Drill Dozer"), Core::Gpsp);
+    slot_store::write_selected_core(d.path(), Platform::Gba, "Drill Dozer", Core::Gpsp).unwrap();
+    assert_eq!(core_for_platform(d.path(), "Emerald", Platform::Gba), Core::Gpsp);
+    assert_eq!(core_for_platform(d.path(), "Drill Dozer", Platform::Gba), Core::Gpsp);
 }
 
 #[test]
 fn writing_the_default_still_records_it() {
     let d = root_with(Some("Emerald = gpsp\n"));
-    slot_store::write_selected_core(d.path(), "Emerald", Core::Mgba).unwrap();
-    assert_eq!(core_for(d.path(), "Emerald"), Core::Mgba);
+    slot_store::write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Mgba).unwrap();
+    assert_eq!(core_for_platform(d.path(), "Emerald", Platform::Gba), Core::Mgba);
     let text = std::fs::read_to_string(d.path().join("Config/selected_core.txt")).unwrap();
     assert!(text.contains("Emerald = mgba"));
 }
@@ -177,7 +177,7 @@ fn every_platform_defaults_to_its_first_core() {
 #[test]
 fn a_cart_can_ask_for_a_non_default_core_by_hand() {
     let d = tempfile::tempdir().unwrap();
-    write_selected_core(d.path(), "Emerald", Core::Gpsp).unwrap();
+    write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Gpsp).unwrap();
     assert_ne!(Core::default_for(Platform::Gba), Core::Gpsp);
     assert_eq!(
         core_for_platform(d.path(), "Emerald", Platform::Gba),
@@ -188,7 +188,7 @@ fn a_cart_can_ask_for_a_non_default_core_by_hand() {
 #[test]
 fn a_line_naming_a_core_the_platform_cannot_run_is_dropped() {
     let d = tempfile::tempdir().unwrap();
-    write_selected_core(d.path(), "Tetris", Core::Gpsp).unwrap();
+    write_selected_core(d.path(), Platform::Gb, "Tetris", Core::Gpsp).unwrap();
     assert_eq!(
         core_for_platform(d.path(), "Tetris", Platform::Gb),
         Core::Gambatte
@@ -197,6 +197,51 @@ fn a_line_naming_a_core_the_platform_cannot_run_is_dropped() {
         core_for_platform(d.path(), "Tetris", Platform::Gbc),
         Core::Gambatte
     );
+}
+
+#[test]
+fn same_named_games_on_two_systems_keep_their_own_cores() {
+    let d = root_with(None);
+    write_selected_core(d.path(), Platform::Gba, "Harry Potter", Core::Gpsp).unwrap();
+    write_selected_core(d.path(), Platform::Gbc, "Harry Potter", Core::Mgba).unwrap();
+    assert_eq!(
+        core_for_platform(d.path(), "Harry Potter", Platform::Gba),
+        Core::Gpsp
+    );
+    assert_eq!(
+        core_for_platform(d.path(), "Harry Potter", Platform::Gbc),
+        Core::Mgba
+    );
+}
+
+#[test]
+fn a_line_without_a_system_still_counts_for_every_system() {
+    let d = root_with(Some("Harry Potter = mgba\n"));
+    assert_eq!(
+        core_for_platform(d.path(), "Harry Potter", Platform::Gba),
+        Core::Mgba
+    );
+    assert_eq!(
+        core_for_platform(d.path(), "Harry Potter", Platform::Gbc),
+        Core::Mgba
+    );
+}
+
+#[test]
+fn a_line_with_a_system_wins_over_one_without() {
+    let d = root_with(Some("GBC/Harry Potter = gambatte\nHarry Potter = mgba\n"));
+    assert_eq!(
+        core_for_platform(d.path(), "Harry Potter", Platform::Gbc),
+        Core::Gambatte
+    );
+}
+
+#[test]
+fn writing_a_core_moves_a_line_without_a_system_onto_one_with() {
+    let d = root_with(Some("Emerald = mgba\n"));
+    write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Gpsp).unwrap();
+    let text = std::fs::read_to_string(d.path().join("Config/selected_core.txt")).unwrap();
+    assert_eq!(text, "GBA/Emerald = gpsp\n");
 }
 
 // Fragile: three cores, but the board still has two sockets, so no system offers more.

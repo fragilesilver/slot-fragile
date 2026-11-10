@@ -49,8 +49,9 @@ mod shader_settings;
 pub mod shelves;
 pub use extras::{ScreensaverStyle, StartShelf};
 use slot_store::{
-    read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
-    Binding, CarouselKeys, Controls, Device, GameButton, Modifier, ShortcutKeys, LID_OFF_MIN,
+    read_carousel, read_controls, read_controls_for, read_shortcuts, reset_controls_for,
+    write_carousel, write_controls, write_controls_for, write_shortcuts, AutoLoad, Binding,
+    CarouselKeys, Controls, Device, GameButton, KidMode, Modifier, ShortcutKeys, LID_OFF_MIN,
 };
 
 pub const PRESS_A_BUTTON: &str = "Press a button";
@@ -532,6 +533,24 @@ pub struct FaceWant {
     pub on_screen: bool,
 }
 
+extern "C" {
+    fn tzset();
+}
+
+pub fn tell_libc_the_offset(minutes: i16) {
+    let hours = -minutes / 60;
+    let mins = (-minutes % 60).abs();
+    let tz = if mins == 0 {
+        format!("UTC{hours:+}")
+    } else {
+        format!("UTC{hours:+}:{mins:02}")
+    };
+    std::env::set_var("TZ", &tz);
+    unsafe {
+        tzset();
+    }
+}
+
 fn shelves_of(carts: Vec<Cart>) -> Vec<(Rack, Shelf)> {
     let mut rows: Vec<(Rack, Vec<Cart>)> = [Rack::Recents, Rack::Favorites]
         .into_iter()
@@ -746,12 +765,14 @@ impl App {
     pub fn boot_marked(root: &Path, loading: Option<LoadingMark>) -> Self {
         crate::root::ensure(root);
         crate::boot_time::mark("root");
+        let _ = slot_store::sweep_names(root);
         let carts = scan(root).unwrap_or_default();
         crate::boot_time::mark("scan");
         let mut app = App::new(carts);
         app.root = Some(root.to_path_buf());
         app.loading = loading;
         app.state = read_slot_state(root);
+        tell_libc_the_offset(app.state.utc_offset_min);
         app.carousel = read_carousel(root);
         app.shortcuts = read_shortcuts(root);
         app.controls = read_controls(root);
@@ -802,9 +823,9 @@ impl App {
             Some((at, i)) => {
                 self.shelf_at = at;
                 self.shelf_mut().select(i);
-                self.insert(false);
+                self.insert(!self.state.auto_load.at_power_on());
                 if let Phase::Inserting { resumed, t, .. } = &mut self.phase {
-                    *resumed = true;
+                    *resumed = self.state.auto_load.at_power_on();
                     *t = INSERT_S;
                 }
             }
@@ -1037,6 +1058,7 @@ impl App {
             power.set_clock(utc);
         }
         self.state.utc_offset_min = offset as i16;
+        tell_libc_the_offset(self.state.utc_offset_min);
         self.state.clock_set = true;
         self.persist();
         if from_menu {
@@ -1092,6 +1114,14 @@ impl App {
         }
         if self.single_cart() {
             hidden.push(QuickRow::ExitGame);
+        }
+        let valid_buttons = GameButton::of(self.playing_platform());
+        for row in QuickRow::CONTROLS {
+            if let Some(gb) = row.game_button() {
+                if !valid_buttons.contains(&gb) {
+                    hidden.push(row);
+                }
+            }
         }
         if !self.playing_platform().spec().shoulders {
             hidden.extend([QuickRow::GameL, QuickRow::GameR]);
@@ -1304,6 +1334,16 @@ impl App {
             QuickRow::Rumble => Some(QuickValue::flag(self.state.rumble)),
             QuickRow::LeftStick => Some(QuickValue::flag(self.state.left_stick_dpad)),
             QuickRow::EjectSave => Some(QuickValue::flag(self.state.eject_save)),
+            QuickRow::AutoLoad => Some(match self.state.auto_load {
+                AutoLoad::Always => QuickValue::Always,
+                AutoLoad::PowerOn => QuickValue::PowerOn,
+                AutoLoad::Never => QuickValue::Never,
+            }),
+            QuickRow::KidMode => Some(match self.state.kid_mode {
+                KidMode::Off => QuickValue::Off,
+                KidMode::OneShelf => QuickValue::OneShelf,
+                KidMode::Shelves => QuickValue::Shelves,
+            }),
             QuickRow::Turbo => Some(QuickValue::flag(self.state.turbo)),
             QuickRow::Rewind => Some(QuickValue::flag(self.state.rewind)),
             QuickRow::Recents => Some(if self.state.show_recents {
@@ -1929,6 +1969,10 @@ impl App {
         Some(self.shelves[self.shelf_at].0.name())
     }
 
+    pub fn shelf_at(&self) -> usize {
+        self.shelf_at
+    }
+
     pub fn set_battery_percent_face(&mut self, face: TexId, w: u32) {
         self.battery_percent = slot_ui::Printed::new(face, w);
     }
@@ -2063,6 +2107,9 @@ impl App {
 
     pub fn set_platform(&mut self, platform: Platform) {
         self.platform = platform;
+        if let Some(root) = &self.root {
+            self.controls = read_controls_for(root, platform);
+        }
     }
 
     pub fn set_named_core(&mut self, named: bool) {
@@ -2219,11 +2266,17 @@ impl App {
     fn reset_page(&mut self, row: QuickRow) {
         self.reset_prompt = None;
         let (what, written) = if row.game_button().is_some() {
-            self.controls = Controls::default();
             let Some(root) = &self.root else {
                 return;
             };
-            ("controls", write_controls(root, &self.controls))
+            if self.playing() {
+                let _ = reset_controls_for(root, self.platform);
+                self.controls = read_controls(root);
+                ("controls", Ok(()))
+            } else {
+                self.controls = Controls::default();
+                ("controls", write_controls(root, &self.controls))
+            }
         } else if row.shortcut().is_some() {
             self.shortcuts = ShortcutKeys::default();
             let Some(root) = &self.root else {
@@ -2282,7 +2335,11 @@ impl App {
         if let Some(g) = row.game_button() {
             self.controls.set_game(g, binding);
             if let Some(root) = &self.root {
-                let written = write_controls(root, &self.controls);
+                let written = if self.playing() {
+                    write_controls_for(root, self.platform, &self.controls)
+                } else {
+                    write_controls(root, &self.controls)
+                };
                 if let Err(e) = &written {
                     eprintln!("slot: controls: {e}");
                 }
@@ -2837,6 +2894,33 @@ impl App {
         }
         self.track_held_dir(action);
         self.touch_activity();
+        if action == Action::UnlockKidMode {
+            if self.state.kid_mode != KidMode::Off {
+                self.state.kid_mode = KidMode::Off;
+                self.persist();
+            }
+            return;
+        }
+        if self.state.kid_mode != KidMode::Off {
+            if matches!(
+                action,
+                Action::QuickMenu | Action::GameMenu | Action::RepairCard
+            ) {
+                return;
+            }
+        }
+        if self.state.kid_mode == KidMode::OneShelf && self.on_shelf() {
+            if matches!(
+                action,
+                Action::ShelfLeft
+                    | Action::ShelfRight
+                    | Action::PreviousShelf
+                    | Action::NextShelf
+                    | Action::GbaDown(Btn::L1 | Btn::R1 | Btn::L2 | Btn::R2)
+            ) {
+                return;
+            }
+        }
         match action {
             Action::LidClose => return self.doze(),
             Action::LidOpen => return self.wake(),
@@ -2934,28 +3018,28 @@ impl App {
         let now = self.now();
         match self.phase {
             Phase::Shelf => match action {
-                Action::GbaDown(Btn::Start) if self.core_picker.is_none() => {
+                Action::GbaDown(Btn::Start) if self.core_picker.is_none() && self.state.kid_mode == KidMode::Off => {
                     self.open_core_picker()
                 }
                 _ if self.core_picker.is_some() => self.core_picker_input(action),
-                Action::PreviousShelf => self.switch_shelf(-1),
-                Action::NextShelf => self.switch_shelf(1),
-                Action::Favorite => self.toggle_favorite(),
-                Action::ForgetRecent if self.shelf_at == RECENTS_AT => self.forget_recent(),
+                Action::PreviousShelf if self.state.kid_mode != KidMode::OneShelf => self.switch_shelf(-1),
+                Action::NextShelf if self.state.kid_mode != KidMode::OneShelf => self.switch_shelf(1),
+                Action::Favorite if self.state.kid_mode == KidMode::Off => self.toggle_favorite(),
+                Action::ForgetRecent if self.shelf_at == RECENTS_AT && self.state.kid_mode == KidMode::Off => self.forget_recent(),
                 Action::GbaDown(Btn::Up) => self.jump_letter(-1),
                 Action::GbaDown(Btn::Down) => self.jump_letter(1),
                 Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.shelf_mut().hold_left(now),
                 Action::ShelfRight | Action::GbaDown(Btn::Right) => {
                     self.shelf_mut().hold_right(now)
                 }
-                Action::QuickMenu => self.open_quick_menu(),
+                Action::QuickMenu if self.state.kid_mode == KidMode::Off => self.open_quick_menu(),
                 Action::GbaDown(Btn::A) => self.play_held = Some(now),
                 Action::GbaUp(Btn::A) => {
                     if self.play_held.take().is_some() {
-                        self.insert(!self.state.eject_save);
+                        self.insert(!self.state.auto_load.on_insert());
                     }
                 }
-                Action::Insert => self.insert(!self.state.eject_save),
+                Action::Insert => self.insert(!self.state.auto_load.on_insert()),
                 _ => {}
             },
             Phase::Inserting { .. } if action == Action::Eject => self.eject(),
@@ -3330,6 +3414,8 @@ impl App {
             | QuickRow::MotionBlur
             | QuickRow::ThisScaling
             | QuickRow::ThisCardShader
+            | QuickRow::AutoLoad
+            | QuickRow::KidMode
             | QuickRow::WebDashboard => {}
         }
     }
@@ -3469,6 +3555,8 @@ impl App {
             QuickRow::Rumble => s.rumble = !s.rumble,
             QuickRow::LeftStick => s.left_stick_dpad = !s.left_stick_dpad,
             QuickRow::EjectSave => s.eject_save = !s.eject_save,
+            QuickRow::AutoLoad => s.auto_load = s.auto_load.step(right),
+            QuickRow::KidMode => s.kid_mode = s.kid_mode.step(right),
             QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
             QuickRow::GbPalettes => s.gb_palettes = !s.gb_palettes,
@@ -5594,12 +5682,13 @@ impl App {
             return;
         }
         let at = self.shelf().index;
-        let Some(cart) = self.shelf_mut().carts.get_mut(at).map(|c| {
+        let Some((cart, platform)) = self.shelf_mut().carts.get_mut(at).map(|c| {
             c.read_header();
-            c.stem.clone()
+            (c.stem.clone(), c.platform)
         }) else {
             return;
         };
+        self.set_platform(platform);
         eprintln!(
             "slot: launch: insert {cart} at {:.1} ms",
             crate::boot_time::ms()
@@ -5657,6 +5746,9 @@ impl App {
         self.close_game_menu();
         self.shut_guide();
         self.flush_eject(&cart);
+        if let Some(root) = &self.root {
+            self.controls = read_controls(root);
+        }
         self.pending = None;
         self.refusal = None;
         self.refused_from = None;
@@ -6267,7 +6359,7 @@ impl App {
         ) else {
             return;
         };
-        if let Err(e) = slot_store::write_selected_core(&root, &cart.stem, core) {
+        if let Err(e) = slot_store::write_selected_core(&root, cart.platform, &cart.stem, core) {
             eprintln!("slot: core: could not write selected_core.txt: {e}");
         }
     }

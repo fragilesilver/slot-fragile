@@ -2,6 +2,33 @@
 
 ## [1.9.6](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.6)
 
+- Per-System Controller Rebinding:
+  - In-game controller settings now persist per-system configuration files (`Config/controls_<platform>.txt`, e.g., `controls_gba.txt`, `controls_snes.txt`), keeping remapped controls isolated to that system without altering global defaults or affecting other platforms.
+  - In-game controller settings menu dynamically filters rows to only display buttons native to the playing platform (e.g., L/R/X/Y hidden on Game Boy and Game Boy Color).
+  - Shelf/Main Menu continues configuring the global default controls (`Config/controls.txt`), used as a fallback for any system without a dedicated override.
+  - Resetting controls in-game cleanly removes the system override and restores the global configuration.
+- Auto Load State:
+  - Added `Auto Load State` setting in the Game Quick Menu with `Always`, `Power On`, and `Never` modes.
+  - `Always`: Automatically restores the latest save state on every cartridge launch.
+  - `Power On`: Automatically loads state only when resuming a seated cartridge directly at device boot; launching carts from the shelf boots cleanly to the title screen.
+  - `Never`: Always boots cleanly to the title screen.
+- Emulation Real-Time Clock (RTC) Local Timezone:
+  - Automatically exports the handheld's configured local UTC offset to libc's POSIX `TZ` environment string and invokes `tzset()`.
+  - Ensures libretro cores (mGBA, Gambatte, DSperate) read authentic local time for games with time-of-day mechanics and day/night cycles (*Pokémon*, *Boktai*, *Animal Crossing*) without modifying the host root filesystem.
+- Per-System Core Disambiguation:
+  - Enhanced `Config/selected_core.txt` to format entries as `<Platform>/<stem> = <core>` with graceful fallback to bare stems.
+  - Prevents multi-platform games sharing identical titles or filenames from colliding or overwriting each other's core assignments.
+- Gambatte Rumble & Audio Wave RAM Centering:
+  - Configures `gambatte_rumble_level = 10` before initialization, enabling tactile rumble support for Game Boy rumble games (*Pokémon Pinball*, *Star Wars Episode I: Racer*).
+  - Wave RAM DC offset centering to preserve pristine audio playback on handheld speaker hardware.
+- Kid Mode Lockdown:
+  - Added `Kid Mode` under General Settings with `Off`, `One Shelf`, and `Shelves` modes.
+  - Restricts access to the Quick Menu, in-game menu, core selection, cartridge deletion, and card repair to safeguard handheld state.
+  - `One Shelf`: Restricts gameplay to carts on the active shelf and locks shelf switching.
+  - `Shelves`: Allows switching between game shelves while keeping settings and system menus locked.
+  - Emergency hardware unlock chord: Pressing `Start + Select + L2 + R2` simultaneously instantly unlocks Kid Mode.
+- SD Card ROM Filename Sanitizer:
+  - Added boot-time sanitization sweep (`sweep_names`) that inspects ROM directories on startup and renames filenames with invalid trailing dots or whitespace across ROM files, `.sav` save files, and `.png` cart art labels.
 - Nintendo DS Core Upgrade (DSperate v3.4.1):
   - Upgraded DSperate core to upstream v3.4.1, incorporating incremental VRAMCNT page remapping to eliminate frame stutters during scene transitions and inventory fades (e.g., *Dragon Quest IX*), ARM7 wake-wait sleep fix (e.g., *New Super Mario Bros.*), authentic NDS Phat / NDS Lite colour profiles, fast CPU timing, and multi-threaded 3D geometry rendering with asynchronous command FIFO queue.
   - Zero-copy ROM loading (`need_fullpath = true`) bypassing full ROM memory duplication for fast startup.

@@ -208,6 +208,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             shader_gba: Shader::Grid,
             shader_gb: Shader::Simpletex,
             shader_gbc: Shader::Simpletex,
+            auto_load: slot_store::AutoLoad::Always,
             eject_save: true,
             turbo: true,
             rewind: true,
@@ -227,6 +228,8 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             favorites: Vec::new(),
             shelf: None,
             shelf_cart: None,
+            kid_mode: slot_store::KidMode::Off,
+            kid_shelf: slot_store::KID_SHELF_ALL.to_string(),
         }
     );
 }
