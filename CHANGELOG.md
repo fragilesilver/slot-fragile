@@ -1,7 +1,14 @@
 # Changelog
 
-## [1.9.6](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.6)
+## [1.9.7](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.7)
 
+- Nintendo DS Core Upgrade (DSperate v3.4.1):
+  - Upgraded DSperate core to upstream v3.4.1, incorporating incremental VRAMCNT page remapping to eliminate frame stutters during scene transitions and inventory fades (e.g., *Dragon Quest IX*), ARM7 wake-wait sleep fix (e.g., *New Super Mario Bros.*), authentic NDS Phat / NDS Lite colour profiles, fast CPU timing, and multi-threaded 3D geometry rendering with asynchronous command FIFO queue.
+  - Zero-copy ROM loading (`need_fullpath = true`) bypassing full ROM memory duplication for fast startup.
+  - Firmware dump size validation and resilient FreeBIOS fallback: detects corrupted or non-standard firmware dumps (restricting valid dumps strictly to 128 KB, 256 KB, or 512 KB) and automatically falls back to clean FreeBIOS execution rather than hard-freezing.
+  - Slot-2 hardware emulation: adds GBA cartridge passthrough and Rumble Pak simulation support.
+  - Accurate CPAD analog controls with game-specific analog sensitivity curves and database lookup.
+  - SRAM / Save pre-seeding: automatically sizes initial flash memory arrays to existing `.sav`/`.srm` files to eliminate save-truncation across emulator cores.
 - Per-System Controller Rebinding:
   - In-game controller settings now persist per-system configuration files (`Config/controls_<platform>.txt`, e.g., `controls_gba.txt`, `controls_snes.txt`), keeping remapped controls isolated to that system without altering global defaults or affecting other platforms.
   - In-game controller settings menu dynamically filters rows to only display buttons native to the playing platform (e.g., L/R/X/Y hidden on Game Boy and Game Boy Color).
@@ -29,13 +36,9 @@
   - Emergency hardware unlock chord: Pressing `Start + Select + L2 + R2` simultaneously instantly unlocks Kid Mode.
 - SD Card ROM Filename Sanitizer:
   - Added boot-time sanitization sweep (`sweep_names`) that inspects ROM directories on startup and renames filenames with invalid trailing dots or whitespace across ROM files, `.sav` save files, and `.png` cart art labels.
-- Nintendo DS Core Upgrade (DSperate v3.4.1):
-  - Upgraded DSperate core to upstream v3.4.1, incorporating incremental VRAMCNT page remapping to eliminate frame stutters during scene transitions and inventory fades (e.g., *Dragon Quest IX*), ARM7 wake-wait sleep fix (e.g., *New Super Mario Bros.*), authentic NDS Phat / NDS Lite colour profiles, fast CPU timing, and multi-threaded 3D geometry rendering with asynchronous command FIFO queue.
-  - Zero-copy ROM loading (`need_fullpath = true`) bypassing full ROM memory duplication for fast startup.
-  - Firmware dump size validation and resilient FreeBIOS fallback: detects corrupted or non-standard firmware dumps (restricting valid dumps strictly to 128 KB, 256 KB, or 512 KB) and automatically falls back to clean FreeBIOS execution rather than hard-freezing.
-  - Slot-2 hardware emulation: adds GBA cartridge passthrough and Rumble Pak simulation support.
-  - Accurate CPAD analog controls with game-specific analog sensitivity curves and database lookup.
-  - SRAM / Save pre-seeding: automatically sizes initial flash memory arrays to existing `.sav`/`.srm` files to eliminate save-truncation across emulator cores.
+
+## [1.9.6](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.6)
+
 - NDS Stylus & Analog Stick Navigation:
   - Dual Analog Stick & D-Pad Stylus Navigation: Left Analog Stick or Right Analog Stick smoothly navigates the virtual touchscreen stylus, with physical stick clicks (**L3** or **R3**) triggering touch tap and hold-to-drag.
   - Coexists with **Hold L2 + D-Pad** (with **R2** tap/drag) for classic D-Pad touch control.
