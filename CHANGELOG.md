@@ -2,8 +2,8 @@
 
 ## [1.9.6](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.6)
 
-- Nintendo DS Core Upgrade (DSperate v3.3.0+):
-  - Upgraded DSperate core to upstream v3.3.0+, incorporating multi-threaded 3D geometry and rendering with asynchronous command FIFO queue for smoother 3D framerates.
+- Nintendo DS Core Upgrade (DSperate v3.4.1):
+  - Upgraded DSperate core to upstream v3.4.1, incorporating incremental VRAMCNT page remapping to eliminate frame stutters during scene transitions and inventory fades (e.g., *Dragon Quest IX*), ARM7 wake-wait sleep fix (e.g., *New Super Mario Bros.*), authentic NDS Phat / NDS Lite colour profiles, fast CPU timing, and multi-threaded 3D geometry rendering with asynchronous command FIFO queue.
   - Zero-copy ROM loading (`need_fullpath = true`) bypassing full ROM memory duplication for fast startup.
   - Firmware dump size validation and resilient FreeBIOS fallback: detects corrupted or non-standard firmware dumps (restricting valid dumps strictly to 128 KB, 256 KB, or 512 KB) and automatically falls back to clean FreeBIOS execution rather than hard-freezing.
   - Slot-2 hardware emulation: adds GBA cartridge passthrough and Rumble Pak simulation support.
