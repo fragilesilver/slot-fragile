@@ -98,6 +98,14 @@ fn a_bios_on_the_card_needs_no_note() {
     assert_eq!(a.toast(), None);
 }
 
+#[test]
+fn an_nds_game_with_no_bios_does_not_note_built_in_bios() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.core_opened(Platform::Nds, true);
+    assert_eq!(a.toast(), None);
+}
+
 /// A mock core with three discs.
 struct Discs {
     inner: MockCore,

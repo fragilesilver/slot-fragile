@@ -36,6 +36,11 @@
   - Emergency hardware unlock chord: Pressing `Start + Select + L2 + R2` simultaneously instantly unlocks Kid Mode.
 - SD Card ROM Filename Sanitizer:
   - Added boot-time sanitization sweep (`sweep_names`) that inspects ROM directories on startup and renames filenames with invalid trailing dots or whitespace across ROM files, `.sav` save files, and `.png` cart art labels.
+- RetroAchievements PlayStation CHD Reader Hardening:
+  - Enforced C-compatible struct representation (`#[repr(C)]`) for custom CHD track iterators and added pointer alignment validation, preventing memory misalignment and `SIGBUS` faults during background RetroAchievements disc hashing of `.chd` games.
+  - Safely handles corrupt or unreadable CHD files during track iteration by returning null instead of delegating to mismatched raw disc parsers.
+- PlayStation BIOS Toast Scoping:
+  - Scoped the `"Built-in BIOS: add scph5501.bin"` notification toast strictly to PlayStation cartridges, ensuring Nintendo DS and other systems with optional BIOS specifications never display PlayStation BIOS reminders.
 
 ## [1.9.6](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.6)
 

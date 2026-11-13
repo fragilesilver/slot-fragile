@@ -24,7 +24,10 @@ impl App {
         let Some(root) = self.root() else {
             return;
         };
-        if !named || crate::discs::has_bios(root, platform) != Some(false) {
+        if platform != Platform::PlayStation
+            || !named
+            || crate::discs::has_bios(root, platform) != Some(false)
+        {
             return;
         }
         let key = format!("{BIOS_NOTED}.{}", platform.key());

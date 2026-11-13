@@ -26,8 +26,9 @@ build() {
 	work="$2"
 	out="$3"
 
-	# Locate DSperate source tree (sibling project or vendored)
-	src="/home/fragkicul/Work/MustardOS/projects/DSperate"
+	# Locate DSperate source tree: Fragile's own clone (branch fragile-v3.4.1),
+	# kept apart from projects/DSperate, which the muOS packaging uses
+	src="${DSPERATE_SRC:-/home/fragkicul/Work/MustardOS/projects/DSperate-fragile}"
 	if [ ! -d "$src" ]; then
 		echo "DSperate source directory not found at $src" >&2
 		exit 1

@@ -11,8 +11,8 @@ use crate::ffi;
 
 const CHD_MAGIC: u64 = 0x4348445F534C4F54; // "CHD_SLOT"
 
+#[repr(C)]
 struct ChdTrack {
-    #[allow(dead_code)]
     magic: u64,
     reader: ChdReader<File>,
     unit_bytes: u32,
@@ -97,6 +97,7 @@ unsafe extern "C" fn chd_open_track_iterator(
                 return Box::into_raw(chd_track) as *mut c_void;
             }
         }
+        return std::ptr::null_mut();
     }
 
     // Fall back to default cdreader
@@ -123,7 +124,9 @@ unsafe extern "C" fn chd_read_sector(
     }
 
     // Check if this is our CHD handle
-    if *(track_handle as *const u64) == CHD_MAGIC {
+    if (track_handle as usize) % std::mem::align_of::<u64>() == 0
+        && *(track_handle as *const u64) == CHD_MAGIC
+    {
         let track = &mut *(track_handle as *mut ChdTrack);
         let mut total_read = 0;
         let mut cur_sector = sector;
@@ -166,7 +169,9 @@ unsafe extern "C" fn chd_close_track(track_handle: *mut c_void) {
         return;
     }
 
-    if *(track_handle as *const u64) == CHD_MAGIC {
+    if (track_handle as usize) % std::mem::align_of::<u64>() == 0
+        && *(track_handle as *const u64) == CHD_MAGIC
+    {
         let _ = Box::from_raw(track_handle as *mut ChdTrack);
         return;
     }
@@ -183,7 +188,9 @@ unsafe extern "C" fn chd_first_track_sector(track_handle: *mut c_void) -> u32 {
         return 0;
     }
 
-    if *(track_handle as *const u64) == CHD_MAGIC {
+    if (track_handle as usize) % std::mem::align_of::<u64>() == 0
+        && *(track_handle as *const u64) == CHD_MAGIC
+    {
         return 0;
     }
 
@@ -194,4 +201,14 @@ unsafe extern "C" fn chd_first_track_sector(track_handle: *mut c_void) -> u32 {
     }
 
     0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chd_track_starts_with_magic() {
+        assert_eq!(std::mem::offset_of!(ChdTrack, magic), 0);
+    }
 }

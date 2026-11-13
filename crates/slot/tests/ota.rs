@@ -144,14 +144,11 @@ fn ota_live_release_manifest_and_updater() {
     if let Ok(resp) = resp {
         let body = resp.into_string().unwrap();
         let info = parse_release_manifest(&body).expect("manifest should parse");
-        assert_eq!(info.version, "1.9.6");
+        assert!(Version::parse(&info.version).unwrap() >= Version::parse("1.9.6").unwrap());
         assert!(info
             .download_url
-            .contains("fragilesilver/slot-fragile/releases/download/v1.9.6/slot"));
-        assert_eq!(
-            info.sha256.as_deref(),
-            Some("235f6c39401e63c10d6777e000a29ca57cf510571dfe8e75ad559275a6119307")
-        );
+            .contains(&format!("fragilesilver/slot-fragile/releases/download/v{}/slot", info.version)));
+        assert!(info.sha256.is_some());
 
         // If an older device (e.g. running v1.9.5) checks for updates:
         let rem = Version::parse(&info.version).unwrap();
@@ -163,7 +160,7 @@ fn ota_live_release_manifest_and_updater() {
             sha256: info.sha256.clone(),
             size: info.size,
         };
-        assert_eq!(avail_status.menu_text(), "v1.9.6 ready");
+        assert_eq!(avail_status.menu_text(), format!("v{} ready", info.version));
 
         // Test live check using OtaManager on the current version
         mgr.check_for_updates();

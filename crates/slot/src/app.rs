@@ -1115,14 +1115,6 @@ impl App {
         if self.single_cart() {
             hidden.push(QuickRow::ExitGame);
         }
-        let valid_buttons = GameButton::of(self.playing_platform());
-        for row in QuickRow::CONTROLS {
-            if let Some(gb) = row.game_button() {
-                if !valid_buttons.contains(&gb) {
-                    hidden.push(row);
-                }
-            }
-        }
         if !self.playing_platform().spec().shoulders {
             hidden.extend([QuickRow::GameL, QuickRow::GameR]);
         }
