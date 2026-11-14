@@ -64,6 +64,16 @@ impl Version {
     }
 }
 
+impl std::fmt::Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.rev > 0 {
+            write!(f, "{}.{}.{}.{}", self.major, self.minor, self.patch, self.rev)
+        } else {
+            write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+        }
+    }
+}
+
 /// Metadata describing an available update.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UpdateInfo {
@@ -408,6 +418,36 @@ pub fn extract_sha256_from_text(text: &str) -> Option<String> {
     None
 }
 
+/// Returns the SHA-256 checksum of the local slot binary if available.
+/// First checks `System/slot.sha256`; falls back to computing SHA-256 of `System/slot`.
+pub fn get_local_slot_sha(root: &Path) -> Option<String> {
+    let sha_path = root.join("System/slot.sha256");
+    if let Ok(content) = fs::read_to_string(&sha_path) {
+        if let Some(sha) = extract_sha256_from_text(&content) {
+            return Some(sha);
+        }
+    }
+
+    let binary_path = root.join("System/slot");
+    if !binary_path.exists() {
+        return None;
+    }
+
+    let mut file = File::open(&binary_path).ok()?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; CHUNK_SIZE];
+    loop {
+        let n = file.read(&mut buf).ok()?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    let digest = to_hex(&hasher.finalize());
+    let _ = fs::write(&sha_path, format!("{digest}  slot\n"));
+    Some(digest)
+}
+
 /// Thread-safe manager handling background update checks and downloads.
 pub struct OtaManager {
     root: PathBuf,
@@ -447,6 +487,7 @@ impl OtaManager {
         let status = Arc::clone(&self.status);
         let cancel = Arc::clone(&self.cancel);
         let target = self.target.clone();
+        let root = self.root.clone();
 
         thread::spawn(move || {
             let result = Self::run_check(&target, &cancel);
@@ -458,7 +499,17 @@ impl OtaManager {
                 Ok(Some(info)) => {
                     let cur = Version::current();
                     let rem = Version::parse(&info.version).unwrap_or_default();
-                    if rem > cur {
+                    let local_sha = get_local_slot_sha(&root);
+                    let sha_differs = match (&info.sha256, &local_sha) {
+                        (Some(rem_sha), Some(loc_sha)) => {
+                            !rem_sha.is_empty()
+                                && !loc_sha.is_empty()
+                                && rem_sha.trim().to_ascii_lowercase()
+                                    != loc_sha.trim().to_ascii_lowercase()
+                        }
+                        _ => false,
+                    };
+                    if rem > cur || (rem == cur && sha_differs) {
                         *st = OtaStatus::Available {
                             version: info.version,
                             url: info.download_url,
@@ -677,6 +728,13 @@ impl OtaManager {
         // Atomically rename to slot.new
         fs::rename(&download_path, &stage_path)
             .map_err(|e| format!("Failed to stage slot.new: {e}"))?;
+
+        // Stage slot.sha256.new alongside slot.new
+        let sha_download_path = sys_dir.join("slot.sha256.download");
+        let sha_stage_path = sys_dir.join("slot.sha256.new");
+        if fs::write(&sha_download_path, format!("{computed_sha}  slot\n")).is_ok() {
+            let _ = fs::rename(&sha_download_path, &sha_stage_path);
+        }
 
         // Sync to flash storage
         #[cfg(unix)]

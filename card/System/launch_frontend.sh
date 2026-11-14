@@ -26,6 +26,7 @@ if [ -f "$SYS/slot.new" ]; then
 	chmod +x "$SYS/slot.new" 2>/dev/null
 	cp -f "$SYS/slot" "$SYS/slot.bak" 2>/dev/null
 	mv -f "$SYS/slot.new" "$SYS/slot"
+	[ -f "$SYS/slot.sha256.new" ] && mv -f "$SYS/slot.sha256.new" "$SYS/slot.sha256"
 	for newcore in "$SYS"/*.so.new; do
 		[ -f "$newcore" ] || continue
 		base="$(basename "$newcore" .new)"

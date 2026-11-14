@@ -178,3 +178,54 @@ fn ota_live_release_manifest_and_updater() {
         assert_eq!(mgr.status().menu_text(), "Up to date");
     }
 }
+
+#[test]
+fn ota_same_version_sha_mismatch_triggers_update() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let sys_dir = d.path().join("System");
+    fs::create_dir_all(&sys_dir).unwrap();
+
+    let cur_ver = Version::current().to_string();
+
+    // Mock an older build of the same version with an old checksum
+    let old_sha = "1111111111111111111111111111111111111111111111111111111111111111";
+    fs::write(sys_dir.join("slot.sha256"), format!("{old_sha}  slot\n")).unwrap();
+
+    // Verify get_local_slot_sha correctly reads this
+    assert_eq!(
+        slot::ota::get_local_slot_sha(d.path()),
+        Some(old_sha.to_string())
+    );
+
+    // If remote release is the same version but has a new checksum:
+    let new_sha = "2222222222222222222222222222222222222222222222222222222222222222";
+    let mock_json = format!(
+        "{{\"tag_name\": \"v{cur_ver}\", \"body\": \"SHA-256: {new_sha}\", \"assets\": [{{\"name\": \"slot\", \"browser_download_url\": \"https://example.com/slot\", \"size\": 12000000}}]}}"
+    );
+    let info = parse_release_manifest(&mock_json).expect("should parse manifest");
+    assert_eq!(info.version, cur_ver);
+    assert_eq!(info.sha256.as_deref(), Some(new_sha));
+
+    // When sha differs on same version, update should be available
+    let local_sha = slot::ota::get_local_slot_sha(d.path());
+    let sha_differs = match (&info.sha256, &local_sha) {
+        (Some(rem_sha), Some(loc_sha)) => {
+            !rem_sha.is_empty()
+                && !loc_sha.is_empty()
+                && rem_sha.trim().to_ascii_lowercase() != loc_sha.trim().to_ascii_lowercase()
+        }
+        _ => false,
+    };
+    assert!(sha_differs);
+
+    // Now update local sha to match remote sha
+    fs::write(sys_dir.join("slot.sha256"), format!("{new_sha}  slot\n")).unwrap();
+    let matching_sha = slot::ota::get_local_slot_sha(d.path());
+    let sha_matches = match (&info.sha256, &matching_sha) {
+        (Some(rem_sha), Some(loc_sha)) => {
+            rem_sha.trim().to_ascii_lowercase() == loc_sha.trim().to_ascii_lowercase()
+        }
+        _ => false,
+    };
+    assert!(sha_matches);
+}

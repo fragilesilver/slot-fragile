@@ -2034,6 +2034,7 @@ pub struct QuickMenuFaces {
     pub descriptions: Vec<Option<(TexId, u32, u32)>>,
 }
 
+#[derive(Clone, Copy)]
 pub struct QuickMenu<'a> {
     pub row: QuickRow,
     pub hidden: &'a [QuickRow],
@@ -2063,6 +2064,25 @@ pub struct QuickMenu<'a> {
     pub footer_top: f32,
     pub canvas: Canvas,
     pub time_ms: u64,
+}
+
+fn scroll_offset(excess: f32, time_ms: u64) -> f32 {
+    if excess <= 0.0 {
+        return 0.0;
+    }
+    let travel_ms = (excess / 40.0 * 1000.0) as u64;
+    let pause_ms = 1200u64;
+    let cycle_ms = (pause_ms * 2 + travel_ms * 2).max(1);
+    let phase = time_ms % cycle_ms;
+    if phase < pause_ms {
+        0.0
+    } else if phase < pause_ms + travel_ms {
+        ((phase - pause_ms) as f32 / travel_ms as f32) * excess
+    } else if phase < pause_ms * 2 + travel_ms {
+        excess
+    } else {
+        (1.0 - ((phase - pause_ms * 2 - travel_ms) as f32 / travel_ms as f32)) * excess
+    }
 }
 
 impl QuickMenu<'_> {
@@ -2168,6 +2188,14 @@ impl QuickMenu<'_> {
                 } else {
                     let clip_w = (right + pad - safe_left).max(20.0).min(w as f32);
                     let vx = right + pad - clip_w;
+                    let excess = (w as f32 - clip_w).max(0.0);
+                    let should_scroll = lit || row == QuickRow::Update;
+                    let scroll_px = if should_scroll {
+                        scroll_offset(excess, self.time_ms)
+                    } else {
+                        0.0
+                    };
+                    let u_x = scroll_px / w as f32;
                     let u_w = clip_w / w as f32;
                     out.push(Draw::Part {
                         x: vx,
@@ -2176,7 +2204,7 @@ impl QuickMenu<'_> {
                         h: h as f32,
                         tex,
                         alpha: 1.0,
-                        uv: [0.0, 0.0, u_w, 1.0],
+                        uv: [u_x, 0.0, u_w, 1.0],
                     });
                 }
                 continue;
@@ -2198,20 +2226,7 @@ impl QuickMenu<'_> {
                 push(out, left_tex, lx, y, lw, lh);
                 let excess = (w as f32 - clip_w).max(0.0);
                 if excess > 0.0 {
-                    let travel_ms = (excess / 40.0 * 1000.0) as u64;
-                    let pause_ms = 1200u64;
-                    let cycle_ms = (pause_ms * 2 + travel_ms * 2).max(1);
-                    let phase = self.time_ms % cycle_ms;
-                    let scroll_px = if phase < pause_ms {
-                        0.0
-                    } else if phase < pause_ms + travel_ms {
-                        ((phase - pause_ms) as f32 / travel_ms as f32) * excess
-                    } else if phase < pause_ms * 2 + travel_ms {
-                        excess
-                    } else {
-                        (1.0 - ((phase - pause_ms * 2 - travel_ms) as f32 / travel_ms as f32))
-                            * excess
-                    };
+                    let scroll_px = scroll_offset(excess, self.time_ms);
                     let u_x = scroll_px / w as f32;
                     let u_w = clip_w / w as f32;
                     out.push(Draw::Part {

@@ -802,3 +802,103 @@ fn long_value_is_clipped_and_marquee_scrolled() {
         "At time 2000ms, uv scroll offset should be > 0.0 (scrolling)"
     );
 }
+
+#[test]
+fn quick_menu_update_row_overflow_scrolls_marquee() {
+    use slot_gfx::Draw;
+    use slot_ui::{Canvas, FacePair, QuickMenu, QuickMenuFaces, TexId};
+
+    let id = TexId::from_raw;
+    let faces = QuickMenuFaces {
+        labels: QuickRow::ALL
+            .iter()
+            .map(|_| [(id(10), 200, 30), (id(11), 200, 30)])
+            .collect(),
+        pointer: (id(20), 10, 10),
+        values: vec![[(id(30), 50, 30), (id(31), 50, 30)]],
+        carets: [(id(40), 12, 20), (id(41), 12, 20)],
+        scroll: [(id(50), 10, 10), (id(51), 10, 10)],
+        legend: [(id(60), 50); 8],
+        legend_light: [(id(60), 50); 8],
+        descriptions: vec![None; QuickRow::ALL.len()],
+    };
+
+    // A long named value for QuickRow::Update (e.g. 380px wide) representing "Downloading 85%".
+    let named_pair: FacePair = [(id(100), 380, 30), (id(101), 380, 30)];
+    let named: Vec<Option<FacePair>> = QuickRow::ALL
+        .iter()
+        .map(|r| {
+            if *r == QuickRow::Update {
+                Some(named_pair)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // 1. When Update is lit (selected)
+    let mut out_lit_t0 = Vec::new();
+    let menu_lit_t0 = QuickMenu {
+        row: QuickRow::Update,
+        hidden: &[],
+        values: [None; QuickRow::ALL.len()],
+        clock: None,
+        wallpaper: None,
+        faces: Some(&faces),
+        ground: None,
+        palette: None,
+        gba_bezel: None,
+        gb_bezel: None,
+        gbc_bezel: None,
+        nes_bezel: None,
+        snes_bezel: None,
+        ps1_bezel: None,
+        nds_bezel: None,
+        bezel: None,
+        bound: None,
+        named: Some(&named),
+        description: None,
+        over_game: false,
+        footer_legends: true,
+        footer_top: 480.0,
+        canvas: Canvas { w: 640.0, h: 480.0 },
+        time_ms: 0,
+    };
+    menu_lit_t0.draw(&mut out_lit_t0);
+    let part_lit_t0 = out_lit_t0
+        .iter()
+        .find_map(|d| match d {
+            Draw::Part { uv, .. } => Some(*uv),
+            _ => None,
+        })
+        .expect("Draw::Part should be emitted for overflowing Update row");
+    assert_eq!(part_lit_t0[0], 0.0);
+
+    let mut out_lit_t2 = Vec::new();
+    let mut menu_lit_t2 = menu_lit_t0;
+    menu_lit_t2.time_ms = 2000;
+    menu_lit_t2.draw(&mut out_lit_t2);
+    let part_lit_t2 = out_lit_t2
+        .iter()
+        .find_map(|d| match d {
+            Draw::Part { uv, .. } => Some(*uv),
+            _ => None,
+        })
+        .expect("Draw::Part should be emitted for overflowing Update row");
+    assert!(part_lit_t2[0] > 0.0, "Update row when lit must scroll at time 2000ms");
+
+    // 2. When Update is NOT lit (e.g. selection is on GameArt right next to it), it should still scroll!
+    let mut out_unlit_t2 = Vec::new();
+    let mut menu_unlit_t2 = menu_lit_t0;
+    menu_unlit_t2.row = QuickRow::GameArt;
+    menu_unlit_t2.time_ms = 2000;
+    menu_unlit_t2.draw(&mut out_unlit_t2);
+    let part_unlit_t2 = out_unlit_t2
+        .iter()
+        .find_map(|d| match d {
+            Draw::Part { uv, .. } => Some(*uv),
+            _ => None,
+        })
+        .expect("Draw::Part should be emitted for overflowing Update row");
+    assert!(part_unlit_t2[0] > 0.0, "Update row when unlit must still scroll so status is readable");
+}

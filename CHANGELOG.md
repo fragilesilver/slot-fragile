@@ -41,6 +41,12 @@
   - Safely handles corrupt or unreadable CHD files during track iteration by returning null instead of delegating to mismatched raw disc parsers.
 - PlayStation BIOS Toast Scoping:
   - Scoped the `"Built-in BIOS: add scph5501.bin"` notification toast strictly to PlayStation cartridges, ensuring Nintendo DS and other systems with optional BIOS specifications never display PlayStation BIOS reminders.
+- Over-The-Air (OTA) Same-Version Force Update:
+  - Enabled OTA updater to detect when a remote build shares the same version number but has an updated SHA-256 checksum. If the remote checksum differs from the local binary, the update is offered as available, allowing in-place updates for iterative fixes.
+  - Automatically stages `slot.sha256.new` alongside `slot.new` during download, handed over atomically by `launch_frontend.sh` on reboot.
+- Quick Menu Scrolling Marquee Animation:
+  - Enabled smooth scrolling marquee animation for overflowing text values on `System Update` and all action/binding rows in the Quick Menu.
+  - Long status strings like `"Downloading 85%"`, `"Up to date"`, `"v1.9.7 ready"`, or `"Restart to apply"` scroll continuously across the screen even when focused on other rows in the Network menu.
 
 ## [1.9.6](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.6)
 
