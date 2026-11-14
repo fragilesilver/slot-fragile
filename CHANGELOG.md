@@ -41,6 +41,10 @@
   - Safely handles corrupt or unreadable CHD files during track iteration by returning null instead of delegating to mismatched raw disc parsers.
 - PlayStation BIOS Toast Scoping:
   - Scoped the `"Built-in BIOS: add scph5501.bin"` notification toast strictly to PlayStation cartridges, ensuring Nintendo DS and other systems with optional BIOS specifications never display PlayStation BIOS reminders.
+- Nintendo DS Cartridge Shell & Label Alignment:
+  - Authentic cartridge geometry: accurately renders the NTR-005 cartridge shell with the stepped left thumb grip notch, crisp outer bevel rim, lower chin debossed insertion arrow, and the 45-degree chamfer transition on the bottom-left label well.
+  - GBA-grade surface texture: calibrated neutral 118..124 greyscale baseline with injection-moulded matte stippling and directional bevel highlights, eliminating photographic color cast and tinting seamlessly with Advance Charcoal (`[0x32, 0x32, 0x36]`).
+  - Edge-to-edge label well coverage: box art fills the square label well cleanly without center-cropping or trimming spine logos.
 - Over-The-Air (OTA) Same-Version Force Update:
   - Enabled OTA updater to detect when a remote build shares the same version number but has an updated SHA-256 checksum. If the remote checksum differs from the local binary, the update is offered as available, allowing in-place updates for iterative fixes.
   - Automatically stages `slot.sha256.new` alongside `slot.new` during download, handed over atomically by `launch_frontend.sh` on reboot.

@@ -390,10 +390,7 @@ impl App {
         {
             return Some(self.nds_stylus());
         }
-        if row == QuickRow::NdsMic
-            || row == QuickRow::PlayNdsMic
-            || row == QuickRow::ThisNdsMic
-        {
+        if row == QuickRow::NdsMic || row == QuickRow::PlayNdsMic || row == QuickRow::ThisNdsMic {
             return Some(self.nds_mic());
         }
         if let Some(platform) = Self::integer_row_platform(row) {
@@ -517,9 +514,7 @@ impl App {
         };
         let next = NDS_MIC_MODES[next_idx].to_string();
 
-        if is_this_game
-            || (self.seated_cart().is_some() && self.game_profile().nds_mic.is_some())
-        {
+        if is_this_game || (self.seated_cart().is_some() && self.game_profile().nds_mic.is_some()) {
             self.set_own(slot_store::ProfileField::NdsMic(next.clone()));
         } else {
             self.extras.set(NDS_MIC_KEY, Some(&next));

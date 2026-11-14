@@ -108,7 +108,10 @@ fn core_names_round_trip() {
 fn writing_a_core_creates_the_file_when_absent() {
     let d = root_with(None);
     slot_store::write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Gpsp).unwrap();
-    assert_eq!(core_for_platform(d.path(), "Emerald", Platform::Gba), Core::Gpsp);
+    assert_eq!(
+        core_for_platform(d.path(), "Emerald", Platform::Gba),
+        Core::Gpsp
+    );
 }
 
 #[test]
@@ -130,8 +133,14 @@ fn writing_a_core_replaces_that_carts_line_and_leaves_the_rest_alone() {
         text.contains("Metroid Fusion = gpsp"),
         "another cart's entry was lost"
     );
-    assert_eq!(core_for_platform(d.path(), "Emerald", Platform::Gba), Core::Gpsp);
-    assert_eq!(core_for_platform(d.path(), "Metroid Fusion", Platform::Gba), Core::Gpsp);
+    assert_eq!(
+        core_for_platform(d.path(), "Emerald", Platform::Gba),
+        Core::Gpsp
+    );
+    assert_eq!(
+        core_for_platform(d.path(), "Metroid Fusion", Platform::Gba),
+        Core::Gpsp
+    );
     assert_eq!(
         text.matches("Emerald").count(),
         1,
@@ -143,15 +152,24 @@ fn writing_a_core_replaces_that_carts_line_and_leaves_the_rest_alone() {
 fn writing_a_core_appends_a_cart_the_file_has_never_seen() {
     let d = root_with(Some("Emerald = gpsp\n"));
     slot_store::write_selected_core(d.path(), Platform::Gba, "Drill Dozer", Core::Gpsp).unwrap();
-    assert_eq!(core_for_platform(d.path(), "Emerald", Platform::Gba), Core::Gpsp);
-    assert_eq!(core_for_platform(d.path(), "Drill Dozer", Platform::Gba), Core::Gpsp);
+    assert_eq!(
+        core_for_platform(d.path(), "Emerald", Platform::Gba),
+        Core::Gpsp
+    );
+    assert_eq!(
+        core_for_platform(d.path(), "Drill Dozer", Platform::Gba),
+        Core::Gpsp
+    );
 }
 
 #[test]
 fn writing_the_default_still_records_it() {
     let d = root_with(Some("Emerald = gpsp\n"));
     slot_store::write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Mgba).unwrap();
-    assert_eq!(core_for_platform(d.path(), "Emerald", Platform::Gba), Core::Mgba);
+    assert_eq!(
+        core_for_platform(d.path(), "Emerald", Platform::Gba),
+        Core::Mgba
+    );
     let text = std::fs::read_to_string(d.path().join("Config/selected_core.txt")).unwrap();
     assert!(text.contains("Emerald = mgba"));
 }

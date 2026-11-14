@@ -11,23 +11,43 @@ pub fn cover_bytes(bytes: &[u8], w: u32, h: u32) -> Option<Vec<u8>> {
 }
 
 pub(crate) fn cover_rgba(src: &[u8], sw: u32, sh: u32, w: u32, h: u32) -> Option<Vec<u8>> {
-    if sw == 0 || sh == 0 {
+    if sw == 0 || sh == 0 || w == 0 || h == 0 {
         return None;
     }
 
-    let scale = (w as f32 / sw as f32).max(h as f32 / sh as f32);
-    let ox = (sw as f32 - w as f32 / scale) / 2.0;
-    let oy = (sh as f32 - h as f32 / scale) / 2.0;
+    let sar = sw as f32 / sh as f32;
+    let dar = w as f32 / h as f32;
+    let ratio = sar / dar;
+    let fit_edge_to_edge = (0.75..=1.25).contains(&ratio);
 
     let mut out = vec![0u8; (w * h * 4) as usize];
-    for y in 0..h {
-        let y0 = oy + y as f32 / scale;
-        let y1 = oy + (y + 1) as f32 / scale;
-        for x in 0..w {
-            let x0 = ox + x as f32 / scale;
-            let x1 = ox + (x + 1) as f32 / scale;
-            let px = box_average(src, sw, sh, x0, y0, x1, y1);
-            out[((y * w + x) * 4) as usize..][..4].copy_from_slice(&px);
+    if fit_edge_to_edge {
+        let sx_scale = sw as f32 / w as f32;
+        let sy_scale = sh as f32 / h as f32;
+        for y in 0..h {
+            let y0 = y as f32 * sy_scale;
+            let y1 = (y + 1) as f32 * sy_scale;
+            for x in 0..w {
+                let x0 = x as f32 * sx_scale;
+                let x1 = (x + 1) as f32 * sx_scale;
+                let px = box_average(src, sw, sh, x0, y0, x1, y1);
+                out[((y * w + x) * 4) as usize..][..4].copy_from_slice(&px);
+            }
+        }
+    } else {
+        let scale = (w as f32 / sw as f32).max(h as f32 / sh as f32);
+        let ox = (sw as f32 - w as f32 / scale) / 2.0;
+        let oy = (sh as f32 - h as f32 / scale) / 2.0;
+
+        for y in 0..h {
+            let y0 = oy + y as f32 / scale;
+            let y1 = oy + (y + 1) as f32 / scale;
+            for x in 0..w {
+                let x0 = ox + x as f32 / scale;
+                let x1 = ox + (x + 1) as f32 / scale;
+                let px = box_average(src, sw, sh, x0, y0, x1, y1);
+                out[((y * w + x) * 4) as usize..][..4].copy_from_slice(&px);
+            }
         }
     }
     Some(out)

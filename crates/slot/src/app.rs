@@ -3010,14 +3010,24 @@ impl App {
         let now = self.now();
         match self.phase {
             Phase::Shelf => match action {
-                Action::GbaDown(Btn::Start) if self.core_picker.is_none() && self.state.kid_mode == KidMode::Off => {
+                Action::GbaDown(Btn::Start)
+                    if self.core_picker.is_none() && self.state.kid_mode == KidMode::Off =>
+                {
                     self.open_core_picker()
                 }
                 _ if self.core_picker.is_some() => self.core_picker_input(action),
-                Action::PreviousShelf if self.state.kid_mode != KidMode::OneShelf => self.switch_shelf(-1),
-                Action::NextShelf if self.state.kid_mode != KidMode::OneShelf => self.switch_shelf(1),
+                Action::PreviousShelf if self.state.kid_mode != KidMode::OneShelf => {
+                    self.switch_shelf(-1)
+                }
+                Action::NextShelf if self.state.kid_mode != KidMode::OneShelf => {
+                    self.switch_shelf(1)
+                }
                 Action::Favorite if self.state.kid_mode == KidMode::Off => self.toggle_favorite(),
-                Action::ForgetRecent if self.shelf_at == RECENTS_AT && self.state.kid_mode == KidMode::Off => self.forget_recent(),
+                Action::ForgetRecent
+                    if self.shelf_at == RECENTS_AT && self.state.kid_mode == KidMode::Off =>
+                {
+                    self.forget_recent()
+                }
                 Action::GbaDown(Btn::Up) => self.jump_letter(-1),
                 Action::GbaDown(Btn::Down) => self.jump_letter(1),
                 Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.shelf_mut().hold_left(now),

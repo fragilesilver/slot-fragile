@@ -82,6 +82,11 @@ class Shell:
         for i, c in self.cover(self.rrect_inside(x0, y0, x1, y1, (0, 0, 0, 0)), (x0, y0, x1, y1)):
             self.mask[i] *= 1 - c
 
+    def cut_where(self, inside, box):
+        """Cuts an arbitrary shape out of the outline."""
+        for i, c in self.cover(inside, box):
+            self.mask[i] *= 1 - c
+
     def height(self, x0, y0, x1, y1, z, r=0, radii=None, add=False):
         """Sets (or with add, raises by) the height of the plastic over a box."""
         inside = self.rrect_inside(x0, y0, x1, y1, radii or (r, r, r, r))
@@ -351,26 +356,34 @@ def nes():
 
 def nds():
     """A Nintendo DS Game Card (NTR-005), face on (33.0mm x 35.0mm, scaled to 300x318):
-    authentic dark charcoal moulding with solid rounded perimeter (no side cutouts),
-    a recessed well with a 45-degree chamfer cut at the bottom-left, a clean white sticker
-    featuring the official NINTENDO DS logo with dual-screen mark across the top header,
-    an authentic game cover art window below, and a debossed downward insertion arrow
-    centered on the lower chin."""
+    authentic moulding matching the GBA/GB/GBC texture and lighting with solid rounded
+    perimeter, left thumb grip notch, recessed label well with 45-degree chamfer cut at
+    the bottom-left (244x261), neutral sticker base, and debossed downward insertion
+    arrow centered on the lower chin."""
     W, H = 300, 318
     s = Shell(W, H, seed=4, face=3.0, deepest=2.5)
 
-    # 1. Solid outer shell moulding with authentic NTR-005 rounded corners
+    # 1. Outer moulding with authentic NTR-005 rounded corners
     s.outline(0, 0, W, H, radii=(7, 7, 5, 5))
+
+    # Cut out left thumb grip notch: y: 73..150, max depth 13.5px at y=111.5
+    xc, yc, R = -48.1, 111.5, 61.6
+
+    def in_notch(x, y):
+        if not (0 <= x <= 16 and 70 <= y <= 155):
+            return False
+        return (x - xc) ** 2 + (y - yc) ** 2 <= R * R
+
+    s.cut_where(in_notch, (0, 70, 16, 155))
 
     # Top edge rim bevel (y: 0..6)
     s.height(0, 0, W, 6, 2.7)
     s.height(0, 6, W, H, 3.0)
 
-    # 2. Recessed Sticker Well & White Sticker Paper
-    # Dimensions: x: 26..274 (w=248), y: 16..264 (h=248)
-    lx0, ly0, lx1, ly1 = 26, 16, 274, 264
+    # 2. Recessed Sticker Well & Neutral Sticker Paper
+    # Dimensions: x: 30..274 (w=244), y: 20..281 (h=261)
+    lx0, ly0, lx1, ly1 = 30, 20, 274, 281
     chamfer = 20.0
-    art_y0 = 62  # Art area starts under header
 
     def in_sticker(x, y):
         if not (lx0 <= x < lx1 and ly0 <= y < ly1):
@@ -410,87 +423,12 @@ def nds():
     # Recess depth: 1.2 height vs 3.0 face
     s.height_where(in_well, (lx0 - 2, ly0 - 2, lx1 + 2, ly1 + 2), 1.2)
 
-    # Clean crisp white sticker paper
+    # Clean crisp sticker base (neutral paper)
     s.paint_where(in_sticker, (lx0, ly0, lx1, ly1), (250, 251, 253))
 
-    # Subtle hair-line separator below logo header
-    s.paint(lx0, art_y0 - 1, lx1, art_y0, (224, 226, 232))
-
-    # Game artwork placeholder (neutral grey)
-    def in_art(x, y):
-        if not in_sticker(x, y):
-            return False
-        return y >= art_y0
-
-    s.paint_where(in_art, (lx0, art_y0, lx1, ly1), LABEL)
-
-    # --- Authentic "NINTENDO [Twin Screens] DS™" Header Logo ---
-    INK = (18, 18, 20)
-
-    # 1. "NINTENDO" wordmark: y: 34..46 (height 12)
-    # N
-    s.paint(48, 34, 50.5, 46, INK)
-    s.paint(56.5, 34, 59, 46, INK)
-    s.paint_where(lambda x, y: 48 <= x <= 59 and abs((y - 34) / 12 - (x - 48) / 11) <= 0.12, (48, 34, 59, 46), INK)
-    # I
-    s.paint(63, 34, 65.5, 46, INK)
-    # N
-    s.paint(69.5, 34, 72, 46, INK)
-    s.paint(78, 34, 80.5, 46, INK)
-    s.paint_where(lambda x, y: 69.5 <= x <= 80.5 and abs((y - 34) / 12 - (x - 69.5) / 11) <= 0.12, (69.5, 34, 80.5, 46), INK)
-    # T
-    s.paint(84.5, 34, 94.5, 36.5, INK)
-    s.paint(88.2, 36.5, 90.8, 46, INK)
-    # E
-    s.paint(98.5, 34, 101, 46, INK)
-    s.paint(101, 34, 107.5, 36.5, INK)
-    s.paint(101, 38.8, 106.5, 41.2, INK)
-    s.paint(101, 43.5, 107.5, 46, INK)
-    # N
-    s.paint(111.5, 34, 114, 46, INK)
-    s.paint(120, 34, 122.5, 46, INK)
-    s.paint_where(lambda x, y: 111.5 <= x <= 122.5 and abs((y - 34) / 12 - (x - 111.5) / 11) <= 0.12, (111.5, 34, 122.5, 46), INK)
-    # D
-    s.paint(126.5, 34, 129, 46, INK)
-    s.paint(129, 34, 137, 46, INK, radii=(0, 6, 6, 0))
-    s.paint(129, 36.5, 134.5, 43.5, (250, 251, 253), radii=(0, 3.5, 3.5, 0))
-    # O
-    s.paint(141, 34, 153, 46, INK, r=5.5)
-    s.paint(143.5, 36.5, 150.5, 43.5, (250, 251, 253), r=3.5)
-
-    # 2. Twin Screens Icon (centered between NINTENDO and DS): x: 158..172, y: 30..50
-    # Top screen
-    s.paint(158, 30, 172, 39, INK, r=1.5)
-    s.paint(160, 32, 170, 37, (250, 251, 253), r=0.5)
-    # Bottom screen
-    s.paint(158, 41, 172, 50, INK, r=1.5)
-    s.paint(160, 43, 170, 48, (250, 251, 253), r=0.5)
-
-    # 3. "DS" (Large bold geometric, y: 26..53, height 27)
-    # D: x: 177..202
-    s.paint(177, 26, 183, 53, INK)
-    s.paint(183, 26, 202, 53, INK, radii=(0, 13, 13, 0))
-    s.paint(183, 32, 196, 47, (250, 251, 253), radii=(0, 7, 7, 0))
-    # S: x: 206..228
-    s.paint(209, 26, 228, 32, INK, radii=(3, 3, 0, 0))
-    s.paint(206, 26, 212, 40, INK, radii=(3, 0, 0, 0))
-    s.paint(208, 36.5, 226, 42.5, INK, r=3)
-    s.paint(222, 39, 228, 53, INK, radii=(0, 0, 3, 0))
-    s.paint(206, 47, 225, 53, INK, radii=(0, 0, 3, 3))
-
-    # 4. Tiny TM symbol beside bottom of S: x: 232..245, y: 44..52
-    s.paint(232, 44, 237, 45.8, INK)
-    s.paint(234, 45.8, 235.3, 52, INK)
-    s.paint(238.5, 44, 240, 52, INK)
-    s.paint(243.5, 44, 245, 52, INK)
-    s.paint(241.2, 45.5, 242.3, 49, INK)
-
-    # 5. Lower thumb grip groove across the chin: y: 274..282, x: 50..250
-    s.height(50, 274, 250, 282, 2.0, r=4)
-
-    # 6. Downward insertion arrow centered on chin: x: 150, pointing DOWN
+    # 3. Lower chin debossed downward insertion arrow centered at x=150, pointing DOWN
     mid = W / 2.0
-    tri = [(mid - 12.0, 288.0), (mid + 12.0, 288.0), (mid, 302.0)]
+    tri = [(mid - 12.0, 296.0), (mid + 12.0, 296.0), (mid, 308.0)]
 
     def in_arrow(x, y):
         (ax, ay), (bx, by), (cx, cy) = tri
@@ -501,9 +439,9 @@ def nds():
         pos = d1 > 0 or d2 > 0 or d3 > 0
         return not (neg and pos)
 
-    s.height_where(in_arrow, (mid - 14, 286, mid + 14, 304), 1.2)
+    s.height_where(in_arrow, (mid - 14, 294, mid + 14, 310), 1.4)
 
-    return s, (lx0, art_y0, lx1 - lx0, ly1 - art_y0), (lx0, ly0, lx1 - lx0, ly1 - ly0)
+    return s, (lx0, ly0, lx1 - lx0, ly1 - ly0), (lx0, ly0, lx1 - lx0, ly1 - ly0)
 
 
 def main():

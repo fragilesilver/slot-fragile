@@ -280,9 +280,14 @@ fn other_shortcuts_may_still_share_a_binding() {
 
 #[test]
 fn platform_controls_read_and_write_independently_and_fall_back_to_global() {
-    use slot_store::{has_platform_controls, read_controls_for, reset_controls_for, write_controls_for, Platform};
+    use slot_store::{
+        has_platform_controls, read_controls_for, reset_controls_for, write_controls_for, Platform,
+    };
     let d = card();
-    assert_eq!(read_controls_for(d.path(), Platform::Gba), Controls::default());
+    assert_eq!(
+        read_controls_for(d.path(), Platform::Gba),
+        Controls::default()
+    );
     assert!(!has_platform_controls(d.path(), Platform::Gba));
 
     let mut global = Controls::default();

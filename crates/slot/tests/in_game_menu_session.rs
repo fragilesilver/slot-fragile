@@ -15,7 +15,8 @@ const BAIL: Duration = Duration::from_secs(5);
 fn session_playing() -> (Session, TempDir, Millis) {
     let d = common::tmp_root_with_carts(&["Emerald", "Fusion"]);
     common::write_retail_header(&d, "Emerald", "POKEMON RUBY", "AXVE");
-    slot_store::write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Mgba).expect("write core");
+    slot_store::write_selected_core(d.path(), Platform::Gba, "Emerald", Core::Mgba)
+        .expect("write core");
     write_slot_state(
         d.path(),
         &SlotState {

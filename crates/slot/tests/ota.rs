@@ -145,9 +145,10 @@ fn ota_live_release_manifest_and_updater() {
         let body = resp.into_string().unwrap();
         let info = parse_release_manifest(&body).expect("manifest should parse");
         assert!(Version::parse(&info.version).unwrap() >= Version::parse("1.9.6").unwrap());
-        assert!(info
-            .download_url
-            .contains(&format!("fragilesilver/slot-fragile/releases/download/v{}/slot", info.version)));
+        assert!(info.download_url.contains(&format!(
+            "fragilesilver/slot-fragile/releases/download/v{}/slot",
+            info.version
+        )));
         assert!(info.sha256.is_some());
 
         // If an older device (e.g. running v1.9.5) checks for updates:
@@ -171,10 +172,7 @@ fn ota_live_release_manifest_and_updater() {
         }
 
         // Running local version checking against remote release -> UpToDate
-        assert_eq!(
-            mgr.status(),
-            OtaStatus::UpToDate(info.version.clone())
-        );
+        assert_eq!(mgr.status(), OtaStatus::UpToDate(info.version.clone()));
         assert_eq!(mgr.status().menu_text(), "Up to date");
     }
 }

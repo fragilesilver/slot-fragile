@@ -67,7 +67,11 @@ impl Version {
 impl std::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.rev > 0 {
-            write!(f, "{}.{}.{}.{}", self.major, self.minor, self.patch, self.rev)
+            write!(
+                f,
+                "{}.{}.{}.{}",
+                self.major, self.minor, self.patch, self.rev
+            )
         } else {
             write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
         }

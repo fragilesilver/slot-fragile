@@ -634,7 +634,9 @@ fn platform_controls_file(platform: Platform) -> String {
 }
 
 pub fn has_platform_controls(root: &Path, platform: Platform) -> bool {
-    root.join("Config").join(platform_controls_file(platform)).is_file()
+    root.join("Config")
+        .join(platform_controls_file(platform))
+        .is_file()
 }
 
 pub fn read_controls_for(root: &Path, platform: Platform) -> Controls {

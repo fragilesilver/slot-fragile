@@ -885,7 +885,10 @@ fn quick_menu_update_row_overflow_scrolls_marquee() {
             _ => None,
         })
         .expect("Draw::Part should be emitted for overflowing Update row");
-    assert!(part_lit_t2[0] > 0.0, "Update row when lit must scroll at time 2000ms");
+    assert!(
+        part_lit_t2[0] > 0.0,
+        "Update row when lit must scroll at time 2000ms"
+    );
 
     // 2. When Update is NOT lit (e.g. selection is on GameArt right next to it), it should still scroll!
     let mut out_unlit_t2 = Vec::new();
@@ -900,5 +903,8 @@ fn quick_menu_update_row_overflow_scrolls_marquee() {
             _ => None,
         })
         .expect("Draw::Part should be emitted for overflowing Update row");
-    assert!(part_unlit_t2[0] > 0.0, "Update row when unlit must still scroll so status is readable");
+    assert!(
+        part_unlit_t2[0] > 0.0,
+        "Update row when unlit must still scroll so status is readable"
+    );
 }
