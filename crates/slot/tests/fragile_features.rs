@@ -33,25 +33,43 @@ fn auto_load_row_cycles_values_and_persists() {
     clocked(d.path());
     let mut a = App::boot(d.path());
 
-    open_at(&mut a, QuickRow::AutoLoad);
-    assert_eq!(a.quick_menu(), Some(QuickRow::AutoLoad));
+    open_at(&mut a, QuickRow::ResumeOnInsert);
+    assert_eq!(a.quick_menu(), Some(QuickRow::ResumeOnInsert));
+    assert_eq!(
+        a.quick_value(QuickRow::ResumeOnInsert),
+        Some(QuickValue::On)
+    );
+    assert_eq!(
+        a.quick_value(QuickRow::ResumeOnPowerOn),
+        Some(QuickValue::On)
+    );
 
-    // Default is Always
-    assert_eq!(a.quick_value(QuickRow::AutoLoad), Some(QuickValue::Always));
-
-    // Step right -> PowerOn
+    // Turn off Resume on Insert -> PowerOn
     press(&mut a, Btn::Right);
-    assert_eq!(a.quick_value(QuickRow::AutoLoad), Some(QuickValue::PowerOn));
+    assert_eq!(
+        a.quick_value(QuickRow::ResumeOnInsert),
+        Some(QuickValue::Off)
+    );
     assert_eq!(read_slot_state(d.path()).auto_load, AutoLoad::PowerOn);
 
-    // Step right -> Never
+    // Also turn off Resume on Power On -> Never
+    press(&mut a, Btn::Down);
+    assert_eq!(a.quick_menu(), Some(QuickRow::ResumeOnPowerOn));
     press(&mut a, Btn::Right);
-    assert_eq!(a.quick_value(QuickRow::AutoLoad), Some(QuickValue::Never));
+    assert_eq!(
+        a.quick_value(QuickRow::ResumeOnPowerOn),
+        Some(QuickValue::Off)
+    );
     assert_eq!(read_slot_state(d.path()).auto_load, AutoLoad::Never);
 
-    // Step right -> wraps back to Always
+    // Turn Resume on Insert back on -> InsertOnly
+    press(&mut a, Btn::Up);
     press(&mut a, Btn::Right);
-    assert_eq!(a.quick_value(QuickRow::AutoLoad), Some(QuickValue::Always));
+    assert_eq!(read_slot_state(d.path()).auto_load, AutoLoad::InsertOnly);
+
+    // Turn Resume on Power On back on -> Always
+    press(&mut a, Btn::Down);
+    press(&mut a, Btn::Right);
     assert_eq!(read_slot_state(d.path()).auto_load, AutoLoad::Always);
 }
 

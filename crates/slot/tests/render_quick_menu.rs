@@ -122,10 +122,10 @@ fn the_quick_menu_renders_full_screen() {
     let mut bar_on = QuickRow::MAIN[0];
     let mut tips = Vec::new();
     for (name, selected) in [
-        ("general", QuickRow::General),
-        ("screen", QuickRow::Screen),
+        ("shelf", QuickRow::ShelfSettings),
         ("game", QuickRow::Game),
-        ("about", QuickRow::About),
+        ("screen", QuickRow::Screen),
+        ("network", QuickRow::Network),
     ] {
         for _ in bar_on.position(&[])..selected.position(&[]) {
             tap(&mut f, &mut input, Btn::Down);
@@ -140,8 +140,9 @@ fn the_quick_menu_renders_full_screen() {
         );
 
         let mut spans = Vec::new();
-        for row in QuickRow::MAIN {
-            let top = quick_row_top(row, &[]) as usize;
+        let (start, len) = slot_ui::quick_window(selected, &[]);
+        for &row in &QuickRow::MAIN[start..start + len] {
+            let top = slot_ui::quick_row_top_at(row, selected, &[]) as usize;
             let from = match row == selected {
                 true => {
                     let p = beside(name, pointer(&px, top));
@@ -185,7 +186,7 @@ fn the_quick_menu_renders_full_screen() {
         "the pointer moves from row to row: {tips:?}"
     );
 
-    for _ in QuickRow::General.position(&[])..QuickRow::About.position(&[]) {
+    for _ in 0..QuickRow::Network.position(&[]) {
         tap(&mut f, &mut input, Btn::Up);
     }
     tap(&mut f, &mut input, Btn::A);
@@ -205,6 +206,11 @@ fn the_quick_menu_renders_full_screen() {
             "{row:?}'s label starts at x {first}"
         );
     }
+    tap(&mut f, &mut input, Btn::B);
+    for _ in 0..QuickRow::System.position(&f.app().hidden_rows()) {
+        tap(&mut f, &mut input, Btn::Down);
+    }
+    tap(&mut f, &mut input, Btn::A);
     for _ in 0..QuickRow::DateTime.position(&f.app().hidden_rows()) {
         tap(&mut f, &mut input, Btn::Down);
     }
@@ -330,7 +336,11 @@ fn the_about_label_is_on_the_tinted_wallpaper() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::Menu);
-    for _ in 0..QuickRow::About.position(&[]) {
+    for _ in 0..QuickRow::System.position(&[]) {
+        tap(&mut f, &mut input, Btn::Down);
+    }
+    tap(&mut f, &mut input, Btn::A);
+    for _ in 0..QuickRow::About.position(&f.app().hidden_rows()) {
         tap(&mut f, &mut input, Btn::Down);
     }
     let menu = composed(&mut f, &mut c, "about-row");
@@ -359,13 +369,18 @@ fn the_general_page_renders() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::Menu);
-    for _ in 0..QuickRow::General.position(&[]) {
+    for _ in 0..QuickRow::ShelfSettings.position(&[]) {
         tap(&mut f, &mut input, Btn::Down);
     }
     composed(&mut f, &mut c, "main");
     tap(&mut f, &mut input, Btn::A);
     assert_eq!(f.app().quick_menu(), Some(QuickRow::Theme));
     composed(&mut f, &mut c, "general");
+    tap(&mut f, &mut input, Btn::B);
+    for _ in QuickRow::ShelfSettings.position(&[])..QuickRow::System.position(&[]) {
+        tap(&mut f, &mut input, Btn::Down);
+    }
+    tap(&mut f, &mut input, Btn::A);
     for _ in 0..QuickRow::DateTime.position(&f.app().hidden_rows()) {
         tap(&mut f, &mut input, Btn::Down);
     }
@@ -562,7 +577,11 @@ fn a_on_the_about_label_opens_its_details_as_a_menu_page() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::Menu);
-    for _ in 0..QuickRow::About.position(&[]) {
+    for _ in 0..QuickRow::System.position(&[]) {
+        tap(&mut f, &mut input, Btn::Down);
+    }
+    tap(&mut f, &mut input, Btn::A);
+    for _ in 0..QuickRow::About.position(&f.app().hidden_rows()) {
         tap(&mut f, &mut input, Btn::Down);
     }
     tap(&mut f, &mut input, Btn::A);

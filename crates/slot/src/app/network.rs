@@ -28,7 +28,6 @@ const SEARCHING: &str = "Searching";
 /// How long the in-game list of achievements is kept before it is asked for again.
 const ACHIEVEMENTS_FRESH_MS: u64 = 2000;
 
-#[derive(Default)]
 pub struct NetworkState {
     wifi: Option<Wifi>,
     pub(super) bluetooth: Option<crate::bluetooth::Bluetooth>,
@@ -40,6 +39,25 @@ pub struct NetworkState {
     typing: Option<(Keyboard, Typed, Option<String>)>,
     /// The playing game's achievements as last asked for, and when.
     achievements: std::cell::RefCell<(Option<u64>, Vec<Achievement>)>,
+    pub(super) romm_client: Option<crate::romm::RommClient>,
+    pub(super) romm_entries: Vec<crate::romm::RommEntry>,
+}
+
+impl Default for NetworkState {
+    fn default() -> Self {
+        Self {
+            wifi: None,
+            bluetooth: None,
+            bt_view: crate::bluetooth::BtView::default(),
+            ssh: None,
+            web: None,
+            time: None,
+            typing: None,
+            achievements: std::cell::RefCell::default(),
+            romm_client: None,
+            romm_entries: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -48,6 +66,8 @@ enum Typed {
     CheevosUser,
     CheevosPassword(String),
     SshPassword,
+    Hostname,
+    Nickname,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -247,6 +267,7 @@ impl App {
             | QuickRow::GameArt
             | QuickRow::BtDevices
             | QuickRow::SshPassword
+            | QuickRow::RommBrowse
             | QuickRow::Update => Some(None),
             _ => None,
         }
@@ -395,8 +416,9 @@ impl App {
         }
     }
 
-    /// Each frame: the Networks page follows what the radio has found.
+    /// Each frame: the Networks page and RomM browser follow background updates.
     pub(super) fn network_tick(&mut self) {
+        self.romm_tick();
         if !matches!(self.overlay.open, Some(Overlay::Networks(_))) {
             return;
         }
@@ -482,6 +504,100 @@ impl App {
         self.overlay.network.typing = Some((keyboard, Typed::SshPassword, None));
     }
 
+    pub(super) fn start_hostname(&mut self) {
+        let known = self.hostname_text();
+        let keyboard = Keyboard::password(32).with_masked(false).with_text(&known);
+        self.overlay.network.typing = Some((keyboard, Typed::Hostname, None));
+    }
+
+    pub(super) fn start_nickname(&mut self) {
+        let known = self.nickname().to_string();
+        let keyboard = Keyboard::password(24).with_masked(false).with_text(&known);
+        self.overlay.network.typing = Some((keyboard, Typed::Nickname, None));
+    }
+
+    pub(super) fn open_romm(&mut self) {
+        self.overlay.network.romm_entries.clear();
+        self.overlay.network.romm_client = self.root.as_deref().and_then(crate::romm::spawn_list);
+        let msg = if self.overlay.network.romm_client.is_some() {
+            "Loading RomM library..."
+        } else {
+            "Configure Config/romm.txt first"
+        };
+        self.overlay.open = Some(Overlay::Romm(ListPage::new(vec![ListRow::new(msg)])));
+        self.overlay.faces.clear();
+    }
+
+    pub(super) fn romm_tick(&mut self) {
+        if !matches!(self.overlay.open, Some(Overlay::Romm(_))) {
+            return;
+        }
+        let Some(ev) = self
+            .overlay
+            .network
+            .romm_client
+            .as_ref()
+            .and_then(|c| c.poll())
+        else {
+            return;
+        };
+        self.overlay.network.romm_client = None;
+        let rows = match ev {
+            crate::romm::RommEvent::Listed(Ok(entries)) => {
+                if entries.is_empty() {
+                    vec![ListRow::new("No supported ROMs found")]
+                } else {
+                    let list: Vec<ListRow> = entries
+                        .iter()
+                        .map(|e| ListRow::new(&e.name).with_value(e.platform.name()))
+                        .collect();
+                    self.overlay.network.romm_entries = entries;
+                    list
+                }
+            }
+            crate::romm::RommEvent::Listed(Err(err)) => vec![ListRow::new(err)],
+            crate::romm::RommEvent::Downloaded(Ok((platform, path))) => {
+                if let Some(root) = &self.root {
+                    if let Ok(carts) = slot_store::scan(root) {
+                        self.restock_scanned(carts);
+                    }
+                }
+                let name = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("ROM")
+                    .to_string();
+                vec![ListRow::new(format!("Saved {name} ({})", platform.name()))]
+            }
+            crate::romm::RommEvent::Downloaded(Err(err)) => vec![ListRow::new(err)],
+        };
+        self.overlay.open = Some(Overlay::Romm(ListPage::new(rows)));
+        self.overlay.faces.clear();
+    }
+
+    pub(super) fn romm_input(&mut self, action: Action) -> bool {
+        let Some(Overlay::Romm(page)) = &self.overlay.open else {
+            return false;
+        };
+        if action != Action::GbaDown(Btn::A) || self.overlay.network.romm_client.is_some() {
+            return false;
+        }
+        let idx = page.cursor();
+        let Some(entry) = self.overlay.network.romm_entries.get(idx).cloned() else {
+            return true;
+        };
+        let Some(root) = &self.root else {
+            return true;
+        };
+        let label = entry.name.clone();
+        self.overlay.network.romm_client = crate::romm::spawn_download(root, entry);
+        self.overlay.open = Some(Overlay::Romm(ListPage::new(vec![ListRow::new(format!(
+            "Downloading {label}..."
+        ))])));
+        self.overlay.faces.clear();
+        true
+    }
+
     /// The keyboard takes everything while it is up, whatever page it was opened from. Says
     /// whether it was up.
     pub(super) fn typing_input(&mut self, action: Action) -> bool {
@@ -551,6 +667,27 @@ impl App {
                 }
                 self.overlay.network.typing = None;
                 self.set_ssh_password(&password);
+            }
+            Typed::Hostname => {
+                let name = text.trim().to_string();
+                if !slot_store::hostname::valid_hostname(&name) {
+                    *said = Some("Use letters, numbers, or '-'".into());
+                    return;
+                }
+                self.overlay.network.typing = None;
+                if let Some(root) = &self.root {
+                    let _ = slot_store::hostname::write_hostname(root, &name);
+                }
+            }
+            Typed::Nickname => {
+                let name = text.trim().to_string();
+                if name.is_empty() {
+                    *said = Some("Type a nickname".into());
+                    return;
+                }
+                self.overlay.network.typing = None;
+                self.extras.set_nickname(&name);
+                self.save_extras();
             }
         }
     }
@@ -628,6 +765,8 @@ impl App {
             Typed::CheevosUser => ("RetroAchievements username".to_string(), 3),
             Typed::CheevosPassword(user) => (format!("Password for {user}"), 4),
             Typed::SshPassword => ("SSH & SFTP root password".to_string(), 5),
+            Typed::Hostname => ("Device network hostname".to_string(), 5),
+            Typed::Nickname => ("Player nickname".to_string(), 5),
         };
         Some(Typing {
             shown: keyboard.shown(),

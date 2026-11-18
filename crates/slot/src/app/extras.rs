@@ -3,7 +3,10 @@
 //! merge cannot fight over them. Ideas from marghost/slot_modded (startup screen, shelf marks).
 
 use slot_input::Millis;
-use slot_store::{read_extras, write_extras, FfMode, Platform, Recent, LID_OFF_MIN};
+use slot_store::{
+    hostname, read_extras, romm::read_romm, write_extras, BatteryDisplay, FfMode, Platform, Recent,
+    Zone, LID_OFF_MIN,
+};
 use slot_ui::{QuickRow, QuickValue};
 
 use super::{App, Rack};
@@ -290,6 +293,9 @@ impl App {
         if !crate::hdmi::present() {
             hidden.push(QuickRow::HdmiOutput);
         }
+        if self.root.as_deref().and_then(read_romm).is_none() {
+            hidden.push(QuickRow::RommBrowse);
+        }
         if self.in_game_menu.is_none() {
             hidden.push(QuickRow::CardShader);
             hidden.push(QuickRow::ShaderSettings);
@@ -373,7 +379,23 @@ impl App {
                     .into_iter()
                     .find(|v| v.minutes() == Some(m)),
             }),
-            QuickRow::BatteryBadge => Some(Some(QuickValue::flag(self.battery_badge()))),
+            QuickRow::BatteryDisplay => Some(Some(match self.battery_display() {
+                BatteryDisplay::Off => QuickValue::Off,
+                BatteryDisplay::Icon => QuickValue::BatteryIcon,
+                BatteryDisplay::Percent => QuickValue::BatteryPercent,
+                BatteryDisplay::Both => QuickValue::BatteryBoth,
+            })),
+            QuickRow::CollectionsShelf => Some(Some(if self.extras.collections_top_level() {
+                QuickValue::CollectionsSeparate
+            } else {
+                QuickValue::CollectionsInline
+            })),
+            QuickRow::Haptics => Some(Some(QuickValue::flag(self.extras.haptics()))),
+            QuickRow::Zone
+            | QuickRow::Hostname
+            | QuickRow::Nickname
+            | QuickRow::BootLogo
+            | QuickRow::RommBrowse => Some(None),
             QuickRow::FastForwardPitch => Some(Some(QuickValue::flag(self.ff_pitch()))),
             QuickRow::FastForwardMode => Some(Some(match self.ff_mode() {
                 FfMode::Hold => QuickValue::Hold,
@@ -402,7 +424,21 @@ impl App {
                 self.extras.set_flag(SHOW_FAVORITES, on);
                 self.restock_favorites();
             }
-            QuickRow::BatteryBadge => self.toggle_battery_badge(),
+            QuickRow::BatteryDisplay => self.step_battery_display(right),
+            QuickRow::CollectionsShelf => {
+                let next = !self.extras.collections_top_level();
+                self.extras.set_collections_top_level(next);
+                super::shelves::rebuild_lists(self);
+            }
+            QuickRow::Haptics => {
+                let next = !self.extras.haptics();
+                self.extras.set_haptics(next);
+                if next {
+                    self.pulse_haptics();
+                }
+            }
+            QuickRow::Zone => self.step_zone(right),
+            QuickRow::BootLogo => self.step_boot_logo(right),
             QuickRow::HdmiOutput => self.step_hdmi_mode(right),
             QuickRow::FastForwardPitch => {
                 let on = !self.ff_pitch();
@@ -453,6 +489,99 @@ impl App {
         }
         self.save_extras();
         true
+    }
+
+    pub fn haptics_enabled(&self) -> bool {
+        self.extras.haptics()
+    }
+
+    /// Brief tactile pulse for UI events when Haptics are enabled (skipped during active game rumble).
+    pub fn pulse_haptics(&mut self) {
+        if !self.extras.haptics() {
+            return;
+        }
+        if matches!(self.phase, super::Phase::Playing { .. }) {
+            return;
+        }
+        if let Some(power) = &mut self.power {
+            power.set_rumble(0x8000);
+            self.haptic_until = Some(self.now().saturating_add(45));
+        }
+    }
+
+    pub fn nickname(&self) -> &str {
+        self.extras.nickname()
+    }
+
+    pub fn hostname_text(&self) -> String {
+        self.root
+            .as_deref()
+            .map(hostname::read_hostname)
+            .unwrap_or_else(|| "slot".to_string())
+    }
+
+    pub fn zone(&self) -> Option<Zone> {
+        self.extras.zone()
+    }
+
+    pub fn zone_label(&self) -> String {
+        match self.extras.zone() {
+            Some(z) => z.name().to_string(),
+            None => "Manual".to_string(),
+        }
+    }
+
+    pub(super) fn apply_zone_tz(&mut self) {
+        if let Some(z) = self.extras.zone() {
+            let utc = self.utc_secs();
+            self.state.utc_offset_min = z.offset_min(utc) as i16;
+            super::tell_libc_the_posix(&z.posix());
+        } else {
+            super::tell_libc_the_offset(self.state.utc_offset_min);
+        }
+    }
+
+    pub(super) fn step_zone(&mut self, right: bool) {
+        let cur = self.extras.zone().unwrap_or_else(|| {
+            Zone::for_offset(i64::from(self.state.utc_offset_min), self.utc_secs())
+        });
+        let next = if right { cur.east() } else { cur.west() };
+        self.extras.set_zone(next);
+        self.apply_zone_tz();
+        self.persist();
+    }
+
+    pub fn boot_logo_label(&self) -> String {
+        let pick = self.extras.boot_logo();
+        if pick == "slot" {
+            "Slot".to_string()
+        } else {
+            pick.trim_end_matches(".png")
+                .trim_end_matches(".bmp")
+                .trim_end_matches(".jpg")
+                .trim_end_matches(".jpeg")
+                .to_string()
+        }
+    }
+
+    pub(super) fn step_boot_logo(&mut self, right: bool) {
+        let mut choices = vec!["slot".to_string()];
+        if let Some(root) = &self.root {
+            choices.extend(crate::bootlogo::list(root));
+        }
+        let cur = self.extras.boot_logo();
+        let at = choices.iter().position(|c| c == cur).unwrap_or(0);
+        let n = choices.len();
+        let next = choices[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+        .clone();
+        self.extras.set_boot_logo(&next);
+        if let Some(root) = self.root.clone() {
+            let _ = crate::bootlogo::select(&root, &next);
+        }
     }
 
     pub fn ota_target(&self) -> String {

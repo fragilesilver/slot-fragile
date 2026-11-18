@@ -95,7 +95,7 @@ fn the_menu_shows_sleep_power_off_and_steps_through_never() {
     a.set_lid(false);
     assert!(a.hidden_rows().contains(&QuickRow::LidOff));
     a.apply(Action::QuickMenu);
-    for _ in 0..QuickRow::General.position(&a.hidden_rows()) {
+    for _ in 0..QuickRow::System.position(&a.hidden_rows()) {
         press(&mut a, Btn::Down);
     }
     press(&mut a, Btn::A);

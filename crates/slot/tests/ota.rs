@@ -35,13 +35,16 @@ fn ota_version_comparison_logic() {
     let cur = Version::current();
     assert_eq!(cur.major, 1);
     assert_eq!(cur.minor, 9);
-    assert_eq!(cur.patch, 7);
+    assert_eq!(cur.patch, 8);
 
     let v200 = Version::parse("v2.0.0").unwrap();
     assert!(v200 > cur);
 
+    let v198 = Version::parse("1.9.8").unwrap();
+    assert_eq!(v198, cur);
+
     let v197 = Version::parse("1.9.7").unwrap();
-    assert_eq!(v197, cur);
+    assert!(v197 < cur);
 
     let v196 = Version::parse("1.9.6").unwrap();
     assert!(v196 < cur);

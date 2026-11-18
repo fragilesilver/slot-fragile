@@ -123,6 +123,7 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::Guide,
             QuickRow::UndoSave,
             QuickRow::UndoLoad,
+            QuickRow::UndoReset,
         ]
     );
     a.set_palette_live(true);
@@ -158,6 +159,7 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             QuickRow::Guide,
             QuickRow::UndoSave,
             QuickRow::UndoLoad,
+            QuickRow::UndoReset,
         ]
     );
 }
@@ -790,19 +792,29 @@ fn in_game_network_and_general_pages_open_and_climb_back_to_settings() {
     press(&mut a, Btn::B);
     assert_eq!(a.in_game_menu(), Some(QuickRow::PlayNetwork));
 
-    // Navigate to PlayGeneral
+    // Navigate to PlayShelf -> opens SHELF_SETTINGS, climbs back to PlayShelf
     press(&mut a, Btn::Down);
-    assert_eq!(a.in_game_menu(), Some(QuickRow::PlayGeneral));
+    assert_eq!(a.in_game_menu(), Some(QuickRow::PlayShelf));
     press(&mut a, Btn::A);
-    // Skips hidden rows (like HdmiOutput when HDMI hardware is absent)
-    let first_gen = QuickRow::GENERAL
+    let first_shelf = QuickRow::SHELF_SETTINGS
         .iter()
         .copied()
         .find(|r| !a.in_game_hidden().contains(r));
-    assert_eq!(a.in_game_menu(), first_gen);
-    // B climbs back to PlayGeneral
+    assert_eq!(a.in_game_menu(), first_shelf);
     press(&mut a, Btn::B);
-    assert_eq!(a.in_game_menu(), Some(QuickRow::PlayGeneral));
+    assert_eq!(a.in_game_menu(), Some(QuickRow::PlayShelf));
+
+    // Navigate to PlaySystem -> opens SYSTEM, climbs back to PlaySystem
+    press(&mut a, Btn::Down);
+    assert_eq!(a.in_game_menu(), Some(QuickRow::PlaySystem));
+    press(&mut a, Btn::A);
+    let first_sys = QuickRow::SYSTEM
+        .iter()
+        .copied()
+        .find(|r| !a.in_game_hidden().contains(r));
+    assert_eq!(a.in_game_menu(), first_sys);
+    press(&mut a, Btn::B);
+    assert_eq!(a.in_game_menu(), Some(QuickRow::PlaySystem));
 
     // B climbs back to Settings
     press(&mut a, Btn::B);
@@ -865,12 +877,15 @@ fn the_in_game_screen_page_ends_with_brightness_blue_light_saturation_and_contra
     a.set_power(power);
     let shown = QuickRow::PlayBrightness.shown(&a.in_game_hidden());
     assert_eq!(
-        shown[shown.len() - 4..],
+        shown[shown.len() - 7..],
         [
             QuickRow::PlayBrightness,
             QuickRow::PlayBlueLight,
             QuickRow::PlaySaturation,
-            QuickRow::PlayContrast
+            QuickRow::PlayContrast,
+            QuickRow::PlayCalWarm,
+            QuickRow::PlayCalTint,
+            QuickRow::PlayCalCurve,
         ]
     );
     let before = a.brightness();

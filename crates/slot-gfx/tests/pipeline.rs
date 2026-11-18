@@ -1,6 +1,7 @@
 use slot_gfx::{
-    blue_light_gain, canvas_size, contrast_boost, lcd3x_factors, lcd3x_mask, saturation_boost,
-    Compositor, Draw, HeadlessSurface, ScreenEffect, OUT_H, OUT_W, SRC_H, SRC_W,
+    blue_light_gain, canvas_size, contrast_boost, dim_gain, lcd3x_factors, lcd3x_mask,
+    saturation_boost, Compositor, Draw, FrameBlend, HeadlessSurface, Lcd, ScreenEffect, OUT_H,
+    OUT_W, SRC_H, SRC_W,
 };
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
@@ -1383,4 +1384,112 @@ fn sharp_fit_draws_every_game_pixel_the_same_width_with_blended_seams() {
     }
 
     c.set_sharp_bilinear(false);
+}
+
+#[test]
+fn each_dim_step_darkens_the_whole_screen_and_zero_leaves_it_alone() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    let rgb = [200, 160, 120];
+    let mut last = None;
+    for step in 0..=6 {
+        c.set_dim(step);
+        let got = graded(&mut c, rgb, 0, 0);
+        let want = rgb.map(|v| (f32::from(v) * dim_gain(step)).round() as u8);
+        for (a, b) in got.iter().zip(want) {
+            assert!(a.abs_diff(b) <= 2, "step {step}: {got:?} vs {want:?}");
+        }
+        if let Some(prev) = last {
+            assert!(got[0] < prev, "step {step} did not dim: {got:?} >= {prev}");
+        }
+        last = Some(got[0]);
+    }
+    c.set_dim(0);
+    assert_eq!(graded(&mut c, rgb, 0, 0), rgb);
+}
+
+#[test]
+fn lcd_is_lcd3x_on_a_3_by_2_panel_and_lcd_grid_on_every_other() {
+    assert_eq!(ScreenEffect::lcd_for((720, 480)), ScreenEffect::Lcd3x);
+    for panel in [(640, 480), (720, 720), (1024, 768)] {
+        assert_eq!(
+            ScreenEffect::lcd_for(panel),
+            ScreenEffect::LcdGrid,
+            "{panel:?}"
+        );
+    }
+}
+
+#[test]
+fn gpu_frame_blending_works_on_both_gba_and_native_sizes() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    c.fit((OUT_W, OUT_H));
+    c.set_game_source_rect([0.0, 0.0, 1.0, 1.0]);
+    c.set_screen_effect(ScreenEffect::None);
+    c.set_screen_power(1.0);
+    c.set_lcd(Lcd::Gba);
+    c.set_frame_blend(FrameBlend::Mix);
+
+    c.begin_frame();
+    c.upload_game(&flat_shot([0xff, 0xff, 0xff]));
+    c.draw_game();
+    c.begin_frame();
+    c.upload_game(&flat_shot([0, 0, 0]));
+    c.draw_game();
+    let frame = c.read_window((OUT_W, OUT_H));
+    let mixed = px(&frame, OUT_W as usize / 2, OUT_H as usize / 2)[1];
+    assert!(mixed.abs_diff(0x80) <= 2, "GBA Mix showed {mixed}");
+
+    // Switch to native 256x224 size and Ghosting mode
+    let (w, h) = (256u32, 224u32);
+    let white: Vec<u8> = std::iter::repeat_n([255u8, 255, 255, 255], (w * h) as usize)
+        .flatten()
+        .collect();
+    let black: Vec<u8> = std::iter::repeat_n([0u8, 0, 0, 255], (w * h) as usize)
+        .flatten()
+        .collect();
+    c.set_frame_blend(FrameBlend::Ghosting);
+    c.set_game_fills_frame(true);
+    c.set_game_aspect(Some(4.0 / 3.0));
+    c.begin_frame();
+    c.upload_game_sized(&white, (w, h));
+    c.draw_game();
+    c.begin_frame();
+    c.upload_game_sized(&black, (w, h));
+    c.draw_game();
+    let frame = c.read_window((OUT_W, OUT_H));
+    let ghosted = px(&frame, OUT_W as usize / 2, OUT_H as usize / 2)[1];
+    assert!(
+        ghosted > 0x10 && ghosted < 0xf0,
+        "Native Ghosting showed {ghosted}"
+    );
+}
+
+#[test]
+fn shimmerless_grid_draws_grid_lines_on_640_by_480() {
+    let Some((_g, _s, mut c)) = compositor() else {
+        return;
+    };
+    c.fit((640, 480));
+    c.set_game_source_rect([0.0, 0.0, 1.0, 1.0]);
+    c.set_screen_effect(ScreenEffect::ShimmerlessGrid);
+    c.set_screen_power(1.0);
+    c.begin_frame();
+    c.upload_game(&flat_shot([240, 240, 240]));
+    c.draw_game();
+    let frame = c.read_frame();
+    // Sample inside the cell (x = 321, off the vertical grid line) across y rows
+    let row_lumas: Vec<u8> = (100..120).map(|y| frame[(y * 640 + 321) * 4]).collect();
+    let col_lumas: Vec<u8> = (318..326).map(|x| frame[(101 * 640 + x) * 4]).collect();
+    let rmin = *row_lumas.iter().min().unwrap();
+    let rmax = *row_lumas.iter().max().unwrap();
+    let cmin = *col_lumas.iter().min().unwrap();
+    let cmax = *col_lumas.iter().max().unwrap();
+    assert!(
+        rmax > rmin + 30 && cmax > cmin + 30,
+        "expected grid lines: rows={row_lumas:?}, cols={col_lumas:?}"
+    );
 }

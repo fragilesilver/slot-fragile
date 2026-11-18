@@ -135,7 +135,7 @@ fn the_pointer_follows_the_cursor_in_the_window() {
 #[test]
 fn rows_sit_where_a_menu_page_of_the_same_length_would() {
     let page = ListPage::new(rows(6));
-    let general = QuickRow::GENERAL[0];
+    let general = QuickRow::SHELF_SETTINGS[0];
     assert_eq!(list_row_top(&page, 0), quick_row_top(general, &[]));
 }
 

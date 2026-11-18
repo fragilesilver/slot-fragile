@@ -10,6 +10,7 @@ use super::pacer::Pacer;
 use super::ring::Ring;
 use super::silence::Silence;
 use super::sink::{AudioError, AudioSink};
+use super::usb::{devices, present_usb_card};
 
 const SND_PCM_STREAM_PLAYBACK: c_int = 0;
 const SND_PCM_FORMAT_S16_LE: c_int = 2;
@@ -21,6 +22,8 @@ const LATENCY_US: c_uint = 40_000;
 const PERIOD_FRAMES: usize = 512;
 
 const RELEASE_AFTER: Duration = Duration::from_secs(3);
+
+const USB_CHECK_EVERY: Duration = Duration::from_secs(1);
 
 const DEVICES: [&str; 4] = ["plug:default", "default", "plughw:0,0", "hw:0,0"];
 
@@ -43,12 +46,9 @@ pub fn set_route(device: Option<String>) {
     }
 }
 
-fn devices() -> Vec<String> {
+fn candidate_devices(usb: Option<u32>) -> Vec<String> {
     let route = ROUTE.lock().unwrap_or_else(|e| e.into_inner()).clone();
-    route
-        .into_iter()
-        .chain(DEVICES.iter().map(|d| d.to_string()))
-        .collect()
+    devices(route.as_deref(), usb, &DEVICES)
 }
 
 type PcmOpen = unsafe extern "C" fn(*mut *mut c_void, *const c_char, c_int, c_int) -> c_int;
@@ -106,9 +106,9 @@ impl Alsa {
         }
     }
 
-    fn open_pcm(&self, rate: u32) -> Result<*mut c_void, AudioError> {
+    fn open_pcm(&self, rate: u32, usb: Option<u32>) -> Result<*mut c_void, AudioError> {
         let mut last = AudioError::NoDevice;
-        for name in devices() {
+        for name in candidate_devices(usb) {
             let Ok(cname) = CString::new(name.as_str()) else {
                 continue;
             };
@@ -149,6 +149,7 @@ pub struct AlsaSink {
 
 struct Device {
     stop: Arc<AtomicBool>,
+    fade: Arc<AtomicBool>,
     join: JoinHandle<()>,
 }
 
@@ -161,8 +162,11 @@ impl AlsaSink {
         }
     }
 
-    fn close(&mut self) {
+    fn close_device(&mut self, with_fade: bool) {
         if let Some(d) = self.device.take() {
+            if with_fade {
+                d.fade.store(true, Ordering::Relaxed);
+            }
             d.stop.store(true, Ordering::Relaxed);
             let _ = d.join.join();
         }
@@ -177,16 +181,18 @@ impl Default for AlsaSink {
 
 impl Drop for AlsaSink {
     fn drop(&mut self) {
-        self.close();
+        self.close_device(false);
     }
 }
 
 impl AudioSink for AlsaSink {
     fn open(&mut self, sample_rate: u32) -> Result<(), AudioError> {
-        self.close();
+        self.close_device(false);
         let ring = self.ring.clone();
         let stop = Arc::new(AtomicBool::new(false));
+        let fade = Arc::new(AtomicBool::new(false));
         let flag = stop.clone();
+        let fade_flag = fade.clone();
         let held = self.held.clone();
         let (ready_tx, ready_rx) = mpsc::channel();
         let join = std::thread::Builder::new()
@@ -194,7 +200,7 @@ impl AudioSink for AlsaSink {
             .spawn(move || match play(&ring, sample_rate) {
                 Ok(mut device) => {
                     let _ = ready_tx.send(Ok(()));
-                    device.run(&ring, &flag, &held);
+                    device.run(&ring, &flag, &fade_flag, &held);
                 }
                 Err(e) => {
                     let _ = ready_tx.send(Err(e));
@@ -203,7 +209,7 @@ impl AudioSink for AlsaSink {
             .map_err(|e| AudioError::Device(e.to_string()))?;
         match ready_rx.recv() {
             Ok(Ok(())) => {
-                self.device = Some(Device { stop, join });
+                self.device = Some(Device { stop, fade, join });
                 Ok(())
             }
             Ok(Err(e)) => {
@@ -221,6 +227,14 @@ impl AudioSink for AlsaSink {
         self.ring.clone()
     }
 
+    fn close(&mut self) {
+        self.close_device(false);
+    }
+
+    fn fade_out(&mut self) {
+        self.close_device(true);
+    }
+
     fn hold_open(&self, held: bool) {
         self.held.store(held, Ordering::Relaxed);
     }
@@ -232,6 +246,8 @@ struct Playback {
     rate: u32,
     failing: bool,
     route: u64,
+    usb: Option<u32>,
+    usb_checked: Instant,
 }
 
 fn play(ring: &Arc<Ring>, sample_rate: u32) -> Result<Playback, AudioError> {
@@ -243,11 +259,13 @@ fn play(ring: &Arc<Ring>, sample_rate: u32) -> Result<Playback, AudioError> {
         rate: sample_rate,
         failing: false,
         route: ROUTE_CHANGES.load(Ordering::Relaxed),
+        usb: present_usb_card(),
+        usb_checked: Instant::now(),
     })
 }
 
 impl Playback {
-    fn run(&mut self, ring: &Ring, stop: &AtomicBool, held: &AtomicBool) {
+    fn run(&mut self, ring: &Ring, stop: &AtomicBool, fade: &AtomicBool, held: &AtomicBool) {
         let mut buf = vec![0i16; PERIOD_FRAMES * CHANNELS as usize];
         let span = Duration::from_secs_f64(PERIOD_FRAMES as f64 / self.rate as f64);
         let mut silence = Silence::quiet(RELEASE_AFTER);
@@ -259,13 +277,21 @@ impl Playback {
                 self.route = route;
                 self.release();
             }
+            if self.usb_checked.elapsed() >= USB_CHECK_EVERY {
+                self.usb_checked = Instant::now();
+                let usb = present_usb_card();
+                if usb != self.usb {
+                    self.usb = usb;
+                    self.release();
+                }
+            }
             let hold = silence.hear(&buf, span);
             match (self.pcm, hold) {
                 (Some(_), false) if !held.load(Ordering::Relaxed) => {
                     self.release();
                     eprintln!("slot: audio released after silence");
                 }
-                (None, true) => match self.alsa.open_pcm(self.rate) {
+                (None, true) => match self.alsa.open_pcm(self.rate, self.usb) {
                     Ok(pcm) => {
                         eprintln!("slot: audio reopened at {:.1} ms", crate::boot_time::ms());
                         self.pcm = Some(pcm);
@@ -290,6 +316,23 @@ impl Playback {
                 None => std::thread::sleep(pace.wait(Instant::now())),
             }
         }
+        if fade.load(Ordering::Relaxed) {
+            if let Some(pcm) = self.pcm {
+                ring.fill(&mut buf);
+                let frames = PERIOD_FRAMES;
+                for f in 0..frames {
+                    let gain = (frames - f) as f32 / frames as f32;
+                    let idx = f * CHANNELS as usize;
+                    for c in 0..CHANNELS as usize {
+                        buf[idx + c] = (f32::from(buf[idx + c]) * gain).round() as i16;
+                    }
+                }
+                let _ = self.write(pcm, &buf);
+                buf.fill(0);
+                let _ = self.write(pcm, &buf);
+            }
+        }
+        self.release();
     }
 
     fn write(&self, pcm: *mut c_void, buf: &[i16]) -> bool {

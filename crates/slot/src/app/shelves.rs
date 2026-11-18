@@ -108,16 +108,63 @@ pub(super) fn stock(app: &mut App, root: &Path) {
     let _ = std::fs::create_dir_all(root.join(LISTS_DIR));
     let index = Index::new(app.carts());
     let mut racks = vec![(Rack::Search, Shelf::new(Vec::new()))];
-    for list in read_lists(root, &index) {
-        let name = app.overlay.shelves.intern(list.name);
-        racks.push((Rack::List(name), Shelf::new(carts_for(app, &list.carts))));
-    }
+    racks.extend(list_racks(app, root, &index));
     let added = racks.len();
     app.shelves.splice(SEARCH_AT..SEARCH_AT, racks);
     if app.shelf_at >= SEARCH_AT {
         app.shelf_at += added;
     }
     app.overlay.shelves.stocked = true;
+}
+
+fn list_racks(app: &mut App, root: &Path, index: &Index) -> Vec<(Rack, Shelf)> {
+    let lists = read_lists(root, index);
+    if app.extras.collections_top_level() {
+        lists
+            .into_iter()
+            .map(|list| {
+                let name = app.overlay.shelves.intern(list.name);
+                (Rack::List(name), Shelf::new(carts_for(app, &list.carts)))
+            })
+            .collect()
+    } else if lists.is_empty() {
+        Vec::new()
+    } else {
+        let mut combined: Vec<CartKey> = Vec::new();
+        for list in lists {
+            for k in list.carts {
+                if !combined.contains(&k) {
+                    combined.push(k);
+                }
+            }
+        }
+        vec![(Rack::List("Lists"), Shelf::new(carts_for(app, &combined)))]
+    }
+}
+
+pub(super) fn rebuild_lists(app: &mut App) {
+    let Some(root) = app.root.clone() else {
+        return;
+    };
+    if !app.overlay.shelves.stocked {
+        return;
+    }
+    let index = Index::new(app.carts());
+    let first = SEARCH_AT + 1;
+    let end = app
+        .shelves
+        .iter()
+        .position(|(r, _)| r.platform().is_some())
+        .unwrap_or(app.shelves.len());
+    let new_racks = list_racks(app, &root, &index);
+    let old_len = end.saturating_sub(first);
+    let new_len = new_racks.len();
+    app.shelves.splice(first..end, new_racks);
+    if app.shelf_at >= end {
+        app.shelf_at = (app.shelf_at + new_len).saturating_sub(old_len);
+    } else if app.shelf_at >= first {
+        app.shelf_at = first.min(app.shelves.len().saturating_sub(1));
+    }
 }
 
 fn carts_for(app: &App, keys: &[CartKey]) -> Vec<Cart> {

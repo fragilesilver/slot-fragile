@@ -32,7 +32,7 @@ struct Queue {
     full: Option<Job>,
     thumbs: VecDeque<Job>,
     generation: u64,
-    working: Option<PathBuf>,
+    working: Option<(PathBuf, u64)>,
     closed: bool,
 }
 
@@ -74,7 +74,11 @@ impl ShotLoader {
         let working = q.working.clone();
         q.thumbs = paths
             .into_iter()
-            .filter(|p| Some(p) != working.as_ref())
+            .filter(|p| {
+                working
+                    .as_ref()
+                    .is_none_or(|(wp, wg)| wp != p || *wg != generation)
+            })
             .map(|path| Job {
                 path,
                 want: Want::Thumb,
@@ -136,7 +140,7 @@ fn work(shared: &Shared, done: &Sender<Loaded>, decoded: &AtomicUsize) {
                     return;
                 }
                 if let Some(job) = q.full.take().or_else(|| q.thumbs.pop_front()) {
-                    q.working = Some(job.path.clone());
+                    q.working = Some((job.path.clone(), job.generation));
                     break job;
                 }
                 q = wake.wait(q).unwrap_or_else(|e| e.into_inner());

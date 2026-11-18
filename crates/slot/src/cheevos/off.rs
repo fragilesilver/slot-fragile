@@ -21,6 +21,10 @@ pub fn reset() {}
 
 pub fn overlay(_compositor: &mut Compositor, _draws: &mut Vec<Draw>, _canvas_w: f32) {}
 
+pub fn take_unlocked_haptic() -> bool {
+    false
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Status {
     SignedOut,

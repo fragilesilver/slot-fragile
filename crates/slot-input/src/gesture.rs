@@ -36,6 +36,7 @@ pub enum Action {
     BlueLightDown,
     SunlightUp,
     SunlightDown,
+    ResetGame,
     Guide,
     VolumeUp,
     VolumeDown,

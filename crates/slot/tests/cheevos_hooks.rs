@@ -54,9 +54,9 @@ fn every_retroachievements_hook_survived_the_merge() {
 }
 
 #[test]
-fn state_loads_and_the_cable_restore_reset_achievements() {
+fn state_loads_resets_and_the_cable_restore_reset_achievements() {
     let emu = include_str!("../src/emu.rs");
-    assert_eq!(emu.matches("crate::cheevos::reset();").count(), 2);
+    assert_eq!(emu.matches("crate::cheevos::reset();").count(), 3);
 }
 
 #[test]

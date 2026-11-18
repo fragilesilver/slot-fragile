@@ -14,6 +14,7 @@ mod clock;
 mod draw;
 mod footer;
 mod guide;
+pub mod hand;
 mod hud;
 mod icon;
 mod keyboard;
@@ -47,7 +48,9 @@ pub use backdrop::{
     draw_ground, game_bezel_face, wallpaper_face,
 };
 pub use barcode::{code39, CODE39_NARROW, CODE39_WIDE};
-pub use battery::{draw_gauge, gauge_width, BOLT_PX, GAUGE_H, GAUGE_W, WALL};
+pub use battery::{
+    draw_battery, draw_gauge, gauge_width, gauge_width_for, BOLT_PX, GAUGE_H, GAUGE_W, WALL,
+};
 pub use board::{
     board_at, board_face, board_from, board_in, board_x, board_zoom, chip_face, chip_shadow_face,
     grown, lid_at, lid_from, lift_of, on_board, padded, rom_marking, rom_marking_face, shelf_cart,
@@ -56,19 +59,21 @@ pub use board::{
     SLIDE_SHARE, SLIDE_UP, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
 };
 pub use cart::{
-    cart_backing, cart_box, cart_face, cart_face_with, cart_interior, cart_shadow, clean_label,
-    gb_cart_shadow, gb_label_panel, gb_shell_of, is_clear, label_colour, label_panel, label_size,
-    label_size_for, label_tags, label_text, media_shadow, neutral_shell, seated_box,
-    shows_interior, CartFace, CART_H, CART_W, GBC_LABEL_H, GBC_LABEL_W, GBC_LABEL_X, GBC_LABEL_Y,
-    GB_CART_H, GB_CART_W, GB_LABEL_H, GB_LABEL_W, GB_LABEL_X, GB_LABEL_Y, LABEL_H, LABEL_W,
-    LABEL_WELL, LABEL_X, LABEL_Y,
+    bare_face, cart_backing, cart_box, cart_face, cart_face_with, cart_interior, cart_shadow,
+    clean_label, gb_cart_shadow, gb_label_panel, gb_shell_of, is_clear, label_colour, label_panel,
+    label_size, label_size_for, label_tags, label_text, media_shadow, neutral_shell, seated_box,
+    shows_interior, writes_by_hand, CartFace, CART_H, CART_W, GBC_LABEL_H, GBC_LABEL_W,
+    GBC_LABEL_X, GBC_LABEL_Y, GB_CART_H, GB_CART_W, GB_LABEL_H, GB_LABEL_W, GB_LABEL_X, GB_LABEL_Y,
+    LABEL_H, LABEL_W, LABEL_WELL, LABEL_X, LABEL_Y,
 };
 pub use clock::{
     clock_label, date_time_text, date_time_text_as, hhmm, hhmm_as, set_clock_hint_face,
     ClockPicker, Field,
 };
 pub use draw::{Canvas, Draw, TexId, OUT_H, OUT_W};
-pub use footer::{draw_corners, draw_footer, draw_printed, Printed, FOOTER_Y};
+pub use footer::{
+    draw_corners, draw_corners_as, draw_footer, draw_footer_as, draw_printed, Printed, FOOTER_Y,
+};
 pub use guide::{
     cell, fitting_zoom, guide_help_face, mono_font, page_box, Guide, GuideGlyphs, GuideView,
     GUIDE_COLUMNS, GUIDE_HELP_HINT, GUIDE_HELP_TITLE, GUIDE_HINTS, GUIDE_ZOOMS, PAN_COLS,

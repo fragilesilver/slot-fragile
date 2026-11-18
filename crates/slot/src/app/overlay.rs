@@ -24,6 +24,8 @@ pub enum Overlay {
     Achievements(ListPage),
     /// Main menu → Network → Game Art.
     GameArt(ListPage),
+    /// Main menu → Network → RomM Library.
+    Romm(ListPage),
     /// In-game Screen → Card Shader → Shader Settings.
     ShaderSettings(ListPage),
 }
@@ -84,6 +86,7 @@ impl Overlay {
             | Overlay::Bluetooth(page)
             | Overlay::Achievements(page)
             | Overlay::GameArt(page)
+            | Overlay::Romm(page)
             | Overlay::ShaderSettings(page) => page,
         }
     }
@@ -98,6 +101,7 @@ impl Overlay {
             | Overlay::Bluetooth(page)
             | Overlay::Achievements(page)
             | Overlay::GameArt(page)
+            | Overlay::Romm(page)
             | Overlay::ShaderSettings(page) => page,
         }
     }
@@ -173,6 +177,18 @@ impl App {
                 self.open_game_art();
                 return true;
             }
+            QuickRow::RommBrowse => {
+                self.open_romm();
+                return true;
+            }
+            QuickRow::Hostname => {
+                self.start_hostname();
+                return true;
+            }
+            QuickRow::Nickname => {
+                self.start_nickname();
+                return true;
+            }
             QuickRow::Update => {
                 self.activate_update();
                 return true;
@@ -205,6 +221,7 @@ impl App {
             Some(Overlay::Networks(_)) => Some(From::Menu),
             Some(Overlay::Bluetooth(_)) => Some(From::Menu),
             Some(Overlay::GameArt(_)) => Some(From::Menu),
+            Some(Overlay::Romm(_)) => Some(From::Menu),
             Some(Overlay::Achievements(_)) => Some(From::InGame),
             Some(Overlay::ShaderSettings(_)) => Some(From::InGame),
             _ => None,
@@ -239,6 +256,7 @@ impl App {
             Some(Overlay::Networks(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
             Some(Overlay::Bluetooth(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
             Some(Overlay::GameArt(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
+            Some(Overlay::Romm(_)) => matches!(self.phase, Phase::QuickMenu { .. }),
             Some(Overlay::Achievements(_)) => self.in_game_menu.is_some(),
             Some(Overlay::ShaderSettings(_)) => self.in_game_menu.is_some(),
             Some(Overlay::Details(_)) => matches!(self.phase, Phase::About),
@@ -252,6 +270,7 @@ impl App {
             || self.networks_input(action)
             || self.bluetooth_input(action)
             || self.game_art_input(action)
+            || self.romm_input(action)
             || self.shader_settings_input(action)
         {
             return true;
@@ -393,6 +412,8 @@ impl App {
         if let Some(model) = crate::baseos::var("BASEOS_MODEL") {
             rows.push(ListRow::new("Device").with_value(model));
         }
+        rows.push(ListRow::new("Hostname").with_value(self.hostname_text()));
+        rows.push(ListRow::new("Nickname").with_value(self.nickname()));
         rows.push(ListRow::new("Games").with_value(self.carts().count().to_string()));
         rows.extend(self.card_rows());
         if let Some(b) = self.battery {

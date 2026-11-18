@@ -105,6 +105,8 @@ fn ground((x, y): (usize, usize)) -> [u32; 3] {
 
 fn let_the_name_in(f: &mut Frontend, c: &mut Compositor, input: &mut Script) {
     f.compose(c);
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    f.compose(c);
     f.advance(input);
     std::thread::sleep(std::time::Duration::from_millis(300));
     f.advance(input);
@@ -126,6 +128,24 @@ fn composed(f: &mut Frontend, c: &mut Compositor, name: &str) -> Vec<u8> {
         println!("wrote {path}");
     }
     px
+}
+
+fn put_gba_labels(root: &Path) {
+    let dir = root.join("Labels/GBA");
+    std::fs::create_dir_all(&dir).expect("Labels/GBA");
+    for (stem, rgba) in [
+        ("Emerald", [40u8, 200, 90, 255]),
+        ("Fusion", [230u8, 120, 40, 255]),
+    ] {
+        let f = std::fs::File::create(dir.join(format!("{stem}.png"))).expect("create label");
+        let mut e = png::Encoder::new(std::io::BufWriter::new(f), 1, 1);
+        e.set_color(png::ColorType::Rgba);
+        e.set_depth(png::BitDepth::Eight);
+        e.write_header()
+            .expect("label header")
+            .write_image_data(&rgba)
+            .expect("label pixel");
+    }
 }
 
 fn put_game_boy_carts(root: &Path) {
@@ -176,6 +196,7 @@ fn the_shoulders_ring_over_a_shelf_for_each_system() {
         return;
     };
     let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    put_gba_labels(d.path());
     put_game_boy_carts(d.path());
     clocked(d.path());
     let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
@@ -830,6 +851,7 @@ fn a_recents_shelf_rings_paks_and_carts_together() {
         return;
     };
     let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    put_gba_labels(d.path());
     put_game_boy_carts(d.path());
     let mut s = slot_store::read_slot_state(d.path());
     s.clock_set = true;

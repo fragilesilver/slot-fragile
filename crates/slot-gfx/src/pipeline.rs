@@ -1,3 +1,4 @@
+use crate::ghost::{FrameBlend, Ghost, Lcd};
 use crate::lcd3x::ScreenEffect;
 use crate::power::{screen_brightness, screen_rect_above};
 use crate::quad::Quad;
@@ -13,7 +14,12 @@ pub const WHOLE_TEXTURE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
 
 pub struct GamePass {
     prog: gl::types::GLuint,
-    game: gl::types::GLuint,
+    game: [gl::types::GLuint; 2],
+    at: usize,
+    held: u8,
+    ghost: Ghost,
+    blend: FrameBlend,
+    lcd: Lcd,
     u_rect: gl::types::GLint,
     u_bright: gl::types::GLint,
     u_uv: gl::types::GLint,
@@ -38,8 +44,6 @@ pub struct GamePass {
     integer: Option<[f32; 4]>,
     /// A shader off the card, drawn instead of the built-in effect while it is set.
     card: Option<RetroShader>,
-    /// The frame before this one, for card shaders that blend with it (`PrevTexture`).
-    prev: gl::types::GLuint,
     frames: u32,
     u_sharp: gl::types::GLint,
     sharp_bilinear: bool,
@@ -57,8 +61,10 @@ pub struct GamePass {
 impl GamePass {
     pub fn new() -> Result<Self, GfxError> {
         let prog = crate::shaders::program(RECT_VERT, GAME_FRAG)?;
-        let game = crate::gl::texture(SRC_W, SRC_H, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::BGRA, None);
-        let prev = crate::gl::texture(SRC_W, SRC_H, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::BGRA, None);
+        let game = [0, 1].map(|_| {
+            crate::gl::texture(SRC_W, SRC_H, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::BGRA, None)
+        });
+        let ghost = Ghost::new()?;
         let paper = crate::gl::texture(
             1,
             1,
@@ -92,6 +98,11 @@ impl GamePass {
         Ok(GamePass {
             prog,
             game,
+            at: 0,
+            held: 0,
+            ghost,
+            blend: FrameBlend::Off,
+            lcd: Lcd::Gba,
             u_rect,
             u_bright,
             u_uv,
@@ -112,7 +123,6 @@ impl GamePass {
             src: WHOLE_TEXTURE,
             integer: None,
             card: None,
-            prev,
             frames: 0,
             u_sharp,
             sharp_bilinear: false,
@@ -170,23 +180,26 @@ impl GamePass {
     }
 
     /// A frame of its own size: the texture is made again when the size changes.
-    pub fn upload_sized(&mut self, xrgb8888: &[u8], size: (u32, u32)) {
+    pub fn upload_sized(&mut self, xrgb8888: &[u8], size: (u32, u32), quad: &Quad) {
         let (w, h) = size;
         if w == 0 || h == 0 || xrgb8888.len() < (w * h * 4) as usize {
             return;
         }
         if size != self.size {
-            let made = || crate::gl::texture(w, h, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::BGRA, None);
-            let (game, prev) = (made(), made());
+            let game = [0, 1]
+                .map(|_| crate::gl::texture(w, h, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::BGRA, None));
             unsafe {
-                gl::DeleteTextures(1, &self.game);
-                gl::DeleteTextures(1, &self.prev);
+                gl::DeleteTextures(2, self.game.as_ptr());
                 gl::UseProgram(self.prog);
                 gl::Uniform2f(self.u_src, w as f32, h as f32);
             }
-            (self.game, self.prev, self.size) = (game, prev, size);
+            self.game = game;
+            self.size = size;
+            self.at = 0;
+            self.held = 0;
+            self.ghost.ensure_size(size);
         }
-        self.put(xrgb8888);
+        self.put(xrgb8888, quad);
     }
 
     pub fn set_fills_frame(&mut self, on: bool) {
@@ -211,6 +224,42 @@ impl GamePass {
 
     pub fn set_effect(&mut self, effect: ScreenEffect) {
         self.effect = effect;
+    }
+
+    pub fn set_blend(&mut self, blend: FrameBlend, quad: &Quad) {
+        if blend != self.blend {
+            self.blend = blend;
+            self.reblend(quad);
+        }
+    }
+
+    pub fn set_lcd(&mut self, lcd: Lcd, quad: &Quad) {
+        if lcd != self.lcd {
+            self.lcd = lcd;
+            self.reblend(quad);
+        }
+    }
+
+    pub fn cut(&mut self) {
+        self.held = 0;
+        self.ghost.reset();
+    }
+
+    fn reblend(&mut self, quad: &Quad) {
+        self.ghost.reset();
+        let (game, last) = (self.game[self.at], self.game[1 - self.at]);
+        match (self.blend, self.held) {
+            (_, 0) | (FrameBlend::Off, _) => {}
+            (_, 1) => self.ghost.respond(game, [0.0; 2], quad),
+            (FrameBlend::Mix, _) => {
+                self.ghost.respond(last, [0.0; 2], quad);
+                self.ghost.mix(game, last, quad);
+            }
+            (FrameBlend::Ghosting, _) => {
+                self.ghost.respond(last, [0.0; 2], quad);
+                self.ghost.respond(game, self.lcd.response(), quad);
+            }
+        }
     }
 
     pub fn set_paper(&mut self, size: u32, gray: &[u8]) {
@@ -266,16 +315,19 @@ impl GamePass {
         }
     }
 
-    pub fn upload(&mut self, xrgb8888: &[u8]) {
-        self.upload_sized(xrgb8888, (SRC_W, SRC_H));
+    pub fn upload(&mut self, xrgb8888: &[u8], quad: &Quad) {
+        self.upload_sized(xrgb8888, (SRC_W, SRC_H), quad);
     }
 
-    fn put(&mut self, xrgb8888: &[u8]) {
+    fn put(&mut self, xrgb8888: &[u8], quad: &Quad) {
         // Last frame becomes `prev`, and its texture takes this one.
-        std::mem::swap(&mut self.game, &mut self.prev);
+        let last = self.game[self.at];
+        self.at = 1 - self.at;
+        let game = self.game[self.at];
+        self.held = (self.held + 1).min(2);
         self.frames = self.frames.wrapping_add(1);
         unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, self.game);
+            gl::BindTexture(gl::TEXTURE_2D, game);
             gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
             gl::TexSubImage2D(
                 gl::TEXTURE_2D,
@@ -289,18 +341,29 @@ impl GamePass {
                 xrgb8888.as_ptr() as *const std::ffi::c_void,
             );
         }
+        match self.blend {
+            FrameBlend::Off => {}
+            FrameBlend::Mix => self.ghost.mix(game, last, quad),
+            FrameBlend::Ghosting => self.ghost.respond(game, self.lcd.response(), quad),
+        }
     }
 
     pub fn draw(&self, quad: &Quad) {
+        let game = self.game[self.at];
+        let prev = self.game[1 - self.at];
         if let Some(card) = &self.card {
             let (rect, src) = match self.integer {
                 Some(src) => ((0.0, 0.0, OUT_W as f32, OUT_H as f32), src),
                 None => (self.placed(), self.footed(self.src)),
             };
-            return card.draw(self.game, self.prev, rect, src, self.frames, self.size);
+            return card.draw(game, prev, rect, src, self.frames, self.size);
         }
+        let shown = match self.blend {
+            FrameBlend::Off => game,
+            FrameBlend::Mix | FrameBlend::Ghosting => self.ghost.texture().unwrap_or(game),
+        };
         if let Some(src) = self.integer {
-            return self.draw_whole(self.game, quad, src);
+            return self.draw_whole(shown, quad, src);
         }
         let src = match self.effect {
             ScreenEffect::Grid if self.aspect.is_none() => {
@@ -308,7 +371,7 @@ impl GamePass {
             }
             _ => self.src,
         };
-        self.draw_source(self.game, quad, src);
+        self.draw_source(shown, quad, src);
     }
 
     pub fn draw_still(&self, tex: gl::types::GLuint, quad: &Quad) {
@@ -452,8 +515,7 @@ fn whole_scale(at: f32, len: f32, texels: f32, out: f32) -> (f32, f32) {
 impl Drop for GamePass {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteTextures(1, &self.game);
-            gl::DeleteTextures(1, &self.prev);
+            gl::DeleteTextures(2, self.game.as_ptr());
             gl::DeleteTextures(1, &self.paper);
             gl::DeleteProgram(self.prog);
         }

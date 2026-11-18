@@ -205,6 +205,64 @@ pub fn refresh(card: &Path) {
     }
 }
 
+pub const BOOTLOGOS_DIR: &str = "Bootlogos";
+
+pub fn list(card: &Path) -> Vec<String> {
+    let Ok(entries) = fs::read_dir(card.join(BOOTLOGOS_DIR)) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| !slot_store::is_hidden(p))
+        .filter(|p| {
+            p.extension().is_some_and(|e| {
+                e.eq_ignore_ascii_case("bmp")
+                    || e.eq_ignore_ascii_case("png")
+                    || e.eq_ignore_ascii_case("jpg")
+                    || e.eq_ignore_ascii_case("jpeg")
+            })
+        })
+        .filter_map(|p| Some(p.file_name()?.to_str()?.to_owned()))
+        .collect();
+    names.sort_by_key(|n| n.to_lowercase());
+    names
+}
+
+pub fn select(card: &Path, pick: &str) -> io::Result<()> {
+    let dst = card.join(USER_LOGO);
+    if pick == "slot" || pick.is_empty() {
+        let _ = fs::remove_file(&dst);
+        refresh(card);
+        return Ok(());
+    }
+    let src = card.join(BOOTLOGOS_DIR).join(pick);
+    let raw = fs::read(&src)?;
+    let bmp_bytes = if decode(&raw).is_some() {
+        raw
+    } else {
+        let img = image::load_from_memory(&raw)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let (iw, ih) = (img.width(), img.height());
+        let scaled = if iw > 640 || ih > 480 {
+            img.resize(640, 480, image::imageops::FilterType::Lanczos3)
+        } else {
+            img
+        };
+        let rgb_img = scaled.to_rgb8();
+        let (w, h) = (rgb_img.width() as usize, rgb_img.height() as usize);
+        let rgb = rgb_img.pixels().map(|p| p.0).collect::<Vec<[u8; 3]>>();
+        encode(&Bmp {
+            width: w,
+            height: h,
+            rgb,
+        })
+    };
+    slot_store::atomic_write(&dst, &bmp_bytes)?;
+    refresh(card);
+    Ok(())
+}
+
 fn partition(name: &str) -> Option<String> {
     for entry in fs::read_dir("/sys/class/block").ok()?.flatten() {
         let uevent = fs::read_to_string(entry.path().join("uevent")).unwrap_or_default();

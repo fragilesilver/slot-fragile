@@ -80,7 +80,7 @@ fn show_titles_is_flipped_from_the_shelf_page_and_saved() {
     let mut a = boot(d.path(), false);
     tick(&mut a, 3.0);
     a.apply(Action::QuickMenu);
-    for _ in 0..QuickRow::General.position(&[]) {
+    for _ in 0..QuickRow::ShelfSettings.position(&[]) {
         press(&mut a, Btn::Down);
     }
     press(&mut a, Btn::A);

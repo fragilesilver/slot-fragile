@@ -690,6 +690,10 @@ impl Session {
         true
     }
 
+    pub fn fade_audio_out(&mut self) {
+        self.sink.fade_out();
+    }
+
     fn reload_for_link(&mut self, stem: &str, serial: &'static str) {
         eprintln!("slot: link: loading {stem} again with gpsp_serial={serial}");
         if self.emu.is_some() {

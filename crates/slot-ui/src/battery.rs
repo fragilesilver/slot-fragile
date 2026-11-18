@@ -1,5 +1,6 @@
 use slot_gfx::{Draw, TexId};
 use slot_power::{Battery, Charge};
+use slot_store::BatteryDisplay;
 
 use crate::footer::Printed;
 use crate::plate::HINT_H;
@@ -24,15 +25,28 @@ pub fn gauge_width(percent_w: u32) -> f32 {
     BOLT_W + BOLT_GAP + GAUGE_W + NUB_W + GAP + percent_w as f32
 }
 
-pub fn draw_gauge(
+pub fn gauge_width_for(display: BatteryDisplay, percent_w: u32) -> f32 {
+    match display {
+        BatteryDisplay::Off => 0.0,
+        BatteryDisplay::Icon => BOLT_W + BOLT_GAP + GAUGE_W + NUB_W,
+        BatteryDisplay::Percent => BOLT_W + BOLT_GAP + percent_w as f32,
+        BatteryDisplay::Both => gauge_width(percent_w),
+    }
+}
+
+pub fn draw_battery(
     x: f32,
     y: f32,
     battery: Option<Battery>,
+    display: BatteryDisplay,
     percent: Printed,
     bolt: Option<TexId>,
     ink: [u8; 3],
     out: &mut Vec<Draw>,
 ) {
+    if display == BatteryDisplay::Off {
+        return;
+    }
     let Some(b) = battery else {
         return;
     };
@@ -42,31 +56,10 @@ pub fn draw_gauge(
         ink[2] as f32 / 255.0,
         1.0,
     ];
-
     let rect = |x: f32, y: f32, w: f32, h: f32, out: &mut Vec<Draw>| {
         out.push(Draw::Rect { x, y, w, h, colour });
     };
-
     let cx = x + BOLT_W + BOLT_GAP;
-
-    rect(cx, y, GAUGE_W, WALL, out);
-    rect(cx, y + GAUGE_H - WALL, GAUGE_W, WALL, out);
-    rect(cx, y, WALL, GAUGE_H, out);
-    rect(cx + GAUGE_W - WALL, y, WALL, GAUGE_H, out);
-    rect(cx + GAUGE_W, y + (GAUGE_H - NUB_H) / 2.0, NUB_W, NUB_H, out);
-
-    let inner = GAUGE_W - 4.0 * WALL;
-    let fill = inner * f32::from(b.percent.min(100)) / 100.0;
-    if fill > 0.0 {
-        rect(
-            cx + 2.0 * WALL,
-            y + 2.0 * WALL,
-            fill,
-            GAUGE_H - 4.0 * WALL,
-            out,
-        );
-    }
-
     if let (Charge::Charging, Some(tex)) = (b.charge, bolt) {
         out.push(Draw::Tex {
             x,
@@ -77,9 +70,31 @@ pub fn draw_gauge(
             alpha: 1.0,
         });
     }
+    if display.shows_icon() {
+        rect(cx, y, GAUGE_W, WALL, out);
+        rect(cx, y + GAUGE_H - WALL, GAUGE_W, WALL, out);
+        rect(cx, y, WALL, GAUGE_H, out);
+        rect(cx + GAUGE_W - WALL, y, WALL, GAUGE_H, out);
+        rect(cx + GAUGE_W, y + (GAUGE_H - NUB_H) / 2.0, NUB_W, NUB_H, out);
 
-    if percent.w > 0 {
-        let px = cx + GAUGE_W + NUB_W + GAP;
+        let inner = GAUGE_W - 4.0 * WALL;
+        let fill = inner * f32::from(b.percent.min(100)) / 100.0;
+        if fill > 0.0 {
+            rect(
+                cx + 2.0 * WALL,
+                y + 2.0 * WALL,
+                fill,
+                GAUGE_H - 4.0 * WALL,
+                out,
+            );
+        }
+    }
+    if display.shows_percent() && percent.w > 0 {
+        let px = if display.shows_icon() {
+            cx + GAUGE_W + NUB_W + GAP
+        } else {
+            cx
+        };
         let py = y + (GAUGE_H - HINT_H as f32) / 2.0;
         out.push(match percent.face {
             Some(tex) => Draw::Tex {
@@ -99,4 +114,16 @@ pub fn draw_gauge(
             },
         });
     }
+}
+
+pub fn draw_gauge(
+    x: f32,
+    y: f32,
+    battery: Option<Battery>,
+    percent: Printed,
+    bolt: Option<TexId>,
+    ink: [u8; 3],
+    out: &mut Vec<Draw>,
+) {
+    draw_battery(x, y, battery, BatteryDisplay::Both, percent, bolt, ink, out);
 }

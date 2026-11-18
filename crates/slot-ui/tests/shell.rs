@@ -237,10 +237,15 @@ fn a_shell_without_a_label_image_is_one_plastic() {
         [0xa9, 0x51, 0x3b],
         "Drill Dozer is not its red plastic"
     );
+    let bare = slot_ui::bare_face(cart);
+    let bare_px = |x: u32, y: u32| {
+        let i = ((y * bare.w + x) * 4) as usize;
+        [bare.rgba[i], bare.rgba[i + 1], bare.rgba[i + 2]]
+    };
     assert_eq!(
         px(LABEL_X, LABEL_Y),
-        label_colour(&label_text(cart)),
-        "the label well is not the generated label"
+        bare_px(LABEL_X, LABEL_Y),
+        "the label well was covered by a sticker instead of bare plastic"
     );
     let mut letters = 0;
     for y in 0..LABEL_Y {
@@ -373,10 +378,15 @@ fn a_clear_gba_cart_has_no_board_baked_into_its_face() {
 
 #[test]
 fn clear_plastic_is_eighty_percent_alpha_and_the_label_box_stays_opaque() {
-    let (_d, clear) = chosen("GBA", 0, "BPEE", Some("auto d9dbd8 clear"));
-    let (_d2, solid) = chosen("GBA", 0, "BPEE", Some("auto d9dbd8 solid"));
-    let paper = label_colour(&label_text(&clear));
-    let (clear, solid) = (cart_face(&clear), cart_face(&solid));
+    let (_d, clear_cart) = chosen("GBA", 0, "BPEE", Some("auto d9dbd8 clear"));
+    let (_d2, solid_cart) = chosen("GBA", 0, "BPEE", Some("auto d9dbd8 solid"));
+    let paper = label_colour(&label_text(&clear_cart));
+    let (lw, lh) = slot_ui::label_size(&clear_cart);
+    let art: Vec<u8> = (0..lw * lh)
+        .flat_map(|_| [paper[0], paper[1], paper[2], 255])
+        .collect();
+    let clear = slot_ui::cart_face_with(&clear_cart, Some(art));
+    let solid = cart_face(&solid_cart);
     let at = |f: &slot_ui::CartFace, x: u32, y: u32| {
         let i = ((y * f.w + x) * 4) as usize;
         [f.rgba[i], f.rgba[i + 1], f.rgba[i + 2], f.rgba[i + 3]]
@@ -467,9 +477,20 @@ fn any_colour_is_blended_onto_the_one_neutral_shell() {
         [0x12, 0x34, 0x56],
         "flat plastic is not the colour"
     );
+    let paper = label_colour(&label_text(&cart));
+    let (lw, lh) = slot_ui::label_size(&cart);
+    let art: Vec<u8> = (0..lw * lh)
+        .flat_map(|_| [paper[0], paper[1], paper[2], 255])
+        .collect();
+    let labelled = slot_ui::cart_face_with(&cart, Some(art));
+    let li = ((LABEL_Y * labelled.w + LABEL_X) * 4) as usize;
     assert_eq!(
-        at(LABEL_X, LABEL_Y),
-        label_colour(&label_text(&cart)),
+        [
+            labelled.rgba[li],
+            labelled.rgba[li + 1],
+            labelled.rgba[li + 2]
+        ],
+        paper,
         "the label was tinted with the plastic"
     );
     let darker = (0..f.h)

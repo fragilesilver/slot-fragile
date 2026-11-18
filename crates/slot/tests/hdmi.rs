@@ -24,9 +24,9 @@ fn go(a: &mut App, row: QuickRow) {
 
 fn general_page(a: &mut App) {
     a.apply(Action::QuickMenu);
-    go(a, QuickRow::General);
+    go(a, QuickRow::System);
     press(a, Btn::A);
-    assert_eq!(a.quick_menu(), Some(QuickRow::Theme));
+    assert_eq!(a.quick_menu(), Some(QuickRow::BatteryDisplay));
 }
 
 #[test]

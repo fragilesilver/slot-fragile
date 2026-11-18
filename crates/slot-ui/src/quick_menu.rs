@@ -36,6 +36,7 @@ pub enum QuickRow {
     Resume,
     UndoSave,
     UndoLoad,
+    UndoReset,
     States,
     Screenshots,
     Settings,
@@ -52,7 +53,8 @@ pub enum QuickRow {
     GbaBezel,
     ScreenGbc,
     ScreenGb,
-    General,
+    ShelfSettings,
+    System,
     ShelfPrev,
     ShelfNext,
     ShelfFavorite,
@@ -88,6 +90,7 @@ pub enum QuickRow {
     ScRewind,
     ScSunlightUp,
     ScSunlightDown,
+    ScResetGame,
     Guide,
     ScGuide,
     LidOff,
@@ -100,18 +103,30 @@ pub enum QuickRow {
     BlueLight,
     Saturation,
     Contrast,
+    CalWarm,
+    CalTint,
+    CalCurve,
     PlayBrightness,
     PlayBlueLight,
     PlaySaturation,
     PlayContrast,
+    PlayCalWarm,
+    PlayCalTint,
+    PlayCalCurve,
     // --- extras ---
     StartShelf,
     ShowFavorites,
+    CollectionsShelf,
     ClockFormat,
+    Zone,
+    Hostname,
+    Nickname,
+    BootLogo,
+    Haptics,
     SleepOff,
     Screensaver,
     ScreensaverStyle,
-    BatteryBadge,
+    BatteryDisplay,
     FastForwardPitch,
     FastForwardMode,
     PlayThisGame,
@@ -129,6 +144,10 @@ pub enum QuickRow {
     MotionBlurGba,
     MotionBlurGb,
     MotionBlurGbc,
+    MotionBlurNes,
+    MotionBlurSnes,
+    MotionBlurPs,
+    MotionBlurNds,
     ControlsGuide,
     PlayGuide,
     ShelfSearch,
@@ -140,10 +159,12 @@ pub enum QuickRow {
     WifiStatus,
     WifiIp,
     TimeSync,
+    CheevosPage,
     Cheevos,
     CheevosAccount,
     PlayAchievements,
     PlayDisc,
+    RommBrowse,
     ScreenNes,
     ScreenSnes,
     ScreenPs,
@@ -188,7 +209,8 @@ pub enum QuickRow {
     PlayNdsLayout,
     ThisNdsLayout,
     PlayNetwork,
-    PlayGeneral,
+    PlayShelf,
+    PlaySystem,
     Update,
     // --- extras: overlays ---
     NesBezel,
@@ -202,12 +224,13 @@ pub enum QuickRow {
     NdsMic,
     PlayNdsMic,
     ThisNdsMic,
-    AutoLoad,
+    ResumeOnInsert,
+    ResumeOnPowerOn,
     KidMode,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 184] = [
+    pub const ALL: [QuickRow; 207] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -233,6 +256,7 @@ impl QuickRow {
         QuickRow::Resume,
         QuickRow::UndoSave,
         QuickRow::UndoLoad,
+        QuickRow::UndoReset,
         QuickRow::States,
         QuickRow::Screenshots,
         QuickRow::Settings,
@@ -249,7 +273,8 @@ impl QuickRow {
         QuickRow::GbaBezel,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
-        QuickRow::General,
+        QuickRow::ShelfSettings,
+        QuickRow::System,
         QuickRow::ShelfPrev,
         QuickRow::ShelfNext,
         QuickRow::ShelfFavorite,
@@ -285,6 +310,7 @@ impl QuickRow {
         QuickRow::ScRewind,
         QuickRow::ScSunlightUp,
         QuickRow::ScSunlightDown,
+        QuickRow::ScResetGame,
         QuickRow::Guide,
         QuickRow::ScGuide,
         QuickRow::LidOff,
@@ -297,18 +323,30 @@ impl QuickRow {
         QuickRow::BlueLight,
         QuickRow::Saturation,
         QuickRow::Contrast,
+        QuickRow::CalWarm,
+        QuickRow::CalTint,
+        QuickRow::CalCurve,
         QuickRow::PlayBrightness,
         QuickRow::PlayBlueLight,
         QuickRow::PlaySaturation,
         QuickRow::PlayContrast,
+        QuickRow::PlayCalWarm,
+        QuickRow::PlayCalTint,
+        QuickRow::PlayCalCurve,
         // --- extras ---
         QuickRow::StartShelf,
         QuickRow::ShowFavorites,
+        QuickRow::CollectionsShelf,
         QuickRow::ClockFormat,
+        QuickRow::Zone,
+        QuickRow::Hostname,
+        QuickRow::Nickname,
+        QuickRow::BootLogo,
+        QuickRow::Haptics,
         QuickRow::SleepOff,
         QuickRow::Screensaver,
         QuickRow::ScreensaverStyle,
-        QuickRow::BatteryBadge,
+        QuickRow::BatteryDisplay,
         QuickRow::FastForwardPitch,
         QuickRow::FastForwardMode,
         QuickRow::PlayThisGame,
@@ -326,6 +364,10 @@ impl QuickRow {
         QuickRow::MotionBlurGba,
         QuickRow::MotionBlurGb,
         QuickRow::MotionBlurGbc,
+        QuickRow::MotionBlurNes,
+        QuickRow::MotionBlurSnes,
+        QuickRow::MotionBlurPs,
+        QuickRow::MotionBlurNds,
         QuickRow::ControlsGuide,
         QuickRow::PlayGuide,
         QuickRow::ShelfSearch,
@@ -337,10 +379,12 @@ impl QuickRow {
         QuickRow::WifiStatus,
         QuickRow::WifiIp,
         QuickRow::TimeSync,
+        QuickRow::CheevosPage,
         QuickRow::Cheevos,
         QuickRow::CheevosAccount,
         QuickRow::PlayAchievements,
         QuickRow::PlayDisc,
+        QuickRow::RommBrowse,
         QuickRow::ScreenNes,
         QuickRow::ScreenSnes,
         QuickRow::ScreenPs,
@@ -385,7 +429,8 @@ impl QuickRow {
         QuickRow::PlayNdsLayout,
         QuickRow::ThisNdsLayout,
         QuickRow::PlayNetwork,
-        QuickRow::PlayGeneral,
+        QuickRow::PlayShelf,
+        QuickRow::PlaySystem,
         QuickRow::Update,
         QuickRow::NesBezel,
         QuickRow::SnesBezel,
@@ -397,39 +442,53 @@ impl QuickRow {
         QuickRow::NdsMic,
         QuickRow::PlayNdsMic,
         QuickRow::ThisNdsMic,
-        QuickRow::AutoLoad,
+        QuickRow::ResumeOnInsert,
+        QuickRow::ResumeOnPowerOn,
         QuickRow::KidMode,
     ];
 
-    pub const MAIN: [QuickRow; 6] = [
-        QuickRow::General,
-        QuickRow::Screen,
+    pub const MAIN: [QuickRow; 7] = [
+        QuickRow::ShelfSettings,
         QuickRow::Game,
         QuickRow::Controls,
+        QuickRow::Screen,
         // --- extras ---
         QuickRow::Network,
-        QuickRow::About,
+        QuickRow::CheevosPage,
+        QuickRow::System,
     ];
 
-    pub const GENERAL: [QuickRow; 16] = [
+    pub const SHELF_SETTINGS: [QuickRow; 9] = [
         QuickRow::Theme,
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
         QuickRow::Recents,
         QuickRow::ShowTitles,
         QuickRow::ShowFavorites,
+        QuickRow::CollectionsShelf,
         QuickRow::StartShelf,
         QuickRow::KidMode,
+    ];
+
+    pub const SYSTEM: [QuickRow; 15] = [
+        QuickRow::BatteryDisplay,
         QuickRow::ClockFormat,
-        QuickRow::BatteryBadge,
+        QuickRow::DateTime,
+        QuickRow::Zone,
+        QuickRow::Hostname,
+        QuickRow::Nickname,
+        QuickRow::BootLogo,
+        QuickRow::Haptics,
+        QuickRow::HdmiOutput,
         QuickRow::LidOff,
         QuickRow::SleepOff,
         QuickRow::Screensaver,
         QuickRow::ScreensaverStyle,
-        QuickRow::DateTime,
-        // --- extras ---
-        QuickRow::HdmiOutput,
+        QuickRow::Update,
+        QuickRow::About,
     ];
+
+    pub const CHEEVOS: [QuickRow; 2] = [QuickRow::Cheevos, QuickRow::CheevosAccount];
 
     pub const CONTROL_PAGES: [QuickRow; 4] = [
         QuickRow::ControlsShelf,
@@ -468,7 +527,7 @@ impl QuickRow {
         QuickRow::GameTurboB,
     ];
 
-    pub const SHORTCUTS: [QuickRow; 18] = [
+    pub const SHORTCUTS: [QuickRow; 19] = [
         QuickRow::ScSave,
         QuickRow::ScLoad,
         QuickRow::ScScreenshot,
@@ -486,6 +545,7 @@ impl QuickRow {
         QuickRow::ScRewind,
         QuickRow::ScSunlightUp,
         QuickRow::ScSunlightDown,
+        QuickRow::ScResetGame,
         QuickRow::ScGuide,
     ];
 
@@ -501,36 +561,42 @@ impl QuickRow {
         QuickRow::ScreenNds,
     ];
 
-    pub const SCREEN_GENERAL: [QuickRow; 4] = [
+    pub const SCREEN_GENERAL: [QuickRow; 7] = [
         QuickRow::Brightness,
         QuickRow::BlueLight,
         QuickRow::Saturation,
         QuickRow::Contrast,
+        QuickRow::CalWarm,
+        QuickRow::CalTint,
+        QuickRow::CalCurve,
     ];
 
     // --- extras: the screen pages of the systems Fragile adds ---
-    pub const SCREEN_NES: [QuickRow; 4] = [
+    pub const SCREEN_NES: [QuickRow; 5] = [
         QuickRow::IntegerNes,
         QuickRow::NesShader,
         QuickRow::CardShaderNes,
         QuickRow::NesBezel,
+        QuickRow::MotionBlurNes,
     ];
 
-    pub const SCREEN_SNES: [QuickRow; 4] = [
+    pub const SCREEN_SNES: [QuickRow; 5] = [
         QuickRow::IntegerSnes,
         QuickRow::SnesShader,
         QuickRow::CardShaderSnes,
         QuickRow::SnesBezel,
+        QuickRow::MotionBlurSnes,
     ];
 
-    pub const SCREEN_PS: [QuickRow; 4] = [
+    pub const SCREEN_PS: [QuickRow; 5] = [
         QuickRow::IntegerPs,
         QuickRow::PsShader,
         QuickRow::CardShaderPs,
         QuickRow::Ps1Bezel,
+        QuickRow::MotionBlurPs,
     ];
 
-    pub const SCREEN_NDS: [QuickRow; 7] = [
+    pub const SCREEN_NDS: [QuickRow; 8] = [
         QuickRow::IntegerNds,
         QuickRow::NdsLayout,
         QuickRow::NdsStylus,
@@ -538,6 +604,7 @@ impl QuickRow {
         QuickRow::NdsShader,
         QuickRow::CardShaderNds,
         QuickRow::NdsBezel,
+        QuickRow::MotionBlurNds,
     ];
 
     pub const SCREEN_GBA: [QuickRow; 6] = [
@@ -568,7 +635,7 @@ impl QuickRow {
         QuickRow::MotionBlurGb,
     ];
 
-    pub const GAME: [QuickRow; 10] = [
+    pub const GAME: [QuickRow; 11] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::FastForwardPitch,
@@ -578,13 +645,15 @@ impl QuickRow {
         QuickRow::Rumble,
         QuickRow::LeftStick,
         QuickRow::EjectSave,
-        QuickRow::AutoLoad,
+        QuickRow::ResumeOnInsert,
+        QuickRow::ResumeOnPowerOn,
     ];
 
-    pub const PLAY: [QuickRow; 11] = [
+    pub const PLAY: [QuickRow; 12] = [
         QuickRow::Resume,
         QuickRow::UndoSave,
         QuickRow::UndoLoad,
+        QuickRow::UndoReset,
         QuickRow::States,
         QuickRow::Screenshots,
         QuickRow::Guide,
@@ -596,17 +665,18 @@ impl QuickRow {
         QuickRow::ExitGame,
     ];
 
-    pub const SETTINGS: [QuickRow; 7] = [
+    pub const SETTINGS: [QuickRow; 8] = [
         QuickRow::PlayScreen,
         QuickRow::PlayGameplay,
         QuickRow::PlayControls,
         QuickRow::PlayThisGame,
         QuickRow::PlayNetwork,
-        QuickRow::PlayGeneral,
+        QuickRow::PlayShelf,
+        QuickRow::PlaySystem,
         QuickRow::PlayGuide,
     ];
 
-    pub const PLAY_SCREEN: [QuickRow; 15] = [
+    pub const PLAY_SCREEN: [QuickRow; 18] = [
         QuickRow::Scaling,
         QuickRow::PlayNdsLayout,
         QuickRow::PlayNdsStylus,
@@ -622,6 +692,9 @@ impl QuickRow {
         QuickRow::PlayBlueLight,
         QuickRow::PlaySaturation,
         QuickRow::PlayContrast,
+        QuickRow::PlayCalWarm,
+        QuickRow::PlayCalTint,
+        QuickRow::PlayCalCurve,
     ];
 
     pub fn index(self) -> usize {
@@ -641,26 +714,33 @@ impl QuickRow {
             QuickRow::Brightness
             | QuickRow::BlueLight
             | QuickRow::Saturation
-            | QuickRow::Contrast => &QuickRow::SCREEN_GENERAL,
+            | QuickRow::Contrast
+            | QuickRow::CalWarm
+            | QuickRow::CalTint
+            | QuickRow::CalCurve => &QuickRow::SCREEN_GENERAL,
             QuickRow::NesShader
             | QuickRow::IntegerNes
             | QuickRow::CardShaderNes
-            | QuickRow::NesBezel => &QuickRow::SCREEN_NES,
+            | QuickRow::NesBezel
+            | QuickRow::MotionBlurNes => &QuickRow::SCREEN_NES,
             QuickRow::SnesShader
             | QuickRow::IntegerSnes
             | QuickRow::CardShaderSnes
-            | QuickRow::SnesBezel => &QuickRow::SCREEN_SNES,
+            | QuickRow::SnesBezel
+            | QuickRow::MotionBlurSnes => &QuickRow::SCREEN_SNES,
             QuickRow::PsShader
             | QuickRow::IntegerPs
             | QuickRow::CardShaderPs
-            | QuickRow::Ps1Bezel => &QuickRow::SCREEN_PS,
+            | QuickRow::Ps1Bezel
+            | QuickRow::MotionBlurPs => &QuickRow::SCREEN_PS,
             QuickRow::NdsShader
             | QuickRow::IntegerNds
             | QuickRow::CardShaderNds
             | QuickRow::NdsLayout
             | QuickRow::NdsStylus
             | QuickRow::NdsMic
-            | QuickRow::NdsBezel => &QuickRow::SCREEN_NDS,
+            | QuickRow::NdsBezel
+            | QuickRow::MotionBlurNds => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
             | QuickRow::GbaBezel
@@ -687,25 +767,35 @@ impl QuickRow {
             | QuickRow::Rumble
             | QuickRow::LeftStick
             | QuickRow::EjectSave
-            | QuickRow::AutoLoad
+            | QuickRow::ResumeOnInsert
+            | QuickRow::ResumeOnPowerOn
             | QuickRow::FastForwardPitch
             | QuickRow::FastForwardMode => &QuickRow::GAME,
             QuickRow::Wallpaper
             | QuickRow::WallpaperTint
-            | QuickRow::DateTime
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::ShowTitles
-            | QuickRow::LidOff
-            | QuickRow::StartShelf
             | QuickRow::ShowFavorites
-            | QuickRow::KidMode
+            | QuickRow::CollectionsShelf
+            | QuickRow::StartShelf
+            | QuickRow::KidMode => &QuickRow::SHELF_SETTINGS,
+            QuickRow::BatteryDisplay
             | QuickRow::ClockFormat
+            | QuickRow::DateTime
+            | QuickRow::Zone
+            | QuickRow::Hostname
+            | QuickRow::Nickname
+            | QuickRow::BootLogo
+            | QuickRow::Haptics
+            | QuickRow::HdmiOutput
+            | QuickRow::LidOff
             | QuickRow::SleepOff
             | QuickRow::Screensaver
             | QuickRow::ScreensaverStyle
-            | QuickRow::BatteryBadge
-            | QuickRow::HdmiOutput => &QuickRow::GENERAL,
+            | QuickRow::Update
+            | QuickRow::About => &QuickRow::SYSTEM,
+            QuickRow::Cheevos | QuickRow::CheevosAccount => &QuickRow::CHEEVOS,
             QuickRow::ControlsShelf
             | QuickRow::Shortcuts
             | QuickRow::ControlsInGame
@@ -713,6 +803,7 @@ impl QuickRow {
             QuickRow::Resume
             | QuickRow::UndoSave
             | QuickRow::UndoLoad
+            | QuickRow::UndoReset
             | QuickRow::States
             | QuickRow::Screenshots
             | QuickRow::Guide
@@ -726,7 +817,8 @@ impl QuickRow {
             | QuickRow::PlayControls
             | QuickRow::PlayThisGame
             | QuickRow::PlayNetwork
-            | QuickRow::PlayGeneral
+            | QuickRow::PlayShelf
+            | QuickRow::PlaySystem
             | QuickRow::PlayGuide => &QuickRow::SETTINGS,
             QuickRow::ThisScaling
             | QuickRow::ThisNdsLayout
@@ -756,7 +848,10 @@ impl QuickRow {
             | QuickRow::PlayBrightness
             | QuickRow::PlayBlueLight
             | QuickRow::PlaySaturation
-            | QuickRow::PlayContrast => &QuickRow::PLAY_SCREEN,
+            | QuickRow::PlayContrast
+            | QuickRow::PlayCalWarm
+            | QuickRow::PlayCalTint
+            | QuickRow::PlayCalCurve => &QuickRow::PLAY_SCREEN,
             QuickRow::WifiPower
             | QuickRow::WifiNetworks
             | QuickRow::WifiStatus
@@ -767,10 +862,8 @@ impl QuickRow {
             | QuickRow::SshPassword
             | QuickRow::WebDashboard
             | QuickRow::TimeSync
-            | QuickRow::Cheevos
-            | QuickRow::CheevosAccount
             | QuickRow::GameArt
-            | QuickRow::Update => &QuickRow::NETWORK,
+            | QuickRow::RommBrowse => &QuickRow::NETWORK,
             _ => &QuickRow::MAIN,
         }
     }
@@ -822,8 +915,14 @@ impl QuickRow {
         if p == QuickRow::SHORTCUTS {
             return Some(QuickRow::Shortcuts);
         }
-        if p == QuickRow::GENERAL {
-            return Some(QuickRow::General);
+        if p == QuickRow::SHELF_SETTINGS {
+            return Some(QuickRow::ShelfSettings);
+        }
+        if p == QuickRow::SYSTEM {
+            return Some(QuickRow::System);
+        }
+        if p == QuickRow::CHEEVOS {
+            return Some(QuickRow::CheevosPage);
         }
         if p == QuickRow::CONTROL_PAGES {
             return Some(QuickRow::Controls);
@@ -842,7 +941,8 @@ impl QuickRow {
             Some(QuickRow::Game) => Some(QuickRow::PlayGameplay),
             Some(QuickRow::ControlsInGame) => Some(QuickRow::PlayControls),
             Some(QuickRow::Network) => Some(QuickRow::PlayNetwork),
-            Some(QuickRow::General) => Some(QuickRow::PlayGeneral),
+            Some(QuickRow::ShelfSettings) => Some(QuickRow::PlayShelf),
+            Some(QuickRow::System) => Some(QuickRow::PlaySystem),
             parent => parent,
         }
     }
@@ -868,7 +968,9 @@ impl QuickRow {
             QuickRow::PlayControls => Some(QuickRow::CONTROLS[0]),
             QuickRow::PlayThisGame => Some(QuickRow::THIS_GAME[0]),
             QuickRow::Shortcuts => Some(QuickRow::SHORTCUTS[0]),
-            QuickRow::General => Some(QuickRow::GENERAL[0]),
+            QuickRow::ShelfSettings => Some(QuickRow::SHELF_SETTINGS[0]),
+            QuickRow::System => Some(QuickRow::SYSTEM[0]),
+            QuickRow::CheevosPage => Some(QuickRow::CHEEVOS[0]),
             QuickRow::Controls => Some(QuickRow::CONTROL_PAGES[0]),
             QuickRow::ControlsShelf => Some(QuickRow::SHELF_KEYS[0]),
             QuickRow::ControlsInGame => Some(QuickRow::CONTROLS[0]),
@@ -877,7 +979,8 @@ impl QuickRow {
             QuickRow::ScreenGbc => Some(QuickRow::SCREEN_GBC[0]),
             QuickRow::ScreenGb => Some(QuickRow::SCREEN_GB[0]),
             QuickRow::PlayNetwork => Some(QuickRow::NETWORK[0]),
-            QuickRow::PlayGeneral => Some(QuickRow::GENERAL[0]),
+            QuickRow::PlayShelf => Some(QuickRow::SHELF_SETTINGS[0]),
+            QuickRow::PlaySystem => Some(QuickRow::SYSTEM[0]),
             QuickRow::ScreenNes => Some(QuickRow::SCREEN_NES[0]),
             QuickRow::ScreenSnes => Some(QuickRow::SCREEN_SNES[0]),
             QuickRow::ScreenPs => Some(QuickRow::SCREEN_PS[0]),
@@ -938,8 +1041,10 @@ impl QuickRow {
             QuickRow::GbcColourCorrection => "Color Correction",
             QuickRow::Game => "Gameplay",
             QuickRow::EjectSave => "Auto Save on Eject",
-            QuickRow::AutoLoad => "Auto Load State",
+            QuickRow::ResumeOnInsert => "Resume on Insert",
+            QuickRow::ResumeOnPowerOn => "Resume on Power On",
             QuickRow::KidMode => "Kid Mode",
+            QuickRow::CollectionsShelf => "Collections",
             QuickRow::Turbo => "Turbo Buttons",
             QuickRow::Rewind => "Rewind",
             QuickRow::GbPalettes => "Palettes",
@@ -949,10 +1054,15 @@ impl QuickRow {
             QuickRow::ShowFavorites => "Favorites",
             QuickRow::StartShelf => "Start Shelf",
             QuickRow::ClockFormat => "Clock",
+            QuickRow::Zone => "Timezone",
+            QuickRow::Hostname => "Hostname",
+            QuickRow::Nickname => "Nickname",
+            QuickRow::BootLogo => "Boot Logo",
+            QuickRow::Haptics => "Haptics",
             QuickRow::SleepOff => "Sleep Power Off",
             QuickRow::Screensaver => "Screensaver",
             QuickRow::ScreensaverStyle => "Screensaver Style",
-            QuickRow::BatteryBadge => "Battery Badge",
+            QuickRow::BatteryDisplay => "Battery",
             QuickRow::FastForwardPitch => "Fast Forward Pitch",
             QuickRow::FastForwardMode => "Fast Forward Mode",
             QuickRow::PlayThisGame => "This Game",
@@ -970,10 +1080,11 @@ impl QuickRow {
             QuickRow::WebDashboard => "Web Dashboard",
             QuickRow::HdmiOutput => "HDMI Output",
             QuickRow::TimeSync => "Time Sync",
-            QuickRow::Cheevos => "RetroAchievements",
+            QuickRow::CheevosPage | QuickRow::Cheevos => "RetroAchievements",
             QuickRow::CheevosAccount => "Account",
             QuickRow::GameArt => "Game Art",
-            QuickRow::Update => "System Update",
+            QuickRow::RommBrowse => "RomM Library",
+            QuickRow::Update => "Software Update",
             QuickRow::PlayAchievements => "Achievements",
             QuickRow::PlayDisc => "Disc",
             QuickRow::ThisShader => "Shader",
@@ -996,18 +1107,24 @@ impl QuickRow {
             QuickRow::MotionBlurGba
             | QuickRow::MotionBlurGb
             | QuickRow::MotionBlurGbc
-            | QuickRow::MotionBlur => "Motion Blur",
+            | QuickRow::MotionBlurNes
+            | QuickRow::MotionBlurSnes
+            | QuickRow::MotionBlurPs
+            | QuickRow::MotionBlurNds
+            | QuickRow::MotionBlur => "Frame Blending",
             QuickRow::ShowTitles => "Game Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
             QuickRow::UndoSave => "Undo Save",
             QuickRow::UndoLoad => "Undo Load",
+            QuickRow::UndoReset => "Undo Reset",
             QuickRow::States => "States",
             QuickRow::Screenshots => "Screenshots",
             QuickRow::Guide => "Guide",
             QuickRow::Settings => "Settings",
             QuickRow::ExitGame => "Exit Game",
-            QuickRow::General => "General",
+            QuickRow::ShelfSettings | QuickRow::PlayShelf => "Shelf",
+            QuickRow::System | QuickRow::PlaySystem => "System",
             QuickRow::LidOff => "Lid Power Off",
             QuickRow::Controls => "Controls",
             QuickRow::ControlsShelf => "Shelf",
@@ -1047,6 +1164,7 @@ impl QuickRow {
             | QuickRow::ScRewind
             | QuickRow::ScSunlightUp
             | QuickRow::ScSunlightDown
+            | QuickRow::ScResetGame
             | QuickRow::ScGuide => self.shortcut().map_or("", Shortcut::label),
             QuickRow::ShelfPrev
             | QuickRow::ShelfNext
@@ -1057,12 +1175,14 @@ impl QuickRow {
             QuickRow::PlayScreen => "Screen",
             QuickRow::PlayGameplay => "Gameplay",
             QuickRow::PlayNetwork => "Network",
-            QuickRow::PlayGeneral => "System",
             QuickRow::ScreenGeneral => "General",
             QuickRow::Brightness | QuickRow::PlayBrightness => "Brightness",
             QuickRow::BlueLight | QuickRow::PlayBlueLight => "Blue Light",
             QuickRow::Saturation | QuickRow::PlaySaturation => "Saturation",
             QuickRow::Contrast | QuickRow::PlayContrast => "Contrast",
+            QuickRow::CalWarm | QuickRow::PlayCalWarm => "Warmth",
+            QuickRow::CalTint | QuickRow::PlayCalTint => "Tint",
+            QuickRow::CalCurve | QuickRow::PlayCalCurve => "Gamma Curve",
             QuickRow::Shader => "Shader",
             QuickRow::ColourCorrection => "Color Correction",
             QuickRow::Palette => "Palette",
@@ -1087,15 +1207,20 @@ impl QuickRow {
             r if r.shortcut().is_some() || r.carousel_action().is_some() => {
                 "Supports single button and two button chords."
             }
-            QuickRow::General => "Theme, wallpaper, shelves and the clock.",
+            QuickRow::ShelfSettings => "Theme, wallpaper, collections and shelf view.",
+            QuickRow::System => "Clock, battery, hostname, power and updates.",
+            QuickRow::CheevosPage => "Earn achievements and manage your account.",
             QuickRow::Screen | QuickRow::PlayScreen => "Shaders, colour and bezels.",
-            QuickRow::ScreenGeneral => "Brightness, blue light, saturation and contrast.",
+            QuickRow::ScreenGeneral => "Brightness, blue light and color calibration.",
             QuickRow::Brightness | QuickRow::PlayBrightness => "Screen brightness level.",
             QuickRow::BlueLight | QuickRow::PlayBlueLight => "Warmth / blue light filter.",
             QuickRow::Saturation | QuickRow::PlaySaturation => {
                 "Boost game colors beyond standard gamut."
             }
             QuickRow::Contrast | QuickRow::PlayContrast => "Contrast boost for richer dark tones.",
+            QuickRow::CalWarm | QuickRow::PlayCalWarm => "Shift white point warmer or cooler.",
+            QuickRow::CalTint | QuickRow::PlayCalTint => "Shift green/magenta white balance tint.",
+            QuickRow::CalCurve | QuickRow::PlayCalCurve => "Adjust display gamma response curve.",
             QuickRow::Game | QuickRow::PlayGameplay => "Fast forward, rewind, turbo and saving.",
             QuickRow::Controls | QuickRow::PlayControls => "Remap buttons and shortcuts.",
             QuickRow::About => "Version and device details.",
@@ -1116,8 +1241,10 @@ impl QuickRow {
             QuickRow::Rumble => "Vibrate when a game asks for rumble.",
             QuickRow::LeftStick => "Steer with the left stick as well as the D-Pad.",
             QuickRow::EjectSave => "Save a state when you leave a game.",
-            QuickRow::AutoLoad => "Resume where you left off when starting a game.",
+            QuickRow::ResumeOnInsert => "Load the last auto save when inserting a cartridge.",
+            QuickRow::ResumeOnPowerOn => "Reopen the running game automatically after boot.",
             QuickRow::KidMode => "Lock down shelves and settings for kids.",
+            QuickRow::CollectionsShelf => "Show custom lists as their own shelf or grouped.",
             QuickRow::Theme => "Dark or light look for the whole frontend.",
             QuickRow::Wallpaper => "Picture behind the shelf.",
             QuickRow::WallpaperTint => "Darken the wallpaper so carts stand out.",
@@ -1125,15 +1252,20 @@ impl QuickRow {
             QuickRow::ShowFavorites => "Show the shelf of starred games.",
             QuickRow::StartShelf => "The shelf slot opens on when it starts.",
             QuickRow::ClockFormat => "Show the time on a 24 or 12 hour clock.",
+            QuickRow::Zone => "Select your city/timezone for automatic DST.",
+            QuickRow::Hostname => "Network device name used for mDNS and Wi-Fi.",
+            QuickRow::Nickname => "Display name shown in link invites and system info.",
+            QuickRow::BootLogo => "Image shown on screen when the console powers on.",
+            QuickRow::Haptics => "Vibrate for alerts and battery warnings.",
             QuickRow::SleepOff => "Power off after sleeping this long.",
             QuickRow::Screensaver => "Start screensaver after this much idle time.",
             QuickRow::ScreensaverStyle => "Style shown when the screensaver starts.",
-            QuickRow::BatteryBadge => "Show the battery in a corner while you play.",
+            QuickRow::BatteryDisplay => "Battery icon and percentage style on screen.",
             QuickRow::FastForwardPitch => "Fast forward sound keeps its normal pitch.",
             QuickRow::FastForwardMode => "Hold button or toggle on and off.",
             QuickRow::PlayThisGame => "Settings this game keeps for itself.",
             QuickRow::PlayCheats => "Turn this game's cheats on and off.",
-            QuickRow::Network => "Wi-Fi and the time from the internet.",
+            QuickRow::Network => "Wi-Fi, Bluetooth, SSH, Web Dashboard and RomM.",
             QuickRow::WifiPower => "Turn the Wi-Fi on or off.",
             QuickRow::WifiNetworks => "Pick a network to join.",
             QuickRow::WifiStatus => "The network the Wi-Fi is on.",
@@ -1148,9 +1280,11 @@ impl QuickRow {
             QuickRow::Cheevos => "Earn achievements, softcore, while you play.",
             QuickRow::CheevosAccount => "Sign in to RetroAchievements.",
             QuickRow::GameArt => "Find labels for your games online.",
+            QuickRow::RommBrowse => "Browse and download ROMs from your RomM server.",
             QuickRow::Update => "Check for and install Fragile updates.",
             QuickRow::PlayNetwork => "Wi-Fi, Bluetooth, SSH and Web Dashboard.",
-            QuickRow::PlayGeneral => "HDMI output, battery badge and clock.",
+            QuickRow::PlayShelf => "Theme, wallpaper, recents and shelf options.",
+            QuickRow::PlaySystem => "Clock, battery, HDMI output and device settings.",
             QuickRow::PlayAchievements => "This game's achievements and the ones you have.",
             QuickRow::PlayDisc => "Put another of this game's discs in.",
             QuickRow::ControlsGuide | QuickRow::PlayGuide => {
@@ -1200,7 +1334,11 @@ impl QuickRow {
             QuickRow::MotionBlurGba
             | QuickRow::MotionBlurGb
             | QuickRow::MotionBlurGbc
-            | QuickRow::MotionBlur => "Moving pixels fade out slowly, like an old LCD.",
+            | QuickRow::MotionBlurNes
+            | QuickRow::MotionBlurSnes
+            | QuickRow::MotionBlurPs
+            | QuickRow::MotionBlurNds
+            | QuickRow::MotionBlur => "Blend frames slowly, like an original LCD screen.",
             QuickRow::ShowTitles => "Show the game name above the cart.",
             QuickRow::LidOff => "Power off after the lid stays shut this long.",
             QuickRow::DateTime => "Set the clock.",
@@ -1223,6 +1361,7 @@ impl QuickRow {
             QuickRow::Resume => "Back to the game.",
             QuickRow::UndoSave => "Take back the save just written.",
             QuickRow::UndoLoad => "Return to the state before the load.",
+            QuickRow::UndoReset => "Return to the state before the reset.",
             QuickRow::States => "Save, load and browse save states.",
             QuickRow::Screenshots => "View and manage game screenshots.",
             QuickRow::Guide | QuickRow::ScGuide => "Read the game's strategy guide.",
@@ -1243,6 +1382,7 @@ impl QuickRow {
                 | QuickRow::Resume
                 | QuickRow::UndoSave
                 | QuickRow::UndoLoad
+                | QuickRow::UndoReset
                 | QuickRow::States
                 | QuickRow::Screenshots
                 | QuickRow::Guide
@@ -1250,14 +1390,17 @@ impl QuickRow {
                 | QuickRow::ExitGame
                 | QuickRow::PlayScreen
                 | QuickRow::PlayGameplay
-                | QuickRow::General
+                | QuickRow::ShelfSettings
+                | QuickRow::System
+                | QuickRow::CheevosPage
                 | QuickRow::Controls
                 | QuickRow::ControlsShelf
                 | QuickRow::ControlsInGame
                 | QuickRow::PlayControls
                 | QuickRow::PlayThisGame
                 | QuickRow::PlayNetwork
-                | QuickRow::PlayGeneral
+                | QuickRow::PlayShelf
+                | QuickRow::PlaySystem
                 | QuickRow::ControlsGuide
                 | QuickRow::PlayGuide
                 | QuickRow::PlayCheats
@@ -1265,8 +1408,11 @@ impl QuickRow {
                 | QuickRow::WifiNetworks
                 | QuickRow::BtDevices
                 | QuickRow::SshPassword
+                | QuickRow::Hostname
+                | QuickRow::Nickname
                 | QuickRow::CheevosAccount
                 | QuickRow::GameArt
+                | QuickRow::RommBrowse
                 | QuickRow::Update
                 | QuickRow::PlayAchievements
                 | QuickRow::ShaderSettings
@@ -1322,6 +1468,7 @@ impl QuickRow {
             QuickRow::ScRewind => Shortcut::Rewind,
             QuickRow::ScSunlightUp => Shortcut::SunlightUp,
             QuickRow::ScSunlightDown => Shortcut::SunlightDown,
+            QuickRow::ScResetGame => Shortcut::ResetGame,
             QuickRow::ScGuide => Shortcut::Guide,
             _ => return None,
         })
@@ -1370,6 +1517,7 @@ pub enum QuickValue {
     Dot,
     Simpletex,
     Shimmerless,
+    ShimmerlessGrid,
     Dark,
     Light,
     Show,
@@ -1383,6 +1531,12 @@ pub enum QuickValue {
     Min10,
     Min15,
     Min30,
+    Dim6,
+    Dim5,
+    Dim4,
+    Dim3,
+    Dim2,
+    Dim1,
     Level0,
     Level1,
     Level2,
@@ -1413,10 +1567,17 @@ pub enum QuickValue {
     PowerOn,
     OneShelf,
     Shelves,
+    Mix,
+    Ghosting,
+    BatteryIcon,
+    BatteryPercent,
+    BatteryBoth,
+    CollectionsInline,
+    CollectionsSeparate,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 54] = [
+    pub const ALL: [QuickValue; 68] = [
         QuickValue::Speed1_5,
         QuickValue::Speed2,
         QuickValue::Speed3,
@@ -1429,6 +1590,7 @@ impl QuickValue {
         QuickValue::Dot,
         QuickValue::Simpletex,
         QuickValue::Shimmerless,
+        QuickValue::ShimmerlessGrid,
         QuickValue::Dark,
         QuickValue::Light,
         QuickValue::Show,
@@ -1442,6 +1604,12 @@ impl QuickValue {
         QuickValue::Min10,
         QuickValue::Min15,
         QuickValue::Min30,
+        QuickValue::Dim6,
+        QuickValue::Dim5,
+        QuickValue::Dim4,
+        QuickValue::Dim3,
+        QuickValue::Dim2,
+        QuickValue::Dim1,
         QuickValue::Level0,
         QuickValue::Level1,
         QuickValue::Level2,
@@ -1471,6 +1639,13 @@ impl QuickValue {
         QuickValue::PowerOn,
         QuickValue::OneShelf,
         QuickValue::Shelves,
+        QuickValue::Mix,
+        QuickValue::Ghosting,
+        QuickValue::BatteryIcon,
+        QuickValue::BatteryPercent,
+        QuickValue::BatteryBoth,
+        QuickValue::CollectionsInline,
+        QuickValue::CollectionsSeparate,
     ];
 
     pub const LEVELS: [QuickValue; 10] = [
@@ -1508,11 +1683,12 @@ impl QuickValue {
             QuickValue::Speed6 => "6×",
             QuickValue::On => "On",
             QuickValue::Off => "Off",
-            QuickValue::Lcd3x => "LCD3x",
+            QuickValue::Lcd3x => "LCD",
             QuickValue::Grid => "Grid",
             QuickValue::Dot => "Dot",
             QuickValue::Simpletex => "Simpletex",
             QuickValue::Shimmerless => "Shimmerless",
+            QuickValue::ShimmerlessGrid => "Shimmerless Grid",
             QuickValue::Dark => "Dark",
             QuickValue::Light => "Light",
             QuickValue::Show => "Show",
@@ -1526,6 +1702,12 @@ impl QuickValue {
             QuickValue::Min10 => "10 min",
             QuickValue::Min15 => "15 min",
             QuickValue::Min30 => "30 min",
+            QuickValue::Dim6 => "-6",
+            QuickValue::Dim5 => "-5",
+            QuickValue::Dim4 => "-4",
+            QuickValue::Dim3 => "-3",
+            QuickValue::Dim2 => "-2",
+            QuickValue::Dim1 => "-1",
             QuickValue::Level0 => "0",
             QuickValue::Level1 => "1",
             QuickValue::Level2 => "2",
@@ -1555,6 +1737,25 @@ impl QuickValue {
             QuickValue::PowerOn => "Power On",
             QuickValue::OneShelf => "One Shelf",
             QuickValue::Shelves => "Shelves",
+            QuickValue::Mix => "Mix",
+            QuickValue::Ghosting => "Ghosting",
+            QuickValue::BatteryIcon => "Icon",
+            QuickValue::BatteryPercent => "Percent",
+            QuickValue::BatteryBoth => "Both",
+            QuickValue::CollectionsInline => "Shelf",
+            QuickValue::CollectionsSeparate => "Separate",
+        }
+    }
+
+    pub fn brightness(level: u8, dim: u8) -> QuickValue {
+        match dim {
+            6 => QuickValue::Dim6,
+            5 => QuickValue::Dim5,
+            4 => QuickValue::Dim4,
+            3 => QuickValue::Dim3,
+            2 => QuickValue::Dim2,
+            1 => QuickValue::Dim1,
+            _ => QuickValue::level(level),
         }
     }
 
@@ -2305,9 +2506,12 @@ fn visible(page: &[QuickRow]) -> usize {
 
 fn scrolls(page: &[QuickRow]) -> bool {
     [
-        &QuickRow::CONTROLS[..],
+        &QuickRow::MAIN[..],
+        &QuickRow::CONTROLS,
         &QuickRow::SHORTCUTS,
-        &QuickRow::GENERAL,
+        &QuickRow::SHELF_SETTINGS,
+        &QuickRow::SYSTEM,
+        &QuickRow::SCREEN_GENERAL,
         &QuickRow::PLAY_SCREEN,
     ]
     .contains(&page)

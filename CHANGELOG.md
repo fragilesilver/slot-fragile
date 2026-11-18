@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.9.8](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.8)
+
+- GPU Frame Blending & LCD Screen Effects:
+  - Moved frame blending (`Off`, `Mix`, `Ghosting`) to a GPU OpenGL ES ping-pong shader pass across all 7 systems (GBA, GB, GBC, NES, SNES, PlayStation, Nintendo DS), removing CPU `mgba_interframe_blending` and save/load ghost artifacts.
+  - Added hardware-adaptive LCD subpixel shader (`LcdGrid` / `Lcd3x` by panel resolution) and added the `Shimmerless Grid` shader for Game Boy and Game Boy Color.
+  - Added pure-shader Night Dim (`DIM_MAX = 6`, `-6`..`9` continuous brightness scale) and per-channel Display Calibration (`Warmth`, `Tint`, `Gamma Curve`) in GLSL without hardware `/dev/disp` gamma calls.
+  - Added tiled `_tile.png` overlay support and live wallpaper tint preview behind the shelf menu.
+- Settings Reorganization & Navigation:
+  - Organized the Settings menu into `Shelf`, `Gameplay`, `Controls`, `Screen`, `Network`, `RetroAchievements`, and `System` (with `Software Update` and `About` under `System`), while keeping in-game `Shelf`, `System`, and per-game overrides accessible.
+  - Split `Auto Load State` into `Resume on Insert` and `Resume on Power On`.
+  - Added `Battery` display styles (`Off`, `Icon`, `Percent`, `Both`), corner status on shelf menus, `Collections` shelf mode (`Shelf` / `Separate`), and a 250ms stick-jitter guard after exiting a game.
+- Handwritten Cartridge Labels & Core Picker:
+  - Integrated `NoSmear.ttf` stroke-based handwriting directly onto bare plastic shells for unlabelled ROMs across systems.
+  - Added back shell geometry behind the PCB in the Game Boy / Game Boy Color Core Picker, and fixed gallery thumbnail decoding when closing and reopening the screenshot viewer.
+- Device, Timezone, Audio & Haptics:
+  - Added a 51-city DST-aware `Timezone` picker (including `Asia/Brunei` / `UTC+08:00`) exported via POSIX `TZ` rules plus offline RTC clock drift learning (`Config/clock.txt`).
+  - Added on-device `Hostname` (`baseos.conf`), `Nickname`, and `Boot Logo` (`Bootlogos/`) selectors.
+  - Added `Haptics` pulses on charger connect, low battery alerts, and achievement unlocks.
+  - Added hot-plug USB DAC audio routing via `/proc/asound/cards` and clean audio ramp fade-out before shutdown/restart.
+  - Added `Reset Game` shortcut and 1-click `Undo Reset` in the in-game Pause menu.
+- Caching & Optional Cloud Integration:
+  - Added persistent ROM header cache (`Cache/headers`), offline RetroAchievements patch caching and unlock queue sync (`Config/cheevos_cache`), and optional RomM server browsing/downloading (`Config/romm.txt`).
+
 ## [1.9.7](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.7)
 
 - Nintendo DS Core Upgrade (DSperate v3.4.1):

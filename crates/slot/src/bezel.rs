@@ -140,3 +140,12 @@ pub fn pick(root: &Path, panel: (u32, u32)) -> Option<PathBuf> {
     fits.sort_by_key(|((w, _), p)| (w.abs_diff(panel.0), p.clone()));
     fits.into_iter().next().map(|(_, p)| p)
 }
+
+/// Overlay names ending in `_tile` repeat smoothly across the display instead of stretching.
+pub fn is_tile(name: &str) -> bool {
+    let stem = name
+        .strip_suffix(".png")
+        .or_else(|| name.strip_suffix(".PNG"))
+        .unwrap_or(name);
+    stem.to_ascii_lowercase().ends_with("_tile")
+}

@@ -82,10 +82,18 @@ fn the_fast_forward_row_offers_off_a_slow_speed_and_the_four_ceilings() {
 fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::MAIN.map(QuickRow::label),
-        ["General", "Screen", "Gameplay", "Controls", "Network", "About"]
+        [
+            "Shelf",
+            "Gameplay",
+            "Controls",
+            "Screen",
+            "Network",
+            "RetroAchievements",
+            "System",
+        ]
     );
     assert_eq!(
-        QuickRow::GENERAL.map(QuickRow::label),
+        QuickRow::SHELF_SETTINGS.map(QuickRow::label),
         [
             "Theme",
             "Wallpaper",
@@ -93,17 +101,34 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Recents",
             "Game Titles",
             "Favorites",
+            "Collections",
             "Start Shelf",
             "Kid Mode",
+        ]
+    );
+    assert_eq!(
+        QuickRow::SYSTEM.map(QuickRow::label),
+        [
+            "Battery",
             "Clock",
-            "Battery Badge",
+            "Date & Time",
+            "Timezone",
+            "Hostname",
+            "Nickname",
+            "Boot Logo",
+            "Haptics",
+            "HDMI Output",
             "Lid Power Off",
             "Sleep Power Off",
             "Screensaver",
             "Screensaver Style",
-            "Date & Time",
-            "HDMI Output",
+            "Software Update",
+            "About",
         ]
+    );
+    assert_eq!(
+        QuickRow::CHEEVOS.map(QuickRow::label),
+        ["RetroAchievements", "Account"]
     );
     assert_eq!(
         QuickRow::CONTROL_PAGES.map(QuickRow::label),
@@ -141,7 +166,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Card Shader",
             "Color Correction",
             "Overlay",
-            "Motion Blur"
+            "Frame Blending"
         ]
     );
     assert_eq!(
@@ -152,7 +177,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Card Shader",
             "Color Correction",
             "Overlay",
-            "Motion Blur"
+            "Frame Blending"
         ]
     );
     assert_eq!(
@@ -164,20 +189,38 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Color Correction",
             "Palettes",
             "Overlay",
-            "Motion Blur"
+            "Frame Blending"
         ]
     );
     assert_eq!(
         QuickRow::SCREEN_NES.map(QuickRow::label),
-        ["Scaling", "Shader", "Card Shader", "Overlay"]
+        [
+            "Scaling",
+            "Shader",
+            "Card Shader",
+            "Overlay",
+            "Frame Blending"
+        ]
     );
     assert_eq!(
         QuickRow::SCREEN_SNES.map(QuickRow::label),
-        ["Scaling", "Shader", "Card Shader", "Overlay"]
+        [
+            "Scaling",
+            "Shader",
+            "Card Shader",
+            "Overlay",
+            "Frame Blending"
+        ]
     );
     assert_eq!(
         QuickRow::SCREEN_PS.map(QuickRow::label),
-        ["Scaling", "Shader", "Card Shader", "Overlay"]
+        [
+            "Scaling",
+            "Shader",
+            "Card Shader",
+            "Overlay",
+            "Frame Blending"
+        ]
     );
     assert_eq!(
         QuickRow::SCREEN_NDS.map(QuickRow::label),
@@ -188,7 +231,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Microphone",
             "Shader",
             "Card Shader",
-            "Overlay"
+            "Overlay",
+            "Frame Blending",
         ]
     );
     assert_eq!(
@@ -203,7 +247,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Rumble",
             "Left Stick as D-Pad",
             "Auto Save on Eject",
-            "Auto Load State",
+            "Resume on Insert",
+            "Resume on Power On",
         ]
     );
     let opens: Vec<QuickRow> = QuickRow::ALL.into_iter().filter(|r| r.opens()).collect();
@@ -217,6 +262,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::Resume,
             QuickRow::UndoSave,
             QuickRow::UndoLoad,
+            QuickRow::UndoReset,
             QuickRow::States,
             QuickRow::Screenshots,
             QuickRow::Settings,
@@ -226,7 +272,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::ScreenGba,
             QuickRow::ScreenGbc,
             QuickRow::ScreenGb,
-            QuickRow::General,
+            QuickRow::ShelfSettings,
+            QuickRow::System,
             QuickRow::PlayControls,
             QuickRow::Shortcuts,
             QuickRow::Guide,
@@ -234,14 +281,18 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::ControlsShelf,
             QuickRow::ControlsInGame,
             QuickRow::ScreenGeneral,
+            QuickRow::Hostname,
+            QuickRow::Nickname,
             QuickRow::PlayThisGame,
             QuickRow::ControlsGuide,
             QuickRow::PlayGuide,
             QuickRow::PlayCheats,
             QuickRow::Network,
             QuickRow::WifiNetworks,
+            QuickRow::CheevosPage,
             QuickRow::CheevosAccount,
             QuickRow::PlayAchievements,
+            QuickRow::RommBrowse,
             QuickRow::ScreenNes,
             QuickRow::ScreenSnes,
             QuickRow::ScreenPs,
@@ -251,7 +302,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::SshPassword,
             QuickRow::ShaderSettings,
             QuickRow::PlayNetwork,
-            QuickRow::PlayGeneral,
+            QuickRow::PlayShelf,
+            QuickRow::PlaySystem,
             QuickRow::Update,
         ]
     );
@@ -259,7 +311,9 @@ fn the_rows_run_in_the_order_the_user_chose() {
         &QuickRow::MAIN[..],
         &QuickRow::SCREEN[..],
         &QuickRow::GAME[..],
-        &QuickRow::GENERAL[..],
+        &QuickRow::SHELF_SETTINGS[..],
+        &QuickRow::SYSTEM[..],
+        &QuickRow::CHEEVOS[..],
         &QuickRow::PLAY[..],
         &QuickRow::SETTINGS[..],
         &QuickRow::PLAY_SCREEN[..],
@@ -279,7 +333,7 @@ fn a_hidden_row_is_stepped_over_and_takes_no_place() {
     let hidden = [QuickRow::WallpaperTint];
     assert_eq!(QuickRow::Wallpaper.down(&hidden), QuickRow::Recents);
     assert_eq!(QuickRow::Recents.up(&hidden), QuickRow::Wallpaper);
-    assert_eq!(QuickRow::Theme.up(&hidden), QuickRow::HdmiOutput);
+    assert_eq!(QuickRow::Theme.up(&hidden), QuickRow::KidMode);
     assert_eq!(QuickRow::Recents.position(&hidden), 2);
     assert_eq!(QuickRow::Wallpaper.down(&[]), QuickRow::WallpaperTint);
     assert_eq!(QuickRow::Recents.position(&[]), 3);
@@ -302,11 +356,12 @@ fn the_values_read_as_the_menu_prints_them() {
             "6×",
             "On",
             "Off",
-            "LCD3x",
+            "LCD",
             "Grid",
             "Dot",
             "Simpletex",
             "Shimmerless",
+            "Shimmerless Grid",
             "Dark",
             "Light",
             "Show",
@@ -320,6 +375,12 @@ fn the_values_read_as_the_menu_prints_them() {
             "10 min",
             "15 min",
             "30 min",
+            "-6",
+            "-5",
+            "-4",
+            "-3",
+            "-2",
+            "-1",
             "0",
             "1",
             "2",
@@ -349,6 +410,13 @@ fn the_values_read_as_the_menu_prints_them() {
             "Power On",
             "One Shelf",
             "Shelves",
+            "Mix",
+            "Ghosting",
+            "Icon",
+            "Percent",
+            "Both",
+            "Shelf",
+            "Separate",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);
@@ -448,6 +516,7 @@ fn the_in_game_pages_hold_their_rows_in_order() {
             QuickRow::Resume,
             QuickRow::UndoSave,
             QuickRow::UndoLoad,
+            QuickRow::UndoReset,
             QuickRow::States,
             QuickRow::Screenshots,
             QuickRow::Guide,
@@ -466,6 +535,7 @@ fn the_in_game_pages_hold_their_rows_in_order() {
             "Controls",
             "This Game",
             "Network",
+            "Shelf",
             "System",
             "Button Guide"
         ]
@@ -509,6 +579,9 @@ fn the_in_game_pages_hold_their_rows_in_order() {
             QuickRow::PlayBlueLight,
             QuickRow::PlaySaturation,
             QuickRow::PlayContrast,
+            QuickRow::PlayCalWarm,
+            QuickRow::PlayCalTint,
+            QuickRow::PlayCalCurve,
         ]
     );
     for row in QuickRow::PLAY {
@@ -533,16 +606,21 @@ fn in_game_pages_climb_back_through_settings() {
         QuickRow::WifiPower.parent_in_game(),
         Some(QuickRow::PlayNetwork)
     );
+    assert_eq!(QuickRow::Theme.parent_in_game(), Some(QuickRow::PlayShelf));
     assert_eq!(
-        QuickRow::Theme.parent_in_game(),
-        Some(QuickRow::PlayGeneral)
+        QuickRow::ClockFormat.parent_in_game(),
+        Some(QuickRow::PlaySystem)
     );
     assert_eq!(
         QuickRow::PlayNetwork.parent_in_game(),
         Some(QuickRow::Settings)
     );
     assert_eq!(
-        QuickRow::PlayGeneral.parent_in_game(),
+        QuickRow::PlayShelf.parent_in_game(),
+        Some(QuickRow::Settings)
+    );
+    assert_eq!(
+        QuickRow::PlaySystem.parent_in_game(),
         Some(QuickRow::Settings)
     );
     assert_eq!(
@@ -581,7 +659,8 @@ fn in_game_rows_read_as_the_menu_shows_them() {
         }
         assert!(!row.centred(), "{row:?}");
     }
-    assert!(QuickRow::General.centred());
+    assert!(QuickRow::ShelfSettings.centred());
+    assert!(QuickRow::System.centred());
     assert!(!QuickRow::Rumble.centred());
 }
 
@@ -601,6 +680,9 @@ fn a_hidden_palette_and_bezel_leave_two_screen_rows() {
         QuickRow::PlayBlueLight,
         QuickRow::PlaySaturation,
         QuickRow::PlayContrast,
+        QuickRow::PlayCalWarm,
+        QuickRow::PlayCalTint,
+        QuickRow::PlayCalCurve,
     ];
     assert_eq!(
         QuickRow::Shader.shown(&hidden),
@@ -659,13 +741,13 @@ fn the_wallpaper_tint_reads_as_how_much_it_darkens() {
 }
 
 #[test]
-fn show_titles_sits_under_recents_on_the_general_page() {
-    let at = |r: QuickRow| QuickRow::GENERAL.iter().position(|g| *g == r);
+fn show_titles_sits_under_recents_on_the_shelf_page() {
+    let at = |r: QuickRow| QuickRow::SHELF_SETTINGS.iter().position(|g| *g == r);
     assert_eq!(
         at(QuickRow::ShowTitles),
         at(QuickRow::Recents).map(|i| i + 1)
     );
-    assert_eq!(QuickRow::ShowTitles.parent(), Some(QuickRow::General));
+    assert_eq!(QuickRow::ShowTitles.parent(), Some(QuickRow::ShelfSettings));
 }
 
 #[test]
@@ -890,10 +972,10 @@ fn quick_menu_update_row_overflow_scrolls_marquee() {
         "Update row when lit must scroll at time 2000ms"
     );
 
-    // 2. When Update is NOT lit (e.g. selection is on GameArt right next to it), it should still scroll!
+    // 2. When Update is NOT lit (e.g. selection is on About right next to it), it should still scroll!
     let mut out_unlit_t2 = Vec::new();
     let mut menu_unlit_t2 = menu_lit_t0;
-    menu_unlit_t2.row = QuickRow::GameArt;
+    menu_unlit_t2.row = QuickRow::About;
     menu_unlit_t2.time_ms = 2000;
     menu_unlit_t2.draw(&mut out_unlit_t2);
     let part_unlit_t2 = out_unlit_t2

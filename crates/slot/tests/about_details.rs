@@ -13,6 +13,10 @@ fn on_about() -> (tempfile::TempDir, App) {
     let d = tmp_root_with_carts(&["Emerald", "Fusion", "Ruby"]);
     let mut a = boot(d.path());
     a.apply(Action::QuickMenu);
+    for _ in 0..QuickRow::System.position(&a.hidden_rows()) {
+        press(&mut a, Btn::Down);
+    }
+    press(&mut a, Btn::A);
     for _ in 0..QuickRow::About.position(&a.hidden_rows()) {
         press(&mut a, Btn::Down);
     }

@@ -13,7 +13,7 @@ use slot_store::{
     RING_MAX, SATURATION_MAX, SUNLIGHT_MAX, VOLUME_MAX,
 };
 use slot_ui::{
-    board_from, board_zoom, draw_empty_slot, draw_footer, draw_ground, draw_slot_name, ease,
+    board_from, board_zoom, draw_empty_slot, draw_footer_as, draw_ground, draw_slot_name, ease,
     footer_ink, grown, lid_at, lid_from, lift_of, on_board, repeat_gap, shelf_cart_at, ClockPicker,
     Draw, FfState, GbShell, Guide, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids,
     PowerChoice, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, ShotMode,
@@ -49,9 +49,11 @@ mod shader_settings;
 pub mod shelves;
 pub use extras::{ScreensaverStyle, StartShelf};
 use slot_store::{
-    read_carousel, read_controls, read_controls_for, read_shortcuts, reset_controls_for,
-    write_carousel, write_controls, write_controls_for, write_shortcuts, AutoLoad, Binding,
-    CarouselKeys, Controls, Device, GameButton, KidMode, Modifier, ShortcutKeys, LID_OFF_MIN,
+    clock_drift::{record_clean_shutdown, DriftSession},
+    header_index, read_carousel, read_controls, read_controls_for, read_shortcuts,
+    reset_controls_for, write_carousel, write_controls, write_controls_for, write_shortcuts,
+    AutoLoad, Binding, CarouselKeys, Controls, Device, GameButton, KidMode, Modifier, ShortcutKeys,
+    DIM_MAX, LID_OFF_MIN,
 };
 
 pub const PRESS_A_BUTTON: &str = "Press a button";
@@ -149,6 +151,9 @@ pub enum PendingUndo {
         evicted: Option<(String, Vec<u8>, Vec<u8>)>,
     },
     Load {
+        prior: Vec<u8>,
+    },
+    Reset {
         prior: Vec<u8>,
     },
 }
@@ -521,6 +526,11 @@ pub struct App {
     lid: bool,
     battery_warned: battery::Warned,
     profiles: slot_store::GameProfiles,
+    drift: DriftSession,
+    haptic_until: Option<Millis>,
+    shelf_quiet_until: Millis,
+    cut_blend: bool,
+    last_charging: bool,
 }
 
 const FACE_AHEAD: i32 = 8;
@@ -545,7 +555,11 @@ pub fn tell_libc_the_offset(minutes: i16) {
     } else {
         format!("UTC{hours:+}:{mins:02}")
     };
-    std::env::set_var("TZ", &tz);
+    tell_libc_the_posix(&tz);
+}
+
+pub fn tell_libc_the_posix(tz: &str) {
+    std::env::set_var("TZ", tz);
     unsafe {
         tzset();
     }
@@ -755,6 +769,11 @@ impl App {
             battery: None,
             last_led: None,
             powering_off: false,
+            drift: DriftSession::default(),
+            haptic_until: None,
+            shelf_quiet_until: 0,
+            cut_blend: false,
+            last_charging: false,
         }
     }
 
@@ -766,7 +785,16 @@ impl App {
         crate::root::ensure(root);
         crate::boot_time::mark("root");
         let _ = slot_store::sweep_names(root);
+        header_index::load(root);
         let carts = scan(root).unwrap_or_default();
+        let roms: Vec<PathBuf> = carts.iter().map(|c| c.rom.clone()).collect();
+        for rom in &roms {
+            header_index::verify(rom);
+        }
+        header_index::retain(&roms);
+        if header_index::dirty() {
+            let _ = header_index::save(root);
+        }
         crate::boot_time::mark("scan");
         let mut app = App::new(carts);
         app.root = Some(root.to_path_buf());
@@ -777,6 +805,7 @@ impl App {
         app.shortcuts = read_shortcuts(root);
         app.controls = read_controls(root);
         app.load_extras(root);
+        app.apply_zone_tz();
         app.start_network(root);
         app.start_ota(root);
         app.start_game_art(root);
@@ -795,7 +824,7 @@ impl App {
         if app.state.clock_set {
             app.start();
         } else {
-            app.phase = clock_screen(system_secs(), 0, false);
+            app.phase = clock_screen(system_secs(), 0, app.zone(), false);
         }
         app
     }
@@ -1052,13 +1081,29 @@ impl App {
         else {
             return;
         };
-        let (moved, offset, from_menu) = (picker.secs() - *seed, picker.offset_min(), *from_menu);
-        let utc = self.utc_secs() + moved;
+        let (moved, offset, zone, from_menu) = (
+            picker.secs() - *seed,
+            picker.offset_min(),
+            picker.zone(),
+            *from_menu,
+        );
+        let prev_utc = self.utc_secs();
+        let utc = prev_utc + moved;
+        if let Some(root) = &self.root {
+            self.drift.learn_from_correction(root, prev_utc, utc);
+        }
         if let Some(power) = &mut self.power {
             power.set_clock(utc);
         }
-        self.state.utc_offset_min = offset as i16;
-        tell_libc_the_offset(self.state.utc_offset_min);
+        if let Some(z) = zone {
+            self.extras.set_zone(z);
+            self.save_extras();
+            self.state.utc_offset_min = z.offset_min(utc) as i16;
+            tell_libc_the_posix(&z.posix());
+        } else {
+            self.state.utc_offset_min = offset as i16;
+            tell_libc_the_offset(self.state.utc_offset_min);
+        }
         self.state.clock_set = true;
         self.persist();
         if from_menu {
@@ -1075,7 +1120,12 @@ impl App {
     }
 
     pub fn wall_secs(&self) -> i64 {
-        self.utc_secs() + i64::from(self.state.utc_offset_min) * 60
+        let utc = self.utc_secs();
+        let offset_min = self
+            .extras
+            .zone()
+            .map_or(i64::from(self.state.utc_offset_min), |z| z.offset_min(utc));
+        utc + offset_min * 60
     }
 
     fn utc_secs(&self) -> i64 {
@@ -1164,6 +1214,9 @@ impl App {
         }
         if !matches!(offer, Some(PendingUndo::Load { .. })) || !self.may_load_state() {
             hidden.push(QuickRow::UndoLoad);
+        }
+        if !matches!(offer, Some(PendingUndo::Reset { .. })) {
+            hidden.push(QuickRow::UndoReset);
         }
         hidden
     }
@@ -1296,7 +1349,10 @@ impl App {
                 }
                 self.quick_value(own)
             }
-            QuickRow::Brightness => Some(QuickValue::level(self.state.brightness)),
+            QuickRow::Brightness => Some(QuickValue::brightness(
+                self.state.brightness,
+                self.extras.dim(),
+            )),
             QuickRow::BlueLight => Some(match self.state.blue_light {
                 0 => QuickValue::Off,
                 n => QuickValue::level(n),
@@ -1326,11 +1382,8 @@ impl App {
             QuickRow::Rumble => Some(QuickValue::flag(self.state.rumble)),
             QuickRow::LeftStick => Some(QuickValue::flag(self.state.left_stick_dpad)),
             QuickRow::EjectSave => Some(QuickValue::flag(self.state.eject_save)),
-            QuickRow::AutoLoad => Some(match self.state.auto_load {
-                AutoLoad::Always => QuickValue::Always,
-                AutoLoad::PowerOn => QuickValue::PowerOn,
-                AutoLoad::Never => QuickValue::Never,
-            }),
+            QuickRow::ResumeOnInsert => Some(QuickValue::flag(self.state.auto_load.on_insert())),
+            QuickRow::ResumeOnPowerOn => Some(QuickValue::flag(self.state.auto_load.at_power_on())),
             QuickRow::KidMode => Some(match self.state.kid_mode {
                 KidMode::Off => QuickValue::Off,
                 KidMode::OneShelf => QuickValue::OneShelf,
@@ -1370,6 +1423,7 @@ impl App {
             | QuickRow::Resume
             | QuickRow::UndoSave
             | QuickRow::UndoLoad
+            | QuickRow::UndoReset
             | QuickRow::States
             | QuickRow::Screenshots
             | QuickRow::Settings
@@ -1388,7 +1442,8 @@ impl App {
             | QuickRow::Ps1Bezel
             | QuickRow::NdsBezel
             | QuickRow::Bezel
-            | QuickRow::General
+            | QuickRow::ShelfSettings
+            | QuickRow::System
             | QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
@@ -1413,6 +1468,10 @@ impl App {
             | QuickRow::NdsShader
             | QuickRow::IntegerNds
             | QuickRow::CardShaderNds
+            | QuickRow::MotionBlurNes
+            | QuickRow::MotionBlurSnes
+            | QuickRow::MotionBlurPs
+            | QuickRow::MotionBlurNds
             | QuickRow::NdsLayout
             | QuickRow::PlayNdsLayout
             | QuickRow::ThisNdsLayout
@@ -1470,14 +1529,22 @@ impl App {
             | QuickRow::ScRewind
             | QuickRow::ScSunlightUp
             | QuickRow::ScSunlightDown
+            | QuickRow::ScResetGame
             | QuickRow::Controls
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
+            | QuickRow::CollectionsShelf
             | QuickRow::ClockFormat
+            | QuickRow::Zone
+            | QuickRow::Hostname
+            | QuickRow::Nickname
+            | QuickRow::BootLogo
+            | QuickRow::Haptics
             | QuickRow::SleepOff
-            | QuickRow::BatteryBadge
+            | QuickRow::BatteryDisplay
+            | QuickRow::RommBrowse
             | QuickRow::FastForwardPitch
             | QuickRow::FastForwardMode
             | QuickRow::PlayThisGame
@@ -1513,7 +1580,15 @@ impl App {
             | QuickRow::ThisScaling
             | QuickRow::ThisCardShader
             | QuickRow::PlayNetwork
-            | QuickRow::PlayGeneral => None,
+            | QuickRow::PlayShelf
+            | QuickRow::PlaySystem
+            | QuickRow::CalWarm
+            | QuickRow::CalTint
+            | QuickRow::CalCurve
+            | QuickRow::PlayCalWarm
+            | QuickRow::PlayCalTint
+            | QuickRow::PlayCalCurve
+            | QuickRow::CheevosPage => None,
         }
     }
 
@@ -2574,9 +2649,19 @@ impl App {
         power.set_backlight(self.state.brightness);
         self.headphones = power.headphones();
         self.hud.set_headphones(self.headphones);
-        let secs = power.now();
+        let mut secs = power.now();
+        if let Some(root) = &self.root {
+            let (session, adjusted) = DriftSession::on_boot(root, secs);
+            self.drift = session;
+            if let Some(adj) = adjusted {
+                if (adj - secs).abs() >= 1 {
+                    power.set_clock_in_background(adj);
+                    secs = adj;
+                }
+            }
+        }
         if matches!(self.phase, Phase::SetClock { .. }) || secs < CLOCK_FLOOR {
-            self.phase = clock_screen(secs, 0, false);
+            self.phase = clock_screen(secs, 0, self.zone(), false);
         }
         self.copy_card_log(&power);
         if let Some(result) = power.take_repair_result() {
@@ -2734,6 +2819,14 @@ impl App {
 
     pub fn restart(&mut self) {
         self.settle_saves();
+        if let Some(root) = &self.root {
+            if header_index::dirty() {
+                let _ = header_index::save(root);
+            }
+            if let Some(power) = &self.power {
+                record_clean_shutdown(root, self.utc_secs(), power.now());
+            }
+        }
         if let Some(power) = &mut self.power {
             power.restart();
         }
@@ -2869,6 +2962,14 @@ impl App {
 
     pub fn poweroff(&mut self) {
         self.settle_saves();
+        if let Some(root) = &self.root {
+            if header_index::dirty() {
+                let _ = header_index::save(root);
+            }
+            if let Some(power) = &self.power {
+                record_clean_shutdown(root, self.utc_secs(), power.now());
+            }
+        }
         if let Some(power) = &mut self.power {
             power.poweroff();
         }
@@ -3030,9 +3131,15 @@ impl App {
                 }
                 Action::GbaDown(Btn::Up) => self.jump_letter(-1),
                 Action::GbaDown(Btn::Down) => self.jump_letter(1),
-                Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.shelf_mut().hold_left(now),
+                Action::ShelfLeft | Action::GbaDown(Btn::Left) => {
+                    if now >= self.shelf_quiet_until {
+                        self.shelf_mut().hold_left(now);
+                    }
+                }
                 Action::ShelfRight | Action::GbaDown(Btn::Right) => {
-                    self.shelf_mut().hold_right(now)
+                    if now >= self.shelf_quiet_until {
+                        self.shelf_mut().hold_right(now);
+                    }
                 }
                 Action::QuickMenu if self.state.kid_mode == KidMode::Off => self.open_quick_menu(),
                 Action::GbaDown(Btn::A) => self.play_held = Some(now),
@@ -3065,6 +3172,8 @@ impl App {
                     self.shot_wanted = true
                 }
                 Action::LoadState => self.load_newest(),
+                Action::ResetGame => self.reset_game(now),
+                Action::FfStop | Action::FfToggle => self.cut_blend = true,
                 Action::Guide => self.open_guide(),
                 Action::RewindStart if !self.may_rewind() => self.refuse(),
                 Action::FfStart if !self.may_fast_forward() => self.refuse(),
@@ -3167,7 +3276,7 @@ impl App {
         }
         match row {
             QuickRow::Resume => self.in_game_menu = None,
-            QuickRow::UndoSave | QuickRow::UndoLoad => {
+            QuickRow::UndoSave | QuickRow::UndoLoad | QuickRow::UndoReset => {
                 self.in_game_menu = None;
                 self.undo(self.now());
             }
@@ -3229,7 +3338,12 @@ impl App {
         }
         match row {
             QuickRow::DateTime => {
-                self.phase = clock_screen(self.utc_secs(), self.state.utc_offset_min, true);
+                self.phase = clock_screen(
+                    self.utc_secs(),
+                    self.state.utc_offset_min,
+                    self.zone(),
+                    true,
+                );
             }
             QuickRow::About => self.phase = Phase::About,
             QuickRow::Screen
@@ -3243,8 +3357,11 @@ impl App {
             | QuickRow::ScreenPs
             | QuickRow::ScreenNds
             | QuickRow::Shortcuts
-            | QuickRow::General
-            | QuickRow::PlayGeneral
+            | QuickRow::ShelfSettings
+            | QuickRow::System
+            | QuickRow::CheevosPage
+            | QuickRow::PlayShelf
+            | QuickRow::PlaySystem
             | QuickRow::PlayNetwork
             | QuickRow::Controls
             | QuickRow::ControlsShelf
@@ -3258,10 +3375,16 @@ impl App {
             | QuickRow::BlueLight
             | QuickRow::Saturation
             | QuickRow::Contrast
+            | QuickRow::CalWarm
+            | QuickRow::CalTint
+            | QuickRow::CalCurve
             | QuickRow::PlayBrightness
             | QuickRow::PlayBlueLight
             | QuickRow::PlaySaturation
             | QuickRow::PlayContrast
+            | QuickRow::PlayCalWarm
+            | QuickRow::PlayCalTint
+            | QuickRow::PlayCalCurve
             | QuickRow::EjectSave
             | QuickRow::Turbo
             | QuickRow::Rewind
@@ -3284,6 +3407,7 @@ impl App {
             | QuickRow::Resume
             | QuickRow::UndoSave
             | QuickRow::UndoLoad
+            | QuickRow::UndoReset
             | QuickRow::States
             | QuickRow::Screenshots
             | QuickRow::Settings
@@ -3321,6 +3445,10 @@ impl App {
             | QuickRow::NdsShader
             | QuickRow::IntegerNds
             | QuickRow::CardShaderNds
+            | QuickRow::MotionBlurNes
+            | QuickRow::MotionBlurSnes
+            | QuickRow::MotionBlurPs
+            | QuickRow::MotionBlurNds
             | QuickRow::NdsLayout
             | QuickRow::PlayNdsLayout
             | QuickRow::ThisNdsLayout
@@ -3380,9 +3508,15 @@ impl App {
             | QuickRow::LidOff
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
+            | QuickRow::CollectionsShelf
             | QuickRow::ClockFormat
+            | QuickRow::Zone
+            | QuickRow::Hostname
+            | QuickRow::Nickname
+            | QuickRow::BootLogo
+            | QuickRow::Haptics
             | QuickRow::SleepOff
-            | QuickRow::BatteryBadge
+            | QuickRow::BatteryDisplay
             | QuickRow::FastForwardPitch
             | QuickRow::FastForwardMode
             | QuickRow::PlayThisGame
@@ -3405,6 +3539,7 @@ impl App {
             | QuickRow::PlayGuide
             | QuickRow::Guide
             | QuickRow::ScGuide
+            | QuickRow::ScResetGame
             | QuickRow::Bluetooth
             | QuickRow::BtDevices
             | QuickRow::SshPower
@@ -3416,8 +3551,10 @@ impl App {
             | QuickRow::MotionBlur
             | QuickRow::ThisScaling
             | QuickRow::ThisCardShader
-            | QuickRow::AutoLoad
+            | QuickRow::ResumeOnInsert
+            | QuickRow::ResumeOnPowerOn
             | QuickRow::KidMode
+            | QuickRow::RommBrowse
             | QuickRow::WebDashboard => {}
         }
     }
@@ -3439,13 +3576,19 @@ impl App {
             self.persist_soon();
             return;
         }
-        if let QuickRow::Brightness | QuickRow::BlueLight = row {
-            let (kind, now, max) = match row {
-                QuickRow::Brightness => {
-                    (HudKind::Brightness, self.state.brightness, BRIGHTNESS_MAX)
-                }
-                _ => (HudKind::BlueLight, self.state.blue_light, BLUE_LIGHT_MAX),
+        if row == QuickRow::Brightness {
+            let max = BRIGHTNESS_MAX + DIM_MAX;
+            let now = self.brightness_total();
+            let to = if right {
+                up(now, 1, max)
+            } else {
+                now.saturating_sub(1)
             };
+            self.set_brightness_total(to);
+            return;
+        }
+        if row == QuickRow::BlueLight {
+            let (kind, now, max) = (HudKind::BlueLight, self.state.blue_light, BLUE_LIGHT_MAX);
             let to = match right {
                 true => up(now, 1, max),
                 false => now.saturating_sub(1),
@@ -3557,7 +3700,14 @@ impl App {
             QuickRow::Rumble => s.rumble = !s.rumble,
             QuickRow::LeftStick => s.left_stick_dpad = !s.left_stick_dpad,
             QuickRow::EjectSave => s.eject_save = !s.eject_save,
-            QuickRow::AutoLoad => s.auto_load = s.auto_load.step(right),
+            QuickRow::ResumeOnInsert => {
+                s.auto_load =
+                    AutoLoad::from_split(!s.auto_load.on_insert(), s.auto_load.at_power_on());
+            }
+            QuickRow::ResumeOnPowerOn => {
+                s.auto_load =
+                    AutoLoad::from_split(s.auto_load.on_insert(), !s.auto_load.at_power_on());
+            }
             QuickRow::KidMode => s.kid_mode = s.kid_mode.step(right),
             QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
@@ -3583,6 +3733,7 @@ impl App {
             | QuickRow::Resume
             | QuickRow::UndoSave
             | QuickRow::UndoLoad
+            | QuickRow::UndoReset
             | QuickRow::States
             | QuickRow::Screenshots
             | QuickRow::Settings
@@ -3603,7 +3754,9 @@ impl App {
             | QuickRow::Ps1Bezel
             | QuickRow::NdsBezel
             | QuickRow::Bezel
-            | QuickRow::General
+            | QuickRow::ShelfSettings
+            | QuickRow::System
+            | QuickRow::CheevosPage
             | QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
@@ -3628,6 +3781,10 @@ impl App {
             | QuickRow::NdsShader
             | QuickRow::IntegerNds
             | QuickRow::CardShaderNds
+            | QuickRow::MotionBlurNes
+            | QuickRow::MotionBlurSnes
+            | QuickRow::MotionBlurPs
+            | QuickRow::MotionBlurNds
             | QuickRow::NdsLayout
             | QuickRow::PlayNdsLayout
             | QuickRow::ThisNdsLayout
@@ -3685,15 +3842,22 @@ impl App {
             | QuickRow::ScRewind
             | QuickRow::ScSunlightUp
             | QuickRow::ScSunlightDown
+            | QuickRow::ScResetGame
             | QuickRow::Controls
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame
             | QuickRow::LidOff
             | QuickRow::StartShelf
             | QuickRow::ShowFavorites
+            | QuickRow::CollectionsShelf
             | QuickRow::ClockFormat
+            | QuickRow::Zone
+            | QuickRow::Hostname
+            | QuickRow::Nickname
+            | QuickRow::BootLogo
+            | QuickRow::Haptics
             | QuickRow::SleepOff
-            | QuickRow::BatteryBadge
+            | QuickRow::BatteryDisplay
             | QuickRow::FastForwardPitch
             | QuickRow::FastForwardMode
             | QuickRow::PlayThisGame
@@ -3728,7 +3892,15 @@ impl App {
             | QuickRow::ThisScaling
             | QuickRow::ThisCardShader
             | QuickRow::PlayNetwork
-            | QuickRow::PlayGeneral
+            | QuickRow::PlayShelf
+            | QuickRow::PlaySystem
+            | QuickRow::CalWarm
+            | QuickRow::CalTint
+            | QuickRow::CalCurve
+            | QuickRow::PlayCalWarm
+            | QuickRow::PlayCalTint
+            | QuickRow::PlayCalCurve
+            | QuickRow::RommBrowse
             | QuickRow::WebDashboard => return,
         }
         self.persist();
@@ -3760,6 +3932,7 @@ impl App {
             Shader::Dot => Toast::ShaderDot,
             Shader::Simpletex => Toast::ShaderSimpletex,
             Shader::Shimmerless => Toast::ShaderShimmerless,
+            Shader::ShimmerlessGrid => Toast::ShaderShimmerlessGrid,
         };
         self.persist();
         self.hud.toast(said, self.now());
@@ -3817,8 +3990,14 @@ impl App {
         }
         let s = &self.state;
         let (kind, value) = match action {
-            Action::BrightnessUp => (HudKind::Brightness, up(s.brightness, 1, BRIGHTNESS_MAX)),
-            Action::BrightnessDown => (HudKind::Brightness, s.brightness.saturating_sub(1)),
+            Action::BrightnessUp => (
+                HudKind::Brightness,
+                up(self.brightness_total(), 1, BRIGHTNESS_MAX + DIM_MAX),
+            ),
+            Action::BrightnessDown => (
+                HudKind::Brightness,
+                self.brightness_total().saturating_sub(1),
+            ),
             Action::BlueLightUp => (HudKind::BlueLight, up(s.blue_light, 1, BLUE_LIGHT_MAX)),
             Action::BlueLightDown => (HudKind::BlueLight, s.blue_light.saturating_sub(1)),
             Action::VolumeUp => (HudKind::Volume, up(self.level(), VOLUME_STEP, VOLUME_MAX)),
@@ -3838,9 +4017,37 @@ impl App {
         true
     }
 
+    pub fn dim_step(&self) -> u8 {
+        self.extras.dim()
+    }
+
+    fn brightness_total(&self) -> u8 {
+        DIM_MAX.saturating_sub(self.extras.dim()) + self.state.brightness
+    }
+
+    fn set_brightness_total(&mut self, total: u8) -> bool {
+        let clamped = total.min(BRIGHTNESS_MAX + DIM_MAX);
+        let new_dim = DIM_MAX.saturating_sub(clamped);
+        let new_hw = clamped.saturating_sub(DIM_MAX);
+        let moved = self.state.brightness != new_hw || self.extras.dim() != new_dim;
+        self.state.brightness = new_hw;
+        self.extras.set_dim(new_dim);
+        if let Some(power) = &mut self.power {
+            power.set_backlight(new_hw);
+        }
+        if moved {
+            self.save_extras();
+            self.persist_soon();
+        }
+        moved
+    }
+
     fn set_level(&mut self, kind: HudKind, value: u8) -> bool {
+        if kind == HudKind::Brightness {
+            return self.set_brightness_total(value);
+        }
         let level = match kind {
-            HudKind::Brightness => &mut self.state.brightness,
+            HudKind::Brightness => unreachable!(),
             HudKind::BlueLight => &mut self.state.blue_light,
             HudKind::Volume if self.headphones => &mut self.state.volume_hp,
             HudKind::Volume => &mut self.state.volume,
@@ -3848,9 +4055,6 @@ impl App {
         };
         let moved = *level != value;
         *level = value;
-        if let (HudKind::Brightness, Some(power)) = (kind, &mut self.power) {
-            power.set_backlight(value);
-        }
         if moved {
             self.persist_soon();
         }
@@ -4101,6 +4305,9 @@ impl App {
             });
         }
         if let Some(phase) = next {
+            if matches!(self.phase, Phase::Ejecting { .. }) && matches!(phase, Phase::Shelf) {
+                self.shelf_quiet_until = self.now().saturating_add(250);
+            }
             self.phase = phase;
             self.refused_from = None;
             let seated = match &self.phase {
@@ -4208,6 +4415,10 @@ impl App {
 
     pub fn set_panel(&mut self, panel: (u32, u32)) {
         self.panel = panel;
+    }
+
+    pub fn panel(&self) -> (u32, u32) {
+        self.panel
     }
 
     pub fn wallpaper_size(&self) -> (u32, u32) {
@@ -4346,17 +4557,35 @@ impl App {
         let Some(utc) = self.net_time.step(ready, now) else {
             return;
         };
-        if let Some(power) = &mut self.power {
+        let prev_utc = self.utc_secs();
+        if let (Some(root), Some(power)) = (&self.root, &mut self.power) {
+            self.drift.learn_from_correction(root, prev_utc, utc);
+            if (utc - power.now()).abs() >= CLOCK_DRIFT_SECS {
+                power.set_clock_in_background(utc);
+            }
+        } else if let Some(power) = &mut self.power {
             if (utc - power.now()).abs() >= CLOCK_DRIFT_SECS {
                 power.set_clock_in_background(utc);
             }
         }
+        self.apply_zone_tz();
         if let Some(time) = self.overlay.network.time.as_mut() {
             time.mark_synced();
         }
     }
 
     fn timers(&mut self) {
+        if crate::cheevos::take_unlocked_haptic() {
+            self.pulse_haptics();
+        }
+        if let Some(until) = self.haptic_until {
+            if self.now() >= until {
+                self.haptic_until = None;
+                if !matches!(self.phase, Phase::Playing { .. }) {
+                    self.set_rumble(0);
+                }
+            }
+        }
         self.step_net_time();
         self.check_screensaver();
         self.play_hold();
@@ -4428,6 +4657,13 @@ impl App {
             if let (Some(power), Some(b)) = (self.power.as_ref(), self.battery.as_mut()) {
                 b.charge = power.charge();
             }
+            let now_charging = self
+                .battery
+                .is_some_and(|b| matches!(b.charge, Charge::Charging));
+            if now_charging && !self.last_charging {
+                self.pulse_haptics();
+            }
+            self.last_charging = now_charging;
             let state = self.led_state();
             self.set_led(state);
         }
@@ -4511,6 +4747,24 @@ impl App {
         let shelf = &mut self.shelves[FAVORITES_AT].1;
         if self.shelf_at == FAVORITES_AT && !shelf.carts.is_empty() {
             shelf.select(index.min(shelf.carts.len() - 1));
+        }
+        self.mark_stars();
+    }
+
+    pub(super) fn restock_scanned(&mut self, carts: Vec<Cart>) {
+        for platform in Platform::ALL {
+            let group: Vec<Cart> = carts
+                .iter()
+                .filter(|c| c.platform == platform)
+                .cloned()
+                .collect();
+            if let Some(at) = self
+                .shelves
+                .iter()
+                .position(|(r, _)| *r == Rack::Of(platform))
+            {
+                self.restock(at, group);
+            }
         }
         self.mark_stars();
     }
@@ -4793,33 +5047,53 @@ impl App {
                 slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
                 self.draw_overlay(out);
             }
-            Phase::QuickMenu { row } => QuickMenu {
-                row: *row,
-                hidden: &self.hidden_rows(),
-                bound: Some(&self.bound_faces()),
-                named: Some(self.named_faces()),
-                description: self.description(*row),
-                values: QuickRow::ALL.map(|r| self.quick_value(r)),
-                clock: self.quick_clock_faces,
-                wallpaper: self.quick_wallpaper_faces,
-                faces: self.quick_menu_faces.as_ref(),
-                ground: self.menu_ground(),
-                palette: None,
-                gba_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gba)],
-                gb_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gb)],
-                gbc_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gbc)],
-                nes_bezel: self.quick_bezel_faces[bezel_slot(Platform::Nes)],
-                snes_bezel: self.quick_bezel_faces[bezel_slot(Platform::Snes)],
-                ps1_bezel: self.quick_bezel_faces[bezel_slot(Platform::PlayStation)],
-                nds_bezel: self.quick_bezel_faces[bezel_slot(Platform::Nds)],
-                bezel: None,
-                over_game: false,
-                footer_legends: true,
-                footer_top: OUT_H as f32,
-                canvas: self.canvas(),
-                time_ms: self.now(),
+            Phase::QuickMenu { row } => {
+                let start = out.len();
+                QuickMenu {
+                    row: *row,
+                    hidden: &self.hidden_rows(),
+                    bound: Some(&self.bound_faces()),
+                    named: Some(self.named_faces()),
+                    description: self.description(*row),
+                    values: QuickRow::ALL.map(|r| self.quick_value(r)),
+                    clock: self.quick_clock_faces,
+                    wallpaper: self.quick_wallpaper_faces,
+                    faces: self.quick_menu_faces.as_ref(),
+                    ground: self.menu_ground(),
+                    palette: None,
+                    gba_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gba)],
+                    gb_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gb)],
+                    gbc_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gbc)],
+                    nes_bezel: self.quick_bezel_faces[bezel_slot(Platform::Nes)],
+                    snes_bezel: self.quick_bezel_faces[bezel_slot(Platform::Snes)],
+                    ps1_bezel: self.quick_bezel_faces[bezel_slot(Platform::PlayStation)],
+                    nds_bezel: self.quick_bezel_faces[bezel_slot(Platform::Nds)],
+                    bezel: None,
+                    over_game: false,
+                    footer_legends: true,
+                    footer_top: OUT_H as f32,
+                    canvas: self.canvas(),
+                    time_ms: self.now(),
+                }
+                .draw(out);
+                if *row == QuickRow::WallpaperTint {
+                    if let Some(Draw::Rect { colour, .. }) = out[start..]
+                        .iter_mut()
+                        .find(|d| matches!(d, Draw::Rect { .. }))
+                    {
+                        colour[3] = tint_alpha(self.state.wallpaper_tint);
+                    }
+                }
+                slot_ui::draw_corners_as(
+                    self.canvas(),
+                    self.battery,
+                    self.battery_display(),
+                    self.battery_percent,
+                    self.hud_bolt,
+                    self.shelf_clock,
+                    out,
+                );
             }
-            .draw(out),
             Phase::Shelf => {
                 self.draw_background(out);
                 match (self.core_picker_shown(), self.selected_stem()) {
@@ -4853,9 +5127,10 @@ impl App {
                         );
                     }
                 }
-                draw_footer(
+                draw_footer_as(
                     self.canvas(),
                     self.battery,
+                    self.battery_display(),
                     self.battery_percent,
                     self.bolt,
                     self.shelf_clock,
@@ -5119,9 +5394,10 @@ impl App {
         if self.framed_panel() && self.screen > 0.0 {
             self.draw_seated_mouth(cart, out);
         }
-        draw_footer(
+        draw_footer_as(
             self.canvas(),
             self.battery,
+            self.battery_display(),
             self.battery_percent,
             self.bolt,
             self.shelf_clock,
@@ -5691,6 +5967,7 @@ impl App {
             return;
         };
         self.set_platform(platform);
+        self.cut_blend = true;
         eprintln!(
             "slot: launch: insert {cart} at {:.1} ms",
             crate::boot_time::ms()
@@ -6860,6 +7137,7 @@ impl App {
         };
         let prior = snapshot.state();
         snapshot.load(bytes);
+        self.cut_blend = true;
         self.hud.toast(Toast::StateLoaded, self.now());
         if let Some(prior) = prior {
             self.pending = Some((PendingUndo::Load { prior }, self.now()));
@@ -6904,6 +7182,7 @@ impl App {
         match self.pending.as_ref()?.0 {
             PendingUndo::Save { .. } => Some("undo save"),
             PendingUndo::Load { .. } => Some("undo load"),
+            PendingUndo::Reset { .. } => Some("undo reset"),
         }
     }
 
@@ -7045,6 +7324,24 @@ impl App {
         self.hud.alarm_toast()
     }
 
+    pub fn take_cut_blend(&mut self) -> bool {
+        std::mem::take(&mut self.cut_blend)
+    }
+
+    pub fn reset_game(&mut self, now: Millis) {
+        if !matches!(self.phase, Phase::Playing { .. }) || self.link_active() {
+            return;
+        }
+        let prior = self.snapshot.as_ref().and_then(|s| s.state());
+        if let Some(snapshot) = &self.snapshot {
+            snapshot.reset();
+        }
+        self.cut_blend = true;
+        if let Some(prior) = prior {
+            self.pending = Some((PendingUndo::Reset { prior }, now));
+        }
+    }
+
     pub fn undo(&mut self, now: Millis) {
         if !self.undo_available(now) {
             self.pending = None;
@@ -7058,10 +7355,11 @@ impl App {
         };
         match what {
             PendingUndo::Save { stamp, evicted } => self.undo_save(&stamp, evicted),
-            PendingUndo::Load { prior } => {
+            PendingUndo::Load { prior } | PendingUndo::Reset { prior } => {
                 if let Some(snapshot) = &self.snapshot {
                     snapshot.load(prior);
                 }
+                self.cut_blend = true;
                 self.states_from_menu = false;
             }
         }
@@ -7169,6 +7467,7 @@ pub(crate) fn shader_value(shader: Shader) -> QuickValue {
         Shader::Dot => QuickValue::Dot,
         Shader::Simpletex => QuickValue::Simpletex,
         Shader::Shimmerless => QuickValue::Shimmerless,
+        Shader::ShimmerlessGrid => QuickValue::ShimmerlessGrid,
     }
 }
 
@@ -7191,9 +7490,18 @@ fn ff_next(from: u8, right: bool) -> u8 {
     }]
 }
 
-fn clock_screen(utc: i64, offset_min: i16, from_menu: bool) -> Phase {
+fn clock_screen(
+    utc: i64,
+    offset_min: i16,
+    zone: Option<slot_store::Zone>,
+    from_menu: bool,
+) -> Phase {
+    let picker = match zone {
+        Some(z) => ClockPicker::local_zone(utc, z),
+        None => ClockPicker::local(utc, offset_min),
+    };
     Phase::SetClock {
-        picker: ClockPicker::local(utc, offset_min),
+        picker,
         seed: utc - utc.rem_euclid(60),
         from_menu,
     }

@@ -1,6 +1,8 @@
 mod atomic;
 mod bindings;
 pub mod cart_shell;
+pub mod cheevos_cache;
+pub mod clock_drift;
 pub mod collections;
 mod config;
 mod core;
@@ -13,11 +15,14 @@ pub mod gb;
 mod gb_palette;
 mod gba;
 mod guides;
+pub mod header_index;
+pub mod hostname;
 pub mod ini;
 mod label_style;
 mod platform;
 pub mod platform_settings;
 mod ring;
+pub mod romm;
 pub mod scaling;
 mod scan;
 mod shaders;
@@ -26,6 +31,7 @@ mod slot_state;
 mod spec;
 mod stamp;
 pub mod sweep;
+pub mod zone;
 
 pub use atomic::atomic_write;
 pub use bindings::{
@@ -35,6 +41,10 @@ pub use bindings::{
     ShortcutKeys,
 };
 pub use cart_shell::{Outline, ShellChoice, ShellFinish, CART_SHELL_FILE, LABELS_SHELL_FILE};
+pub use clock_drift::{
+    adjust_boot_utc, learn_manual_adjustment, read_clock_drift, record_clean_shutdown,
+    write_clock_drift, ClockDrift, DriftSession, CLOCK_FILE,
+};
 pub use config::{move_config, CONFIG_DIR};
 pub use core::{
     core_for, core_for_platform, read_selected_cores, write_selected_core, Core, SELECTED_CORE_FILE,
@@ -44,7 +54,7 @@ pub use game_profile::{
     profile_key, GameProfile, GameProfiles, ProfileField, Resolved, GAME_PROFILES_FILE,
 };
 pub use gb_palette::GbPalette;
-pub use gba::{header_clean, header_code, header_title, header_title_code};
+pub use gba::{cached_code, header_clean, header_code, header_title, header_title_code};
 pub use guides::{
     decode_guide, find_guide, read_guide, read_guide_spot, write_guide_spot, GuideSpot, GUIDES_DIR,
     GUIDE_SPOTS_FILE,
@@ -61,13 +71,14 @@ pub use shaders::{
 pub use shots::{shot_stamp, ShotDir, ShotEntry, SCREENSHOTS_DIR};
 pub use slot_state::{
     bezel_for_scale, bezel_scale, ff_speed_text, ff_speed_value, read_slot_state, write_slot_state,
-    Appearance, AutoLoad, BezelPick, KidMode, Recent, Scale, Shader, SlotState, WallpaperPick,
-    WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, FF_SPEEDS, FF_SPEED_DEFAULT,
-    KID_SHELF_ALL, LID_OFF_MIN, RECENTS_MAX, SATURATION_MAX, SUNLIGHT_MAX, UTC_OFFSET_MAX,
-    UTC_OFFSET_MIN, VOLUME_MAX,
+    Appearance, AutoLoad, BatteryDisplay, BezelPick, Blending, KidMode, Recent, Scale, Shader,
+    SlotState, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, DIM_MAX,
+    FF_SPEEDS, FF_SPEED_DEFAULT, KID_SHELF_ALL, LID_OFF_MIN, RECENTS_MAX, SATURATION_MAX,
+    SUNLIGHT_MAX, UTC_OFFSET_MAX, UTC_OFFSET_MIN, VOLUME_MAX,
 };
 pub use spec::{Header, Spec};
 pub use stamp::{
     civil_from_days, days_from_civil, days_in_month, format_stamp, parse_stamp, stamp_now,
 };
 pub use sweep::{clean_filename, sweep_names};
+pub use zone::Zone;

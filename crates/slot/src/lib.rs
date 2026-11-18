@@ -49,6 +49,7 @@ pub mod pitch;
 pub mod prefetch;
 pub mod resample;
 pub mod rewind;
+pub mod romm;
 pub mod root;
 pub mod scrape;
 pub mod session;

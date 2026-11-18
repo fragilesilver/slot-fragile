@@ -198,6 +198,7 @@ impl App {
             Shader::Dot => Toast::ShaderDot,
             Shader::Simpletex => Toast::ShaderSimpletex,
             Shader::Shimmerless => Toast::ShaderShimmerless,
+            Shader::ShimmerlessGrid => Toast::ShaderShimmerlessGrid,
         };
         self.hud.toast(said, self.now());
         true

@@ -132,15 +132,18 @@ fn the_badge_is_off_until_general_turns_it_on() {
     assert!(matches!(a.phase(), Phase::Shelf));
     a.apply(Action::QuickMenu);
     let hidden = a.hidden_rows();
-    for _ in 0..QuickRow::General.position(&hidden) {
+    for _ in 0..QuickRow::System.position(&hidden) {
         a.apply(Action::GbaDown(slot_input::Btn::Down));
     }
     a.apply(Action::GbaDown(slot_input::Btn::A));
-    for _ in 0..QuickRow::BatteryBadge.position(&a.hidden_rows()) {
+    for _ in 0..QuickRow::BatteryDisplay.position(&a.hidden_rows()) {
         a.apply(Action::GbaDown(slot_input::Btn::Down));
     }
-    assert_eq!(a.quick_menu(), Some(QuickRow::BatteryBadge));
-    assert_eq!(a.quick_value(QuickRow::BatteryBadge), Some(QuickValue::Off));
+    assert_eq!(a.quick_menu(), Some(QuickRow::BatteryDisplay));
+    assert_eq!(
+        a.quick_value(QuickRow::BatteryDisplay),
+        Some(QuickValue::Off)
+    );
     a.apply(Action::GbaDown(slot_input::Btn::Right));
     assert!(a.battery_badge());
     assert_eq!(

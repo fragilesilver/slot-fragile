@@ -1,7 +1,8 @@
 use slot_gfx::{Canvas, Draw, TexId, OUT_H};
 use slot_power::Battery;
+use slot_store::BatteryDisplay;
 
-use crate::battery::{draw_gauge, GAUGE_H};
+use crate::battery::{draw_battery, GAUGE_H};
 use crate::hud::{HUD_INK, PLATE_H};
 use crate::plate::HINT_H;
 use crate::slot_chrome::MOUTH_H;
@@ -34,8 +35,31 @@ pub fn draw_footer(
     ink: [u8; 3],
     out: &mut Vec<Draw>,
 ) {
+    draw_footer_as(
+        canvas,
+        battery,
+        BatteryDisplay::Both,
+        percent,
+        bolt,
+        clock,
+        ink,
+        out,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn draw_footer_as(
+    canvas: Canvas,
+    battery: Option<Battery>,
+    display: BatteryDisplay,
+    percent: Printed,
+    bolt: Option<TexId>,
+    clock: Printed,
+    ink: [u8; 3],
+    out: &mut Vec<Draw>,
+) {
     let y = FOOTER_Y + (HINT_H as f32 - GAUGE_H) / 2.0;
-    draw_gauge(FOOTER_MARGIN, y, battery, percent, bolt, ink, out);
+    draw_battery(FOOTER_MARGIN, y, battery, display, percent, bolt, ink, out);
     printed(canvas.w - FOOTER_MARGIN - clock.w as f32, clock, out);
 }
 
@@ -47,8 +71,37 @@ pub fn draw_corners(
     clock: Printed,
     out: &mut Vec<Draw>,
 ) {
+    draw_corners_as(
+        canvas,
+        battery,
+        BatteryDisplay::Both,
+        percent,
+        bolt,
+        clock,
+        out,
+    );
+}
+
+pub fn draw_corners_as(
+    canvas: Canvas,
+    battery: Option<Battery>,
+    display: BatteryDisplay,
+    percent: Printed,
+    bolt: Option<TexId>,
+    clock: Printed,
+    out: &mut Vec<Draw>,
+) {
     let y = (PLATE_H - GAUGE_H) / 2.0;
-    draw_gauge(CORNER_MARGIN, y, battery, percent, bolt, HUD_INK, out);
+    draw_battery(
+        CORNER_MARGIN,
+        y,
+        battery,
+        display,
+        percent,
+        bolt,
+        HUD_INK,
+        out,
+    );
     let x = canvas.w - CORNER_MARGIN - clock.w as f32;
     draw_printed(x, (PLATE_H - HINT_H as f32) / 2.0, clock, out);
 }

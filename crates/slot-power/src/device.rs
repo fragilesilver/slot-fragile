@@ -22,6 +22,8 @@ const RUN_DIR: &str = "/run";
 
 const CARD_LOG: &str = "/data/slot-card.log";
 
+pub const SOUND_CARDS: &str = "/proc/asound/cards";
+
 const REPAIR_SCRIPT: &str = "repair.sh";
 
 const FSCK_EXFAT: &str = "fsck.exfat";
@@ -95,6 +97,7 @@ enum Led {
 pub struct DevicePlatform {
     root: PathBuf,
     sysfs: PathBuf,
+    sound_cards: PathBuf,
     backlight: Option<Backlight>,
     max_brightness: u32,
     battery: Option<PathBuf>,
@@ -106,6 +109,11 @@ pub struct DevicePlatform {
 impl DevicePlatform {
     pub fn new(root: PathBuf) -> Self {
         DevicePlatform::probe(Path::new("/sys"), root)
+    }
+
+    pub fn with_sound_cards(mut self, cards: PathBuf) -> Self {
+        self.sound_cards = cards;
+        self
     }
 
     pub fn probe(sysfs: &Path, root: PathBuf) -> Self {
@@ -143,6 +151,7 @@ impl DevicePlatform {
         DevicePlatform {
             root,
             sysfs: sysfs.to_path_buf(),
+            sound_cards: PathBuf::from(SOUND_CARDS),
             backlight,
             max_brightness,
             battery,
@@ -197,6 +206,22 @@ impl DevicePlatform {
             name(&self.rtc, "no rtc"),
         )
     }
+
+    pub fn usb_audio_card(&self) -> Option<u32> {
+        let cards = fs::read_to_string(&self.sound_cards).ok()?;
+        usb_card(&cards)
+    }
+}
+
+/// First USB audio card index listed in `/proc/asound/cards`.
+pub fn usb_card(cards: &str) -> Option<u32> {
+    cards.lines().find_map(|line| {
+        let trimmed = line.trim_start();
+        let (idx_str, rest) = trimmed.split_once(' ')?;
+        let idx: u32 = idx_str.parse().ok()?;
+        let after_bracket = rest.split_once("]: ")?.1;
+        after_bracket.contains("USB-Audio").then_some(idx)
+    })
 }
 
 fn ran(what: &str, result: std::io::Result<std::process::ExitStatus>) {

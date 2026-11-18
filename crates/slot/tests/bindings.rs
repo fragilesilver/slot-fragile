@@ -224,7 +224,8 @@ fn the_in_game_settings_have_no_save_changes_page() {
             QuickRow::PlayControls,
             QuickRow::PlayThisGame,
             QuickRow::PlayNetwork,
-            QuickRow::PlayGeneral,
+            QuickRow::PlayShelf,
+            QuickRow::PlaySystem,
             QuickRow::PlayGuide
         ]
     );

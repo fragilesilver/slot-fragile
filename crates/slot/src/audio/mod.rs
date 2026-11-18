@@ -7,6 +7,7 @@ mod sfx;
 mod silence;
 mod sink;
 mod stub;
+mod usb;
 pub mod volume;
 
 pub use alsa::{set_route, AlsaSink};

@@ -5,6 +5,7 @@ use crate::gb_palette::GbPalette;
 use crate::platform::Platform;
 
 pub const BRIGHTNESS_MAX: u8 = 9;
+pub const DIM_MAX: u8 = 6;
 pub const BLUE_LIGHT_MAX: u8 = 9;
 pub const SATURATION_MAX: u8 = 9;
 pub const CONTRAST_MAX: u8 = 9;
@@ -206,20 +207,121 @@ impl BezelPick {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum Blending {
+    #[default]
+    Off,
+    Mix,
+    Ghosting,
+}
+
+impl Blending {
+    pub const ALL: [Blending; 3] = [Blending::Off, Blending::Mix, Blending::Ghosting];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Blending::Off => "off",
+            Blending::Mix => "mix",
+            Blending::Ghosting => "ghosting",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Blending> {
+        match value.trim() {
+            "off" | "0" | "false" => Some(Blending::Off),
+            "mix" => Some(Blending::Mix),
+            "ghosting" | "ghost" | "1" | "true" => Some(Blending::Ghosting),
+            _ => None,
+        }
+    }
+
+    pub fn step(self, right: bool) -> Blending {
+        let n = Self::ALL.len();
+        let at = Self::ALL.iter().position(|b| *b == self).unwrap_or(0);
+        Self::ALL[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum BatteryDisplay {
+    #[default]
+    Off,
+    Icon,
+    Percent,
+    Both,
+}
+
+impl BatteryDisplay {
+    pub const ALL: [BatteryDisplay; 4] = [
+        BatteryDisplay::Off,
+        BatteryDisplay::Icon,
+        BatteryDisplay::Percent,
+        BatteryDisplay::Both,
+    ];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            BatteryDisplay::Off => "off",
+            BatteryDisplay::Icon => "icon",
+            BatteryDisplay::Percent => "percent",
+            BatteryDisplay::Both => "both",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<BatteryDisplay> {
+        match value.trim() {
+            "off" | "0" | "false" => Some(BatteryDisplay::Off),
+            "icon" => Some(BatteryDisplay::Icon),
+            "percent" | "percentage" => Some(BatteryDisplay::Percent),
+            "both" | "1" | "true" => Some(BatteryDisplay::Both),
+            _ => None,
+        }
+    }
+
+    pub fn shows_icon(self) -> bool {
+        matches!(self, BatteryDisplay::Icon | BatteryDisplay::Both)
+    }
+
+    pub fn shows_percent(self) -> bool {
+        matches!(self, BatteryDisplay::Percent | BatteryDisplay::Both)
+    }
+
+    pub fn step(self, right: bool) -> BatteryDisplay {
+        let n = Self::ALL.len();
+        let at = Self::ALL.iter().position(|b| *b == self).unwrap_or(0);
+        Self::ALL[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub enum AutoLoad {
     #[default]
     Always,
     PowerOn,
+    InsertOnly,
     Never,
 }
 
 impl AutoLoad {
-    pub const ALL: [AutoLoad; 3] = [AutoLoad::Always, AutoLoad::PowerOn, AutoLoad::Never];
+    pub const ALL: [AutoLoad; 4] = [
+        AutoLoad::Always,
+        AutoLoad::PowerOn,
+        AutoLoad::InsertOnly,
+        AutoLoad::Never,
+    ];
 
     pub fn key(self) -> &'static str {
         match self {
             AutoLoad::Always => "1",
             AutoLoad::PowerOn => "power",
+            AutoLoad::InsertOnly => "insert",
             AutoLoad::Never => "0",
         }
     }
@@ -228,17 +330,27 @@ impl AutoLoad {
         match value.trim() {
             "1" | "true" | "always" => Some(AutoLoad::Always),
             "power" | "power_on" => Some(AutoLoad::PowerOn),
+            "insert" | "insert_only" => Some(AutoLoad::InsertOnly),
             "0" | "false" | "never" => Some(AutoLoad::Never),
             _ => None,
         }
     }
 
     pub fn on_insert(self) -> bool {
-        self == AutoLoad::Always
+        matches!(self, AutoLoad::Always | AutoLoad::InsertOnly)
     }
 
     pub fn at_power_on(self) -> bool {
-        self != AutoLoad::Never
+        matches!(self, AutoLoad::Always | AutoLoad::PowerOn)
+    }
+
+    pub fn from_split(on_insert: bool, at_power_on: bool) -> AutoLoad {
+        match (on_insert, at_power_on) {
+            (true, true) => AutoLoad::Always,
+            (false, true) => AutoLoad::PowerOn,
+            (true, false) => AutoLoad::InsertOnly,
+            (false, false) => AutoLoad::Never,
+        }
     }
 
     pub fn step(self, right: bool) -> AutoLoad {
@@ -468,6 +580,7 @@ pub enum Shader {
     Dot,
     Simpletex,
     Shimmerless,
+    ShimmerlessGrid,
 }
 
 impl Shader {
@@ -479,12 +592,13 @@ impl Shader {
         Shader::Shimmerless,
     ];
     pub const GBA_3_2: [Shader; 4] = [Shader::Off, Shader::Lcd3x, Shader::Grid, Shader::Dot];
-    pub const GB: [Shader; 5] = [
+    pub const GB: [Shader; 6] = [
         Shader::Off,
         Shader::Lcd3x,
         Shader::Grid,
         Shader::Simpletex,
         Shader::Shimmerless,
+        Shader::ShimmerlessGrid,
     ];
 
     pub fn name(self) -> &'static str {
@@ -495,6 +609,7 @@ impl Shader {
             Shader::Dot => "dot",
             Shader::Simpletex => "simpletex",
             Shader::Shimmerless => "shimmerless",
+            Shader::ShimmerlessGrid => "shimmerless-grid",
         }
     }
 
@@ -506,6 +621,7 @@ impl Shader {
             Shader::Dot,
             Shader::Simpletex,
             Shader::Shimmerless,
+            Shader::ShimmerlessGrid,
         ]
         .into_iter()
         .find(|s| s.name() == name)

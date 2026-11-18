@@ -4,7 +4,8 @@
 //! each console's Screen page, shown on every panel so upstream's page layouts hold; on a 3:2
 //! panel the setting changes nothing.
 
-use slot_store::{platform_settings, BezelPick, Platform, Scale, Scaling, Shader};
+use slot_gfx::FrameBlend;
+use slot_store::{platform_settings, BezelPick, Blending, Platform, Scale, Scaling, Shader};
 use slot_ui::{QuickRow, QuickValue, Toast};
 
 use super::{App, VideoMode};
@@ -26,17 +27,38 @@ fn card_shader_row_platform(row: QuickRow) -> Option<Platform> {
     }
 }
 
-fn motion_blur_key(platform: Platform) -> String {
-    format!("motion_blur_{}", platform.key())
-}
-
 fn motion_blur_row_platform(row: QuickRow) -> Option<Platform> {
     match row {
         QuickRow::MotionBlurGba => Some(Platform::Gba),
         QuickRow::MotionBlurGb => Some(Platform::Gb),
         QuickRow::MotionBlurGbc => Some(Platform::Gbc),
+        QuickRow::MotionBlurNes => Some(Platform::Nes),
+        QuickRow::MotionBlurSnes => Some(Platform::Snes),
+        QuickRow::MotionBlurPs => Some(Platform::PlayStation),
+        QuickRow::MotionBlurNds => Some(Platform::Nds),
         _ => None,
     }
+}
+
+fn blending_value(blend: Blending) -> QuickValue {
+    match blend {
+        Blending::Off => QuickValue::Off,
+        Blending::Mix => QuickValue::Mix,
+        Blending::Ghosting => QuickValue::Ghosting,
+    }
+}
+
+fn format_signed(v: i8) -> String {
+    if v == 0 {
+        "0".to_string()
+    } else {
+        format!("{v:+}")
+    }
+}
+
+fn step_signed(cur: i8, step: i8, min: i8, max: i8, right: bool) -> i8 {
+    let delta = if right { step } else { -step };
+    cur.saturating_add(delta).clamp(min, max)
 }
 
 /// The Shader rows of the systems Fragile adds, whose shader lives in extras.state.
@@ -202,18 +224,24 @@ impl App {
             || row == QuickRow::NdsMic
             || row == QuickRow::PlayNdsMic
             || row == QuickRow::ThisNdsMic
+            || row == QuickRow::CalWarm
+            || row == QuickRow::CalTint
+            || row == QuickRow::CalCurve
+            || row == QuickRow::PlayCalWarm
+            || row == QuickRow::PlayCalTint
+            || row == QuickRow::PlayCalCurve
             || Self::integer_row_platform(row).is_some()
         {
             // Drawn from `named_value`, since a file name or scaling has no ready-made face.
             return Some(None);
         }
         if row == QuickRow::MotionBlur {
-            return Some(Some(QuickValue::flag(
-                self.motion_blur(self.playing_platform()),
+            return Some(Some(blending_value(
+                self.extras.blending(self.playing_platform()),
             )));
         }
         if let Some(platform) = motion_blur_row_platform(row) {
-            return Some(Some(QuickValue::flag(self.motion_blur(platform))));
+            return Some(Some(blending_value(self.extras.blending(platform))));
         }
         if let Some(platform) = shader_row_platform(row) {
             return Some(Some(super::shader_value(self.platform_shader(platform))));
@@ -222,22 +250,57 @@ impl App {
         Some(Some(QuickValue::flag(self.integer_scale(platform))))
     }
 
-    /// The core's own frame blending, per console. Off unless asked for.
-    pub fn motion_blur(&self, platform: Platform) -> bool {
-        self.extras.flag(&motion_blur_key(platform), false)
+    pub fn cal_warm(&self) -> i8 {
+        self.extras.cal_warm()
     }
 
-    /// The blending the running core should have, once after it loads and after each change.
+    pub fn cal_tint(&self) -> i8 {
+        self.extras.cal_tint()
+    }
+
+    pub fn cal_curve(&self) -> i8 {
+        self.extras.cal_curve()
+    }
+
+    /// GPU frame blending mode for the active platform.
+    pub fn frame_blend(&self) -> FrameBlend {
+        match self.extras.blending(self.playing_platform()) {
+            Blending::Off => FrameBlend::Off,
+            Blending::Mix => FrameBlend::Mix,
+            Blending::Ghosting => FrameBlend::Ghosting,
+        }
+    }
+
+    /// Whether any frame blending mode is enabled for `platform`.
+    pub fn motion_blur(&self, platform: Platform) -> bool {
+        self.extras.blending(platform) != Blending::Off
+    }
+
+    /// Always turns off CPU core frame blending so GPU blending runs cleanly.
     pub fn take_motion_blur(&mut self) -> Option<bool> {
         self.overlay.take_motion_blur()
     }
 
     pub(super) fn motion_blur_changed(&mut self) {
-        let on = self.motion_blur(self.playing_platform());
-        self.overlay.set_motion_blur(on);
+        self.overlay.set_motion_blur(false);
     }
 
     pub(super) fn change_screen(&mut self, row: QuickRow, right: bool) -> bool {
+        if row == QuickRow::CalWarm || row == QuickRow::PlayCalWarm {
+            let next = step_signed(self.extras.cal_warm(), 10, -100, 100, right);
+            self.extras.set_cal_warm(next);
+            return true;
+        }
+        if row == QuickRow::CalTint || row == QuickRow::PlayCalTint {
+            let next = step_signed(self.extras.cal_tint(), 10, -100, 100, right);
+            self.extras.set_cal_tint(next);
+            return true;
+        }
+        if row == QuickRow::CalCurve || row == QuickRow::PlayCalCurve {
+            let next = step_signed(self.extras.cal_curve(), 5, -50, 50, right);
+            self.extras.set_cal_curve(next);
+            return true;
+        }
         if row == QuickRow::Scaling {
             let platform = self.playing_platform();
             let to = self.scaling(platform).step(right);
@@ -250,8 +313,8 @@ impl App {
         }
         if row == QuickRow::MotionBlur {
             let platform = self.playing_platform();
-            let on = !self.motion_blur(platform);
-            self.extras.set_flag(&motion_blur_key(platform), on);
+            let next = self.extras.blending(platform).step(right);
+            self.extras.set_blending(platform, next);
             self.motion_blur_changed();
             return true;
         }
@@ -295,8 +358,8 @@ impl App {
             return true;
         }
         if let Some(platform) = motion_blur_row_platform(row) {
-            let on = !self.motion_blur(platform);
-            self.extras.set_flag(&motion_blur_key(platform), on);
+            let next = self.extras.blending(platform).step(right);
+            self.extras.set_blending(platform, next);
             self.motion_blur_changed();
             return true;
         }
@@ -371,6 +434,27 @@ impl App {
         }
         if let Some(text) = self.this_label_text(row) {
             return Some(text);
+        }
+        if row == QuickRow::CalWarm || row == QuickRow::PlayCalWarm {
+            return Some(format_signed(self.extras.cal_warm()));
+        }
+        if row == QuickRow::CalTint || row == QuickRow::PlayCalTint {
+            return Some(format_signed(self.extras.cal_tint()));
+        }
+        if row == QuickRow::CalCurve || row == QuickRow::PlayCalCurve {
+            return Some(format_signed(self.extras.cal_curve()));
+        }
+        if row == QuickRow::Zone {
+            return Some(self.zone_label());
+        }
+        if row == QuickRow::Hostname {
+            return Some(self.hostname_text());
+        }
+        if row == QuickRow::Nickname {
+            return Some(self.nickname().to_string());
+        }
+        if row == QuickRow::BootLogo {
+            return Some(self.boot_logo_label());
         }
         if row == QuickRow::CardShader || row == QuickRow::ThisCardShader {
             return Some(self.card_shader().unwrap_or_else(|| "Off".into()));

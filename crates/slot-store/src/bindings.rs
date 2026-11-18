@@ -414,10 +414,11 @@ pub enum Shortcut {
     SunlightUp,
     SunlightDown,
     Guide,
+    ResetGame,
 }
 
 impl Shortcut {
-    pub const ALL: [Shortcut; 18] = [
+    pub const ALL: [Shortcut; 19] = [
         Shortcut::SaveState,
         Shortcut::LoadState,
         Shortcut::Screenshot,
@@ -436,6 +437,7 @@ impl Shortcut {
         Shortcut::SunlightUp,
         Shortcut::SunlightDown,
         Shortcut::Guide,
+        Shortcut::ResetGame,
     ];
 
     pub fn label(self) -> &'static str {
@@ -458,6 +460,7 @@ impl Shortcut {
             Shortcut::SunlightUp => "Sunlight Up",
             Shortcut::SunlightDown => "Sunlight Down",
             Shortcut::Guide => "Guide",
+            Shortcut::ResetGame => "Reset Game",
         }
     }
 
@@ -481,6 +484,7 @@ impl Shortcut {
             Shortcut::SunlightUp => "sunlight_up",
             Shortcut::SunlightDown => "sunlight_down",
             Shortcut::Guide => "guide",
+            Shortcut::ResetGame => "reset_game",
         }
     }
 
@@ -502,7 +506,10 @@ impl Shortcut {
             Shortcut::FastForward => Binding::plain(Device::R2),
             Shortcut::FastForwardToggle => None,
             Shortcut::Rewind => Binding::plain(Device::L2),
-            Shortcut::SunlightUp | Shortcut::SunlightDown | Shortcut::Guide => None,
+            Shortcut::SunlightUp
+            | Shortcut::SunlightDown
+            | Shortcut::Guide
+            | Shortcut::ResetGame => None,
         }
     }
 
@@ -560,7 +567,7 @@ impl Controls {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct ShortcutKeys {
-    keys: [Option<Binding>; 18],
+    keys: [Option<Binding>; 19],
 }
 
 impl Default for ShortcutKeys {

@@ -380,6 +380,27 @@ fn headphones_follow_the_detection_pin() {
     assert!(!platform(&d).headphones());
 }
 
+const ONBOARD_CARDS: &str =
+    " 0 [audiocodec     ]: audiocodec - audiocodec\n                      audiocodec\n";
+
+const USB_DAC_CARDS: &str = " 0 [audiocodec     ]: audiocodec - audiocodec\n                      audiocodec\n 1 [D700           ]: USB-Audio - BTD 700\n                      Sennheiser BTD 700 at usb-sunxi-ehci-1, full speed\n";
+
+#[test]
+fn a_usb_audio_card_is_found_by_its_driver() {
+    assert_eq!(slot_power::usb_card(ONBOARD_CARDS), None);
+    assert_eq!(slot_power::usb_card(""), None);
+    assert_eq!(slot_power::usb_card(USB_DAC_CARDS), Some(1));
+
+    let d = sysfs("255", "87");
+    let cards = d.path().join("asound-cards");
+    fs::write(&cards, ONBOARD_CARDS).unwrap();
+    let p = DevicePlatform::probe(d.path(), PathBuf::from("/mnt/sdcard"))
+        .with_sound_cards(cards.clone());
+    assert_eq!(p.usb_audio_card(), None);
+    fs::write(&cards, USB_DAC_CARDS).unwrap();
+    assert_eq!(p.usb_audio_card(), Some(1));
+}
+
 const MOUNTS: &str = "\
 /dev/mmcblk0p5 / ext4 rw,noatime 0 0
 /dev/mmcblk0p7 /mnt/sdcard vfat ro,noatime,fmask=0022,errors=remount-ro 0 0

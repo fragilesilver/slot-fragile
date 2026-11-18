@@ -1,5 +1,8 @@
 use crate::draw::{Draw, Sprites, TexId};
-use crate::grade::{blue_light_gain, contrast_boost, saturation_boost};
+use crate::ghost::{FrameBlend, Lcd};
+use crate::grade::{
+    blue_light_gain, contrast_boost, dim_gain, gamma_curve, saturation_boost, warmth_tint_gain,
+};
 use crate::pipeline::GamePass;
 use crate::quad::Quad;
 use crate::shaders::{BLIT_FRAG, BLIT_VERT, TURN_VERT};
@@ -22,12 +25,18 @@ pub struct Compositor {
     size: (u32, u32),
     blit: gl::types::GLuint,
     u_gain: gl::types::GLint,
+    u_dim: gl::types::GLint,
     u_saturation: gl::types::GLint,
     u_contrast: gl::types::GLint,
+    u_cal_gain: gl::types::GLint,
+    u_cal_gamma: gl::types::GLint,
     u_blit_uv: gl::types::GLint,
     gain: [f32; 3],
+    dim: f32,
     saturation: f32,
     contrast: f32,
+    cal_gain: [f32; 3],
+    cal_gamma: f32,
     shake: f32,
     window: (u32, u32),
     screen: f32,
@@ -35,6 +44,7 @@ pub struct Compositor {
     game: GamePass,
     sprites: Sprites,
     game_bezel: Option<TexId>,
+    game_bezel_tile: Option<(u32, u32)>,
     sp_frame: bool,
     /// A picture drawn at a whole multiple of its size on a 4:3 panel, or `None` for the band.
     integer: Option<(u32, u32)>,
@@ -69,8 +79,11 @@ impl Compositor {
             gl::UseProgram(blit);
             gl::Uniform1i(crate::gl::uniform_location(blit, "u_tex"), 0);
             let u_gain = crate::gl::uniform_location(blit, "u_gain");
+            let u_dim = crate::gl::uniform_location(blit, "u_dim");
             let u_saturation = crate::gl::uniform_location(blit, "u_saturation");
             let u_contrast = crate::gl::uniform_location(blit, "u_contrast");
+            let u_cal_gain = crate::gl::uniform_location(blit, "u_cal_gain");
+            let u_cal_gamma = crate::gl::uniform_location(blit, "u_cal_gamma");
             let u_blit_uv = crate::gl::uniform_location(blit, "u_uv");
             gl::Uniform4f(u_blit_uv, 0.0, 0.0, 1.0, 1.0);
 
@@ -80,12 +93,18 @@ impl Compositor {
                 size: (OUT_W, OUT_H),
                 blit,
                 u_gain,
+                u_dim,
                 u_saturation,
                 u_contrast,
+                u_cal_gain,
+                u_cal_gamma,
                 u_blit_uv,
                 gain: blue_light_gain(0),
+                dim: dim_gain(0),
                 saturation: saturation_boost(0),
                 contrast: contrast_boost(0),
+                cal_gain: warmth_tint_gain(0, 0),
+                cal_gamma: gamma_curve(0),
                 shake: 0.0,
                 window: (OUT_W, OUT_H),
                 screen: 0.0,
@@ -93,6 +112,7 @@ impl Compositor {
                 game: GamePass::new()?,
                 sprites: Sprites::new()?,
                 game_bezel: None,
+                game_bezel_tile: None,
                 sp_frame: true,
                 integer: None,
                 turn: None,
@@ -107,6 +127,16 @@ impl Compositor {
             gl::UseProgram(prog);
             gl::Uniform1i(crate::gl::uniform_location(prog, "u_tex"), 0);
             gl::Uniform3f(crate::gl::uniform_location(prog, "u_gain"), 1.0, 1.0, 1.0);
+            gl::Uniform1f(crate::gl::uniform_location(prog, "u_dim"), 1.0);
+            gl::Uniform1f(crate::gl::uniform_location(prog, "u_saturation"), 0.0);
+            gl::Uniform1f(crate::gl::uniform_location(prog, "u_contrast"), 0.0);
+            gl::Uniform3f(
+                crate::gl::uniform_location(prog, "u_cal_gain"),
+                1.0,
+                1.0,
+                1.0,
+            );
+            gl::Uniform1f(crate::gl::uniform_location(prog, "u_cal_gamma"), 1.0);
             gl::Uniform1f(
                 crate::gl::uniform_location(prog, "u_ccw"),
                 if ccw { 1.0 } else { 0.0 },
@@ -123,14 +153,14 @@ impl Compositor {
     }
 
     pub fn upload_game(&mut self, xrgb8888: &[u8]) {
-        self.game.upload(xrgb8888);
+        self.game.upload(xrgb8888, &self.quad);
     }
 
     // --- extras ---
 
     /// A frame at its own size, as a native system's core draws it.
     pub fn upload_game_sized(&mut self, xrgb8888: &[u8], size: (u32, u32)) {
-        self.game.upload_sized(xrgb8888, size);
+        self.game.upload_sized(xrgb8888, size, &self.quad);
     }
 
     /// The shape to letterbox a native system's picture to; `None` for the Game Boy family.
@@ -193,12 +223,20 @@ impl Compositor {
         self.sprites.create_texture_nearest(w, h, rgba)
     }
 
+    pub fn create_texture_repeat(&mut self, w: u32, h: u32, rgba: &[u8]) -> TexId {
+        self.sprites.create_texture_repeat(w, h, rgba)
+    }
+
     pub fn update_texture(&mut self, id: TexId, w: u32, h: u32, rgba: &[u8]) {
         self.sprites.update_texture(id, w, h, rgba);
     }
 
     pub fn set_blue_light(&mut self, step: u8) {
         self.gain = blue_light_gain(step);
+    }
+
+    pub fn set_dim(&mut self, step: u8) {
+        self.dim = dim_gain(step);
     }
 
     pub fn set_saturation(&mut self, step: u8) {
@@ -209,8 +247,25 @@ impl Compositor {
         self.contrast = contrast_boost(step);
     }
 
+    pub fn set_calibration(&mut self, warm: i8, tint: i8, curve: i8) {
+        self.cal_gain = warmth_tint_gain(warm, tint);
+        self.cal_gamma = gamma_curve(curve);
+    }
+
     pub fn set_screen_effect(&mut self, effect: crate::ScreenEffect) {
         self.game.set_effect(effect);
+    }
+
+    pub fn set_frame_blend(&mut self, blend: FrameBlend) {
+        self.game.set_blend(blend, &self.quad);
+    }
+
+    pub fn set_lcd(&mut self, lcd: Lcd) {
+        self.game.set_lcd(lcd, &self.quad);
+    }
+
+    pub fn cut_frame_blend(&mut self) {
+        self.game.cut();
     }
 
     /// Draws the game through a RetroArch `.glsl` shader off the card, or the built-in effect
@@ -249,6 +304,20 @@ impl Compositor {
 
     pub fn set_game_bezel(&mut self, tex: Option<TexId>) {
         self.game_bezel = tex;
+        self.game_bezel_tile = None;
+    }
+
+    pub fn set_game_bezel_tile(&mut self, tile: Option<(TexId, u32, u32)>) {
+        match tile {
+            Some((tex, tw, th)) if tw > 0 && th > 0 => {
+                self.game_bezel = Some(tex);
+                self.game_bezel_tile = Some((tw, th));
+            }
+            _ => {
+                self.game_bezel = None;
+                self.game_bezel_tile = None;
+            }
+        }
     }
 
     pub fn set_sp_frame(&mut self, on: bool) {
@@ -284,17 +353,32 @@ impl Compositor {
         };
         let (x, y, w, h) = self.game.frame();
         self.sprites.set_target(Canvas::FRAMED);
-        self.sprites.draw(
-            &[Draw::Tex {
+        let item = match self.game_bezel_tile {
+            Some((tw, th)) => {
+                let (pw, ph) = (
+                    (w * self.window.0 as f32 / OUT_W as f32).max(1.0),
+                    (h * self.window.1 as f32 / OUT_H as f32).max(1.0),
+                );
+                Draw::Part {
+                    x,
+                    y,
+                    w,
+                    h,
+                    tex,
+                    alpha: 1.0,
+                    uv: [0.0, 0.0, pw / tw as f32, ph / th as f32],
+                }
+            }
+            None => Draw::Tex {
                 x,
                 y,
                 w,
                 h,
                 tex,
                 alpha: 1.0,
-            }],
-            &self.quad,
-        );
+            },
+        };
+        self.sprites.draw(&[item], &self.quad);
         self.sprites.set_target(Canvas::of(self.window));
     }
 
@@ -503,8 +587,16 @@ impl Compositor {
             gl::UseProgram(self.blit);
             gl::ActiveTexture(gl::TEXTURE0);
             gl::Uniform3f(self.u_gain, self.gain[0], self.gain[1], self.gain[2]);
+            gl::Uniform1f(self.u_dim, self.dim);
             gl::Uniform1f(self.u_saturation, self.saturation);
             gl::Uniform1f(self.u_contrast, self.contrast);
+            gl::Uniform3f(
+                self.u_cal_gain,
+                self.cal_gain[0],
+                self.cal_gain[1],
+                self.cal_gain[2],
+            );
+            gl::Uniform1f(self.u_cal_gamma, self.cal_gamma);
             gl::BindTexture(gl::TEXTURE_2D, self.tex);
         }
         if self.native() {

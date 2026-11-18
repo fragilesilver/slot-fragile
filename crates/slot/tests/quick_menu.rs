@@ -231,17 +231,18 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
     press(&mut a, Btn::Up);
     assert_eq!(
         a.quick_menu(),
-        Some(QuickRow::About),
+        Some(QuickRow::System),
         "up from the top did not wrap to the bottom"
     );
     for want in [
-        QuickRow::General,
-        QuickRow::Screen,
+        QuickRow::ShelfSettings,
         QuickRow::Game,
         QuickRow::Controls,
+        QuickRow::Screen,
         QuickRow::Network,
-        QuickRow::About,
-        QuickRow::General,
+        QuickRow::CheevosPage,
+        QuickRow::System,
+        QuickRow::ShelfSettings,
     ] {
         press(&mut a, Btn::Down);
         assert_eq!(a.quick_menu(), Some(want));
@@ -495,7 +496,7 @@ fn colour_correction_leaves_the_settings_around_it_alone() {
 fn the_arrows_change_nothing_on_a_row_that_opens() {
     let (d, mut a, _) = on_carousel();
     let before = std::fs::read(d.path().join("Config/slot.state")).expect("read slot.state");
-    for row in [QuickRow::General, QuickRow::DateTime, QuickRow::About] {
+    for row in [QuickRow::ShelfSettings, QuickRow::DateTime, QuickRow::About] {
         open_at(&mut a, row);
         press(&mut a, Btn::Left);
         press(&mut a, Btn::Right);
@@ -785,7 +786,6 @@ fn the_carousel_menu_keeps_the_empty_footer_where_the_shelf_left_it() {
     );
     assert!(!drawn(&open, 403), "Resume is on the carousel menu");
     press(&mut a, Btn::Down);
-    press(&mut a, Btn::Down);
     press(&mut a, Btn::A);
     assert_eq!(a.quick_menu(), Some(QuickRow::FastForward));
     for _ in 0..30 {
@@ -859,8 +859,8 @@ fn the_arrows_stand_only_around_the_selected_rows_value() {
         "rumble's ON is not grey"
     );
     press(&mut a, Btn::B);
-    for _ in QuickRow::General.position(&[])..QuickRow::Game.position(&[]) {
-        press(&mut a, Btn::Up);
+    for _ in QuickRow::Game.position(&[])..QuickRow::System.position(&[]) {
+        press(&mut a, Btn::Down);
     }
     press(&mut a, Btn::A);
     for _ in 0..QuickRow::DateTime.position(&a.hidden_rows()) - 1 {
@@ -902,7 +902,11 @@ fn the_pointer_stands_left_of_the_selected_row_and_only_it_is_lit() {
             ly + lh / 2.0,
             "{row:?}: the pointer is off the row"
         );
-        for other in QuickRow::MAIN.into_iter().filter(|r| *r != row) {
+        let (start, len) = slot_ui::quick_window(row, &[]);
+        for &other in QuickRow::MAIN[start..start + len]
+            .iter()
+            .filter(|r| **r != row)
+        {
             assert!(drawn(&out, label(other, false)), "{other:?} is not grey");
             assert!(!drawn(&out, label(other, true)), "{other:?} is lit");
         }
@@ -1040,7 +1044,8 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
         &QuickRow::SCREEN_GBC[..],
         &QuickRow::SCREEN_GB[..],
         &QuickRow::GAME[..],
-        &QuickRow::GENERAL[..],
+        &QuickRow::SHELF_SETTINGS[..],
+        &QuickRow::SYSTEM[..],
     ] {
         for &row in page {
             if row.opens() || a.hidden_rows().contains(&row) {
@@ -1348,7 +1353,7 @@ fn a_page_that_fits_shows_no_scroll_carets() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
     // Fragile: Gameplay and Screen no longer fit (7 systems), so ScreenNds stands in.
-    for row in [QuickRow::SCREEN_NDS[0], QuickRow::SCREEN_GBA[0]] {
+    for row in [QuickRow::CHEEVOS[0], QuickRow::SCREEN_GBA[0]] {
         open_at(&mut a, row);
         let out = frame(&a);
         assert!(

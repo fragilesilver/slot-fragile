@@ -75,12 +75,14 @@ fn a_malformed_label_falls_back_to_a_generated_one() {
     write_rom(&d, "Broken.gba", "BROKEN");
     std::fs::create_dir_all(d.path().join("Labels/GBA")).unwrap();
     std::fs::write(d.path().join("Labels/GBA/Broken.png"), b"not a png").unwrap();
-    let face = cart_face(&scan(d.path()).unwrap()[0]);
+    let cart = scan(d.path()).unwrap()[0].clone();
+    let face = cart_face(&cart);
     assert_eq!((face.w, face.h), (CART_W, CART_H));
-    assert_eq!(
-        label_pixel(&face, 0, 0),
-        label_colour("Broken"),
-        "a broken label file did not fall back to a generated one"
+    let mut plain = cart.clone();
+    plain.label = None;
+    assert!(
+        face.rgba == slot_ui::cart_face_with(&plain, None).rgba,
+        "a broken label file did not fall back to the handwritten one"
     );
 }
 
@@ -129,8 +131,9 @@ fn a_long_title_stays_inside_the_label() {
     ] {
         let d = tmp_root();
         std::fs::write(d.path().join(format!("Games/GBA/{stem}.gba")), [0u8; 8]).unwrap();
-        let face = cart_face(&scan(d.path()).unwrap()[0]);
-        let bg = label_colour(stem);
+        let cart = scan(d.path()).unwrap()[0].clone();
+        let face = cart_face(&cart);
+        let bare = slot_ui::bare_face(&cart);
         let margin = 5;
         for y in 0..LABEL_H {
             for x in 0..LABEL_W {
@@ -139,14 +142,17 @@ fn a_long_title_stays_inside_the_label() {
                 if edge {
                     assert_eq!(
                         label_pixel(&face, x, y),
-                        bg,
+                        label_pixel(&bare, x, y),
                         "{stem}: text spills into the border at {x},{y}"
                     );
                 }
             }
         }
         assert!(
-            (0..LABEL_H * LABEL_W).any(|i| label_pixel(&face, i % LABEL_W, i / LABEL_W) != bg),
+            (0..LABEL_H * LABEL_W).any(|i| {
+                let (x, y) = (i % LABEL_W, i / LABEL_W);
+                label_pixel(&face, x, y) != label_pixel(&bare, x, y)
+            }),
             "{stem}: no text was drawn"
         );
     }
@@ -306,7 +312,7 @@ fn a_rom_with_no_header_title_is_labelled_from_its_stem() {
     let cart = &scan(d.path()).unwrap()[0];
     assert_eq!(label_text(cart), "Homebrew Demo");
     let face = cart_face(cart);
-    let bg = label_colour("Homebrew Demo");
+    let bg = label_pixel(&face, 0, 0);
     assert!(
         (0..LABEL_H * LABEL_W).any(|i| label_pixel(&face, i % LABEL_W, i / LABEL_W) != bg),
         "an untitled rom got a blank label"
@@ -580,25 +586,26 @@ fn a_game_boy_title_stays_inside_its_near_square_label() {
     ] {
         let d = tmp_root();
         write_gb_rom(&d, "GB", &format!("{stem}.gb"), 0x00);
-        let face = cart_face(&scan(d.path()).unwrap()[0]);
-        let at = |x: u32, y: u32| pixel(&face, GB_LABEL_X + x, GB_LABEL_Y + y);
+        let cart = scan(d.path()).unwrap()[0].clone();
+        let face = cart_face(&cart);
+        let bare = slot_ui::bare_face(&cart);
+        let at = |f: &slot_ui::CartFace, x: u32, y: u32| pixel(f, GB_LABEL_X + x, GB_LABEL_Y + y);
         let (w, h) = (GB_LABEL_W, GB_LABEL_H);
-        let bg = label_colour(stem);
         let margin = 5;
         for y in 0..h {
             for x in 0..w {
                 let edge = x < margin || y < margin || x >= w - margin || y >= h - margin;
                 if edge {
                     assert_eq!(
-                        at(x, y),
-                        bg,
+                        at(&face, x, y),
+                        at(&bare, x, y),
                         "{stem}: text spills into the border at {x},{y}"
                     );
                 }
             }
         }
         assert!(
-            (0..h * w).any(|i| at(i % w, i / w) != bg),
+            (0..h * w).any(|i| at(&face, i % w, i / w) != at(&bare, i % w, i / w)),
             "{stem}: no text was drawn"
         );
     }
@@ -616,24 +623,24 @@ fn a_game_boy_color_title_sits_in_its_own_well_not_the_game_boys() {
     let cart = &scan(d.path()).unwrap()[0];
     assert_eq!(slot_ui::label_size(cart), (GBC_LABEL_W, GBC_LABEL_H));
     let face = cart_face(cart);
-    let at = |x: u32, y: u32| pixel(&face, GBC_LABEL_X + x, GBC_LABEL_Y + y);
+    let bare = slot_ui::bare_face(cart);
+    let at = |f: &slot_ui::CartFace, x: u32, y: u32| pixel(f, GBC_LABEL_X + x, GBC_LABEL_Y + y);
     let (w, h) = (GBC_LABEL_W, GBC_LABEL_H);
-    let bg = label_colour(stem);
     let margin = 5;
     for y in 0..h {
         for x in 0..w {
             let edge = x < margin || y < margin || x >= w - margin || y >= h - margin;
             if edge {
                 assert_eq!(
-                    at(x, y),
-                    bg,
+                    at(&face, x, y),
+                    at(&bare, x, y),
                     "{stem}: text spills into the border at {x},{y}"
                 );
             }
         }
     }
     assert!(
-        (0..h * w).any(|i| at(i % w, i / w) != bg),
+        (0..h * w).any(|i| at(&face, i % w, i / w) != at(&bare, i % w, i / w)),
         "{stem}: no text was drawn"
     );
 }
@@ -692,9 +699,11 @@ fn a_clear_pak_is_see_through_and_a_solid_one_is_not() {
     let (clear, grey) = (face("Clear"), face("Grey"));
     assert_eq!(pixel_alpha(&clear, beside_label.0, beside_label.1), 204);
     assert_eq!(pixel_alpha(&grey, beside_label.0, beside_label.1), 255);
+    let clear_cart = carts.iter().find(|c| c.stem == "Clear").expect("scanned");
+    let labelled = slot_ui::cart_face_with(clear_cart, Some(sheet(clear_cart, [250, 250, 250])));
     assert_eq!(
         pixel_alpha(
-            &clear,
+            &labelled,
             GBC_LABEL_X + GBC_LABEL_W / 2,
             GBC_LABEL_Y + GBC_LABEL_H / 2
         ),
@@ -732,7 +741,7 @@ fn clear_gba(d: &TempDir) -> slot_ui::CartFace {
     let carts = scan(d.path()).unwrap();
     let cart = carts.iter().find(|c| c.stem == "Boktai").expect("scanned");
     assert_eq!(shell_for(cart).finish, Finish::Translucent);
-    cart_face(cart)
+    slot_ui::cart_face_with(cart, Some(sheet(cart, [250, 250, 250])))
 }
 
 #[test]
@@ -825,4 +834,11 @@ fn media_cart_finishes_solid_clear_glitter() {
     });
     let glitter_face = slot_ui::cart_face(&cart);
     assert_ne!(glitter_face.rgba, solid_face.rgba);
+}
+
+fn sheet(cart: &slot_store::Cart, rgb: [u8; 3]) -> Vec<u8> {
+    let (w, h) = slot_ui::label_size(cart);
+    (0..w * h)
+        .flat_map(|_| [rgb[0], rgb[1], rgb[2], 255])
+        .collect()
 }

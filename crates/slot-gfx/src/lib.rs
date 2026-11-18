@@ -2,6 +2,7 @@ mod bezel;
 mod draw;
 mod fbdev;
 mod fbo;
+mod ghost;
 mod gl;
 mod grade;
 #[cfg(target_os = "macos")]
@@ -26,8 +27,10 @@ pub use bezel::{
 pub use draw::{Draw, TexId};
 pub use fbdev::{egl_error, panel_mode, panel_size, FbdevSurface};
 pub use fbo::{canvas_size, Compositor, BACKDROP};
+pub use ghost::{FrameBlend, Lcd};
 pub use grade::{
-    blue_light_gain, contrast_boost, saturation_boost, BLUE_LIGHT_MAX, CONTRAST_MAX, SATURATION_MAX,
+    blue_light_gain, contrast_boost, dim_gain, gamma_curve, saturation_boost, warmth_tint_gain,
+    BLUE_LIGHT_MAX, CONTRAST_MAX, DIM_MAX, SATURATION_MAX,
 };
 #[cfg(any(target_os = "macos", all(target_os = "linux", not(feature = "device"))))]
 pub use headless::HeadlessSurface;

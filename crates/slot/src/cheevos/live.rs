@@ -8,10 +8,15 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use slot_cheevos::{
-    badge, config, game, memory, Achievement, Cheevos, Credentials, Http, Login, Notice, Secret,
+    badge, config, game, memory, Achievement, Cheevos, Credentials, Http, Login, Notice, Request,
+    Response, Secret, Transport,
 };
 use slot_gfx::{Compositor, Draw, TexId};
 use slot_retro::RetroCore;
+use slot_store::cheevos_cache::{
+    cache_game_blob, queue_pending_unlock, read_game_blob, read_pending_unlocks,
+    write_pending_unlocks, PendingUnlock,
+};
 
 use super::boot;
 use super::overlay::{self, Face, Queue};
@@ -54,7 +59,12 @@ thread_local! {
 // --- Fragile: on or off from the Network page, what the sign-in came to, the game's list ---
 
 static ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+static UNLOCKED_HAPTIC: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static STATUS: Mutex<Status> = Mutex::new(Status::SignedOut);
+
+pub fn take_unlocked_haptic() -> bool {
+    UNLOCKED_HAPTIC.swap(false, Ordering::AcqRel)
+}
 /// Bumped by each sign-in, so an older one still waiting gives up.
 static SIGN_INS: AtomicU64 = AtomicU64::new(0);
 
@@ -113,7 +123,12 @@ pub fn start(root: &Path) {
     let Some(credentials) = Credentials::read(root) else {
         return;
     };
-    let cheevos = Cheevos::start(credentials.host.as_deref(), |ua| Box::new(Http::new(ua)));
+    let cheevos = Cheevos::start(credentials.host.as_deref(), |ua| {
+        Box::new(OfflineTransport {
+            http: Http::new(ua),
+            root: root.to_path_buf(),
+        })
+    });
     let live = Live {
         cheevos,
         root: root.to_path_buf(),
@@ -165,7 +180,13 @@ fn sign_in(root: &Path, credentials: Credentials) {
                     }
                 }
                 set_status(Status::SignedIn(user.clone()));
-                live.cheevos.push(Notice::LoggedIn { user });
+                live.cheevos.push(Notice::LoggedIn { user: user.clone() });
+                let flush_root = root.to_path_buf();
+                let flush_token = token;
+                let flush_host = credentials.host.clone();
+                spawn("slot-cheevos-flush", move || {
+                    flush_pending_unlocks(&flush_root, flush_host.as_deref(), &user, &flush_token);
+                });
                 break;
             }
             Ok(Login::Rejected {
@@ -209,8 +230,109 @@ fn draw_faces() {
             .and_then(|url| live.cheevos.transport().fetch(url))
             .and_then(|png| badge::decode(&png));
         let face = overlay::compose(&notice, badge.as_deref());
+        if face.unlock {
+            UNLOCKED_HAPTIC.store(true, Ordering::Release);
+        }
         live.faces.lock().unwrap().push(face);
     }
+}
+
+struct OfflineTransport {
+    http: Http,
+    root: PathBuf,
+}
+
+fn param<'a>(query: &'a str, key: &str) -> Option<&'a str> {
+    query.split('&').find_map(|kv| {
+        kv.split_once('=')
+            .filter(|(k, _)| *k == key)
+            .map(|(_, v)| v)
+    })
+}
+
+fn req_param<'a>(req: &'a Request, key: &str) -> Option<&'a str> {
+    req.post
+        .as_deref()
+        .and_then(|p| param(p, key))
+        .or_else(|| req.url.split_once('?').and_then(|(_, q)| param(q, key)))
+}
+
+impl Transport for OfflineTransport {
+    fn send(&self, req: &Request) -> Response {
+        let op = req_param(req, "r").unwrap_or("");
+        let resp = self.http.send(req);
+        if op == "patch" {
+            if let Some(key) = req_param(req, "m").or_else(|| req_param(req, "g")) {
+                if resp.status == 200 && !resp.body.is_empty() {
+                    let _ = cache_game_blob(&self.root, key, &resp.body);
+                } else if resp.status < 0 {
+                    if let Some(cached) = read_game_blob(&self.root, key) {
+                        return Response {
+                            status: 200,
+                            body: cached,
+                        };
+                    }
+                }
+            }
+        } else if op == "awardachievement" && resp.status < 0 {
+            if let Some(aid) = req_param(req, "a").and_then(|s| s.parse::<u32>().ok()) {
+                let gid = req_param(req, "g")
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .unwrap_or(0);
+                let hash = req_param(req, "h").unwrap_or("");
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs() as i64)
+                    .unwrap_or(0);
+                let _ = queue_pending_unlock(
+                    &self.root,
+                    PendingUnlock {
+                        game_id: gid,
+                        achievement_id: aid,
+                        earned_utc: now,
+                        title: hash.to_string(),
+                    },
+                );
+                return Response {
+                    status: 200,
+                    body: format!(r#"{{"Success":true,"AchievementID":{aid}}}"#).into_bytes(),
+                };
+            }
+        }
+        resp
+    }
+
+    fn fetch(&self, url: &str) -> Option<Vec<u8>> {
+        self.http.fetch(url)
+    }
+}
+
+fn flush_pending_unlocks(root: &Path, host: Option<&str>, user: &str, token: &str) {
+    let pending = read_pending_unlocks(root);
+    if pending.is_empty() {
+        return;
+    }
+    let http = Http::new("slot/1.9.8");
+    let base = host
+        .unwrap_or("https://retroachievements.org")
+        .trim_end_matches('/');
+    let mut keep = Vec::new();
+    for item in pending {
+        let url = format!("{base}/dorequest.php");
+        let post = format!(
+            "r=awardachievement&u={}&t={}&a={}&h={}",
+            user, token, item.achievement_id, item.title
+        );
+        let resp = http.send(&Request {
+            url,
+            post: Some(post),
+            content_type: None,
+        });
+        if resp.status < 0 {
+            keep.push(item);
+        }
+    }
+    let _ = write_pending_unlocks(root, &keep);
 }
 
 pub struct Guard {

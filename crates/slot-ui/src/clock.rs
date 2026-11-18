@@ -1,6 +1,7 @@
 use slot_gfx::{Canvas, Draw, TexId, OUT_H};
 use slot_store::{
-    civil_from_days, days_from_civil, days_in_month, parse_stamp, UTC_OFFSET_MAX, UTC_OFFSET_MIN,
+    civil_from_days, days_from_civil, days_in_month, parse_stamp, Zone, UTC_OFFSET_MAX,
+    UTC_OFFSET_MIN,
 };
 
 use crate::plate::{blit, centred_hints, hint_width, UndoFace, HINT_H, LEGEND_GAP};
@@ -99,6 +100,7 @@ pub struct ClockPicker {
     hour: i64,
     minute: i64,
     offset_min: i64,
+    zone: Option<Zone>,
     cursor: usize,
 }
 
@@ -113,6 +115,7 @@ impl ClockPicker {
             hour: rem / 3600,
             minute: rem / 60 % 60,
             offset_min: 0,
+            zone: None,
             cursor: 0,
         }
     }
@@ -121,7 +124,17 @@ impl ClockPicker {
         let offset = i64::from(offset_min);
         ClockPicker {
             offset_min: offset,
+            zone: None,
             ..ClockPicker::from_secs(utc + offset * 60)
+        }
+    }
+
+    pub fn local_zone(utc: i64, zone: Zone) -> Self {
+        let local = zone.local(utc);
+        ClockPicker {
+            offset_min: zone.offset_min(utc),
+            zone: Some(zone),
+            ..ClockPicker::from_secs(local)
         }
     }
 
@@ -133,6 +146,7 @@ impl ClockPicker {
             hour: 0,
             minute: 0,
             offset_min: 0,
+            zone: None,
             cursor: 0,
         }
     }
@@ -141,11 +155,21 @@ impl ClockPicker {
         let local = days_from_civil(self.year, self.month, self.day) * DAY
             + self.hour * 3600
             + self.minute * 60;
-        local - self.offset_min * 60
+        match self.zone {
+            Some(z) => z.utc(local),
+            None => local - self.offset_min * 60,
+        }
     }
 
     pub fn offset_min(&self) -> i64 {
-        self.offset_min
+        match self.zone {
+            Some(z) => z.offset_min(self.secs()),
+            None => self.offset_min,
+        }
+    }
+
+    pub fn zone(&self) -> Option<Zone> {
+        self.zone
     }
 
     pub fn month(&self) -> i64 {
@@ -187,10 +211,17 @@ impl ClockPicker {
             Field::Day => self.day = wrap(self.day + by, 1, days_in_month(self.year, self.month)),
             Field::Hour => self.hour = wrap(self.hour + by, 0, 23),
             Field::Minute => self.minute = wrap(self.minute + by, 0, 59),
-            Field::Offset => {
-                self.offset_min = (self.offset_min + by * OFFSET_STEP)
-                    .clamp(i64::from(UTC_OFFSET_MIN), i64::from(UTC_OFFSET_MAX))
-            }
+            Field::Offset => match self.zone {
+                Some(z) => {
+                    let next = if by >= 0 { z.east() } else { z.west() };
+                    self.zone = Some(next);
+                    self.offset_min = next.offset_min(self.secs());
+                }
+                None => {
+                    self.offset_min = (self.offset_min + by * OFFSET_STEP)
+                        .clamp(i64::from(UTC_OFFSET_MIN), i64::from(UTC_OFFSET_MAX))
+                }
+            },
         }
         self.day = self.day.min(days_in_month(self.year, self.month));
     }
@@ -238,15 +269,19 @@ impl ClockPicker {
             6 => format!("{:02}", self.hour),
             7 => ":".into(),
             8 => format!("{:02}", self.minute),
-            10 => format!("UTC{}", self.offset_text()),
+            10 => match self.zone {
+                Some(z) => format!("{} ({})", z.name(), self.offset_text()),
+                None => format!("UTC{}", self.offset_text()),
+            },
             _ => String::new(),
         }
     }
 
     fn offset_text(&self) -> String {
-        let sign = if self.offset_min < 0 { '-' } else { '+' };
-        let mins = self.offset_min.abs();
-        format!("{sign}{:02}:{:02}", mins / 60, mins % 60)
+        let mins = self.offset_min();
+        let sign = if mins < 0 { '-' } else { '+' };
+        let abs = mins.abs();
+        format!("{sign}{:02}:{:02}", abs / 60, abs % 60)
     }
 
     pub fn draw(

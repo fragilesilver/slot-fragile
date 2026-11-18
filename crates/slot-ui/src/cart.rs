@@ -276,11 +276,78 @@ pub fn label_size_for(platform: Platform) -> (u32, u32) {
     }
 }
 
+fn hand_parts(s: &Spec, cart: &Cart) -> Option<(CartFace, crate::hand::Written)> {
+    let font = crate::hand::hand_font()?;
+    let face = shell_face_of(s, &shell_for(cart), true);
+    let (lx, ly, lw, lh) = s.label;
+    let c = (((ly + lh / 2) * s.w + lx + lw / 2) * 4) as usize;
+    let recess = [face.rgba[c], face.rgba[c + 1], face.rgba[c + 2]];
+    let tags = label_tags(&cart.stem);
+    let written = font.write(&label_text(cart), &tags, &cart.stem, lw, lh, recess);
+    Some((face, written))
+}
+
+fn paste_ink_box(
+    rgba: &mut [u8],
+    face_w: u32,
+    (lx, ly, lw, lh): (u32, u32, u32, u32),
+    colour: [u8; 3],
+    coverage: &[u8],
+    mask: Option<&[u8]>,
+) {
+    for y in 0..lh {
+        for x in 0..lw {
+            let src = (y * lw + x) as usize;
+            let cov = coverage[src] as u32;
+            let m = mask.map_or(255u32, |p| p[src] as u32);
+            let a = (cov * m + 127) / 255;
+            if a == 0 {
+                continue;
+            }
+            let d = (((y + ly) * face_w + x + lx) * 4) as usize;
+            for c in 0..3 {
+                rgba[d + c] =
+                    ((colour[c] as u32 * a + rgba[d + c] as u32 * (255 - a) + 127) / 255) as u8;
+            }
+        }
+    }
+}
+
+fn handwritten(s: &Spec, cart: &Cart) -> Option<CartFace> {
+    let (mut face, written) = hand_parts(s, cart)?;
+    paste_ink_box(
+        &mut face.rgba,
+        s.w,
+        s.label,
+        written.colour,
+        &written.ink,
+        None,
+    );
+    clip_to_silhouette(s, &mut face);
+    Some(face)
+}
+
+pub fn bare_face(cart: &Cart) -> CartFace {
+    let s = spec(shape_of(cart));
+    let mut face = shell_face_of(&s, &shell_for(cart), true);
+    clip_to_silhouette(&s, &mut face);
+    face
+}
+
+pub fn writes_by_hand(cart: &Cart) -> bool {
+    cart.label.is_none() && crate::hand::hand_font().is_some()
+}
+
 pub fn cart_face_with(cart: &Cart, art: Option<Vec<u8>>) -> CartFace {
     if let Some(m) = Media::of(cart.platform) {
         return media_face(cart, m, art);
     }
     let s = spec(shape_of(cart));
+    if art.is_none() {
+        if let Some(face) = handwritten(&s, cart) {
+            return face;
+        }
+    }
     let mut face = shell_face(&s, &shell_for(cart));
     let label = match art {
         Some(rgba) => rgba,
@@ -545,6 +612,10 @@ fn overlay(base: u8, colour: u8) -> u8 {
 }
 
 fn shell_face(s: &Spec, shell: &Shell) -> CartFace {
+    shell_face_of(s, shell, false)
+}
+
+fn shell_face_of(s: &Spec, shell: &Shell, bare: bool) -> CartFace {
     let clear = shell.finish != Finish::Solid;
     let src = bitmaps::shell_asset(s.mould, clear);
     assert_eq!(
@@ -555,24 +626,18 @@ fn shell_face(s: &Spec, shell: &Shell) -> CartFace {
         s.h
     );
     let mut rgba = src.to_vec();
-    // The neutral asset is blended with the game's colour everywhere but the label box, which
-    // stays the grey of the asset. A clear shell is its own asset with real transparency: what the
-    // compositor drew underneath (the board) shows through and stays put while the shell moves.
-    // The label box stays opaque.
     let (lx, ly, lw, lh) = s.label;
     for y in 0..s.h {
         for x in 0..s.w {
             let on_label = (lx..lx + lw).contains(&x) && (ly..ly + lh).contains(&y);
             let i = ((y * s.w + x) * 4) as usize;
-            if !on_label {
+            if bare || !on_label {
                 for c in 0..3 {
                     rgba[i + c] = overlay(rgba[i + c], shell.colour[c]);
                 }
             }
-            // The asset's own alpha is kept: its transparent corners and sides hold stray RGB
-            // (often white), and only the alpha stops that being drawn.
             let own = u32::from(rgba[i + 3]);
-            rgba[i + 3] = if on_label {
+            rgba[i + 3] = if on_label && !bare {
                 255
             } else if clear {
                 ((own * u32::from(CLEAR_ALPHA) + 127) / 255) as u8
@@ -719,6 +784,7 @@ fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
     let clear = shell.finish != Finish::Solid && m != Media::Disc;
     let mut rgba = m.neutral().to_vec();
     let (sx, sy, sw, sh) = m.sticker().unwrap_or((lx, ly, lw, lh));
+    let bare = art.is_none();
     for y in 0..h {
         for x in 0..w {
             let on_label = (sx..sx + sw).contains(&x)
@@ -727,7 +793,7 @@ fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
                     && x < sx + 20
                     && y >= sy + sh - 20
                     && (x - sx) + (sy + sh - 1 - y) < 20);
-            if on_label && m != Media::Disc {
+            if on_label && m != Media::Disc && (!bare || m == Media::Nds) {
                 continue;
             }
             let i = ((y * w + x) * 4) as usize;
@@ -747,7 +813,7 @@ fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
                     continue;
                 }
                 let on_label = (sx..sx + sw).contains(&x) && (sy..sy + sh).contains(&y);
-                if on_label {
+                if on_label && (!bare || m == Media::Nds) {
                     continue;
                 }
                 let i = ((y * w + x) * 4) as usize;
@@ -760,20 +826,52 @@ fn media_face(cart: &Cart, m: Media, art: Option<Vec<u8>>) -> CartFace {
             }
         }
     }
-    let label = art.unwrap_or_else(|| media_label(m, &label_text(cart)));
     let print = m.label_mask();
-    for y in 0..lh {
-        for x in 0..lw {
-            let src = ((y * lw + x) * 4) as usize;
-            let on = print.map_or(255, |p| p[(y * lw + x) as usize]) as u32;
-            let a = (label[src + 3] as u32 * on + 127) / 255;
-            if a == 0 {
-                continue;
+    if let (None, Some(font)) = (&art, crate::hand::hand_font()) {
+        let title = label_text(cart);
+        let (box_y, box_h) = match m {
+            Media::Disc => (ly + (lh as f32 * 0.07) as u32, (lh as f32 * 0.27) as u32),
+            _ => (ly, lh),
+        };
+        let c = (((box_y + box_h / 2) * w + lx + lw / 2) * 4) as usize;
+        let recess = [rgba[c], rgba[c + 1], rgba[c + 2]];
+        let tags = label_tags(&cart.stem);
+        let written = font.write(&title, &tags, &cart.stem, lw, box_h, recess);
+        let disc_mask: Option<Vec<u8>> = match (m, print) {
+            (Media::Disc, Some(p)) => {
+                let start = ((box_y - ly) * lw) as usize;
+                Some(p[start..start + (lw * box_h) as usize].to_vec())
             }
-            let d = (((y + ly) * w + x + lx) * 4) as usize;
-            for c in 0..3 {
-                rgba[d + c] = ((label[src + c] as u32 * a + rgba[d + c] as u32 * (255 - a) + 127)
-                    / 255) as u8;
+            _ => None,
+        };
+        let mask_ref = match m {
+            Media::Disc => disc_mask.as_deref(),
+            _ => print,
+        };
+        paste_ink_box(
+            &mut rgba,
+            w,
+            (lx, box_y, lw, box_h),
+            written.colour,
+            &written.ink,
+            mask_ref,
+        );
+    } else {
+        let label = art.unwrap_or_else(|| media_label(m, &label_text(cart)));
+        for y in 0..lh {
+            for x in 0..lw {
+                let src = ((y * lw + x) * 4) as usize;
+                let on = print.map_or(255, |p| p[(y * lw + x) as usize]) as u32;
+                let a = (label[src + 3] as u32 * on + 127) / 255;
+                if a == 0 {
+                    continue;
+                }
+                let d = (((y + ly) * w + x + lx) * 4) as usize;
+                for c in 0..3 {
+                    rgba[d + c] =
+                        ((label[src + c] as u32 * a + rgba[d + c] as u32 * (255 - a) + 127) / 255)
+                            as u8;
+                }
             }
         }
     }

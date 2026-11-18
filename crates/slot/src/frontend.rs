@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use slot_gfx::{Compositor, Draw, ScreenEffect, TexId, OUT_H, OUT_W};
+use slot_gfx::{Compositor, Draw, Lcd, ScreenEffect, TexId, OUT_H, OUT_W};
 
 const PAPER: &[u8] = include_bytes!("../assets/paper.png");
 use crate::shot_loader::{ShotLoader, Want};
@@ -102,6 +102,7 @@ struct QuickPalette {
 #[derive(Default)]
 struct BezelSync {
     tex: Option<TexId>,
+    tile_tex: Option<TexId>,
     image: Option<(Console, BezelPick, (u32, u32))>,
     labels: [String; Console::COUNT],
     faces: [(Option<TexId>, Option<TexId>); Console::COUNT],
@@ -615,22 +616,37 @@ impl Frontend {
     }
 
     pub fn compose(&mut self, compositor: &mut Compositor) {
-        compositor.set_blue_light(self.session.app().blue_light());
-        compositor.set_saturation(self.session.app().saturation());
-        compositor.set_contrast(self.session.app().contrast());
-        compositor.set_picture(self.session.app().picture_rect());
-        compositor.set_screen_effect(match self.session.app().screen_shader() {
-            slot_store::Shader::Off => ScreenEffect::None,
-            slot_store::Shader::Lcd3x => ScreenEffect::Lcd3x,
-            slot_store::Shader::Grid => ScreenEffect::Grid,
-            slot_store::Shader::Dot => ScreenEffect::Dot,
-            slot_store::Shader::Simpletex => ScreenEffect::Simpletex,
-            slot_store::Shader::Shimmerless => ScreenEffect::Shimmerless,
-        });
-        compositor.set_shake(self.session.app().screen_shake());
-        compositor.set_screen_power(self.session.app().screen_power());
-        compositor.set_screen_footer(self.session.app().screen_footer());
-        compositor.set_game_source_rect(self.session.app().source_rect());
+        {
+            let app = self.session.app();
+            compositor.set_dim(app.dim_step());
+            compositor.set_blue_light(app.blue_light());
+            compositor.set_saturation(app.saturation());
+            compositor.set_contrast(app.contrast());
+            compositor.set_calibration(app.cal_warm(), app.cal_tint(), app.cal_curve());
+            compositor.set_picture(app.picture_rect());
+            compositor.set_screen_effect(match app.screen_shader() {
+                slot_store::Shader::Off => ScreenEffect::None,
+                slot_store::Shader::Lcd3x => ScreenEffect::lcd_for(app.panel()),
+                slot_store::Shader::Grid => ScreenEffect::Grid,
+                slot_store::Shader::Dot => ScreenEffect::Dot,
+                slot_store::Shader::Simpletex => ScreenEffect::Simpletex,
+                slot_store::Shader::Shimmerless => ScreenEffect::Shimmerless,
+                slot_store::Shader::ShimmerlessGrid => ScreenEffect::ShimmerlessGrid,
+            });
+            compositor.set_frame_blend(app.frame_blend());
+            compositor.set_lcd(match app.playing_platform() {
+                Console::Gb => Lcd::Dmg,
+                Console::Gbc => Lcd::Gbc,
+                _ => Lcd::Gba,
+            });
+            compositor.set_shake(app.screen_shake());
+            compositor.set_screen_power(app.screen_power());
+            compositor.set_screen_footer(app.screen_footer());
+            compositor.set_game_source_rect(app.source_rect());
+        }
+        if self.session.app_mut().take_cut_blend() {
+            compositor.cut_frame_blend();
+        }
         self.grab_link_shot(compositor);
         compositor.begin_frame();
         if self.draw_rebuild(compositor) {
@@ -883,6 +899,7 @@ impl Frontend {
     }
 
     pub fn restart(&mut self) {
+        self.session.fade_audio_out();
         self.session.app_mut().restart();
     }
 
@@ -895,6 +912,7 @@ impl Frontend {
     }
 
     pub fn poweroff(&mut self) {
+        self.session.fade_audio_out();
         self.session.app_mut().poweroff();
     }
 
@@ -1363,31 +1381,47 @@ fn sync_game_bezel(app: &mut App, compositor: &mut Compositor, state: &mut Bezel
     let (w, h) = app.game_bezel_size();
     let shown = (platform, pick, (w, h));
     if state.image.as_ref() != Some(&shown) {
-        let rgba = match &shown.1 {
-            BezelPick::None | BezelPick::Ags102 => None,
-            BezelPick::Default => default_game_bezel_face(platform == Console::Gbc, w, h),
-            BezelPick::File(name) => app
+        let tiled = match &shown.1 {
+            BezelPick::File(name) if crate::bezel::is_tile(name) => app
                 .root()
                 .map(|root| crate::bezel::file_path(root, platform, name))
-                .and_then(|path| game_bezel_face(&path, w, h)),
+                .and_then(|path| slot_ui::decode_png(&path)),
+            _ => None,
         };
-        app.set_bezel_column(
-            rgba.as_deref()
-                .map(|rgba| slot_gfx::bezel_column(rgba, (w, h)))
-                .unwrap_or_default(),
-        );
-        let tex = rgba.map(|rgba| match state.tex {
-            Some(id) => {
-                compositor.update_texture(id, w, h, &rgba);
-                id
-            }
-            None => {
-                let id = compositor.create_texture(w, h, &rgba);
-                state.tex = Some(id);
-                id
-            }
-        });
-        app.set_game_bezel(tex);
+        if let Some((rgba, tw, th)) = tiled {
+            let tid = compositor.create_texture_repeat(tw, th, &rgba);
+            state.tile_tex = Some(tid);
+            compositor.set_game_bezel_tile(Some((tid, tw, th)));
+            app.set_bezel_column(Vec::new());
+            app.set_game_bezel(None);
+        } else {
+            compositor.set_game_bezel_tile(None);
+            let rgba = match &shown.1 {
+                BezelPick::None | BezelPick::Ags102 => None,
+                BezelPick::Default => default_game_bezel_face(platform == Console::Gbc, w, h),
+                BezelPick::File(name) => app
+                    .root()
+                    .map(|root| crate::bezel::file_path(root, platform, name))
+                    .and_then(|path| game_bezel_face(&path, w, h)),
+            };
+            app.set_bezel_column(
+                rgba.as_deref()
+                    .map(|rgba| slot_gfx::bezel_column(rgba, (w, h)))
+                    .unwrap_or_default(),
+            );
+            let tex = rgba.map(|rgba| match state.tex {
+                Some(id) => {
+                    compositor.update_texture(id, w, h, &rgba);
+                    id
+                }
+                None => {
+                    let id = compositor.create_texture(w, h, &rgba);
+                    state.tex = Some(id);
+                    id
+                }
+            });
+            app.set_game_bezel(tex);
+        }
         state.image = Some(shown);
     }
     if app.quick_menu().is_none() && app.in_game_menu().is_none() {

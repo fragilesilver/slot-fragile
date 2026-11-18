@@ -69,7 +69,7 @@ fn go(a: &mut App, row: QuickRow) {
 
 fn network_page(a: &mut App) {
     a.apply(Action::QuickMenu);
-    go(a, QuickRow::Network);
+    go(a, QuickRow::CheevosPage);
     press(a, Btn::A);
 }
 

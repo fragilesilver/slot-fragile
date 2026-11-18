@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use crate::atomic::atomic_write;
 use crate::config::CONFIG_DIR;
-use crate::{Platform, Recent};
+use crate::{BatteryDisplay, Blending, Platform, Recent, Zone, DIM_MAX};
 
 pub const EXTRAS_FILE: &str = "extras.state";
 
@@ -95,6 +95,148 @@ impl ExtrasState {
             FfMode::Hold => self.set("ff_mode", None),
             FfMode::Toggle => self.set("ff_mode", Some("toggle")),
         }
+    }
+
+    pub fn dim(&self) -> u8 {
+        self.number::<u8>("dim").unwrap_or(0).min(DIM_MAX)
+    }
+
+    pub fn set_dim(&mut self, dim: u8) {
+        let clamped = dim.min(DIM_MAX);
+        if clamped == 0 {
+            self.set("dim", None);
+        } else {
+            self.set("dim", Some(&clamped.to_string()));
+        }
+    }
+
+    pub fn zone(&self) -> Option<Zone> {
+        self.get("zone").and_then(Zone::parse)
+    }
+
+    pub fn set_zone(&mut self, zone: Zone) {
+        self.set("zone", Some(zone.id()));
+    }
+
+    pub fn blending(&self, platform: Platform) -> Blending {
+        let key = format!("blending.{}", platform.key());
+        if let Some(b) = self.get(&key).and_then(Blending::parse) {
+            return b;
+        }
+        let legacy_key = format!("motion_blur_{}", platform.key());
+        if self.flag(&legacy_key, false) {
+            return Blending::Ghosting;
+        }
+        Blending::Off
+    }
+
+    pub fn set_blending(&mut self, platform: Platform, blend: Blending) {
+        let key = format!("blending.{}", platform.key());
+        if blend == Blending::Off {
+            self.set(&key, None);
+        } else {
+            self.set(&key, Some(blend.key()));
+        }
+    }
+
+    pub fn battery_display(&self) -> BatteryDisplay {
+        if let Some(d) = self.get("battery_display").and_then(BatteryDisplay::parse) {
+            return d;
+        }
+        if self.flag("battery_badge", false) {
+            BatteryDisplay::Both
+        } else {
+            BatteryDisplay::Off
+        }
+    }
+
+    pub fn set_battery_display(&mut self, display: BatteryDisplay) {
+        self.set("battery_display", Some(display.key()));
+        self.set_flag("battery_badge", display != BatteryDisplay::Off);
+    }
+
+    pub fn cal_warm(&self) -> i8 {
+        self.number::<i8>("cal_warm").unwrap_or(0).clamp(-100, 100)
+    }
+
+    pub fn set_cal_warm(&mut self, v: i8) {
+        let v = v.clamp(-100, 100);
+        if v == 0 {
+            self.set("cal_warm", None);
+        } else {
+            self.set("cal_warm", Some(&v.to_string()));
+        }
+    }
+
+    pub fn cal_tint(&self) -> i8 {
+        self.number::<i8>("cal_tint").unwrap_or(0).clamp(-100, 100)
+    }
+
+    pub fn set_cal_tint(&mut self, v: i8) {
+        let v = v.clamp(-100, 100);
+        if v == 0 {
+            self.set("cal_tint", None);
+        } else {
+            self.set("cal_tint", Some(&v.to_string()));
+        }
+    }
+
+    pub fn cal_curve(&self) -> i8 {
+        self.number::<i8>("cal_curve").unwrap_or(0).clamp(-50, 50)
+    }
+
+    pub fn set_cal_curve(&mut self, v: i8) {
+        let v = v.clamp(-50, 50);
+        if v == 0 {
+            self.set("cal_curve", None);
+        } else {
+            self.set("cal_curve", Some(&v.to_string()));
+        }
+    }
+
+    pub fn nickname(&self) -> &str {
+        self.get("nickname")
+            .filter(|s| !s.is_empty())
+            .unwrap_or("Player")
+    }
+
+    pub fn set_nickname(&mut self, name: &str) {
+        let clean = name.trim();
+        if clean.is_empty() || clean == "Player" {
+            self.set("nickname", None);
+        } else {
+            self.set("nickname", Some(clean));
+        }
+    }
+
+    pub fn boot_logo(&self) -> &str {
+        self.get("boot_logo")
+            .filter(|s| !s.is_empty())
+            .unwrap_or("slot")
+    }
+
+    pub fn set_boot_logo(&mut self, pick: &str) {
+        if pick.is_empty() || pick == "slot" {
+            self.set("boot_logo", None);
+        } else {
+            self.set("boot_logo", Some(pick));
+        }
+    }
+
+    pub fn haptics(&self) -> bool {
+        self.flag("haptics", true)
+    }
+
+    pub fn set_haptics(&mut self, on: bool) {
+        self.set_flag("haptics", on);
+    }
+
+    pub fn collections_top_level(&self) -> bool {
+        self.flag("collections_top_level", true)
+    }
+
+    pub fn set_collections_top_level(&mut self, on: bool) {
+        self.set_flag("collections_top_level", on);
     }
 }
 

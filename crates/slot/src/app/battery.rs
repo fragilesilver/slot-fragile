@@ -2,13 +2,13 @@
 //! 5%, and a badge in the corner while a game plays. Ideas and tests from marghost/slot_modded.
 
 use slot_power::{Battery, Charge};
-use slot_ui::{draw_gauge, gauge_width, Draw, Toast, GAUGE_H, HUD_INK};
+use slot_store::BatteryDisplay;
+use slot_ui::{draw_battery, gauge_width_for, Draw, Toast, GAUGE_H, HUD_INK};
 
 use super::{App, Phase, BATTERY_CRITICAL};
 
 const WARNINGS: [(u8, Toast); 2] = [(15, Toast::BatteryLow15), (10, Toast::BatteryLow10)];
 
-const BADGE: &str = "battery_badge";
 const BADGE_MARGIN: f32 = 12.0;
 const BADGE_PAD: f32 = 6.0;
 const BADGE_GROUND: [f32; 4] = [0.0, 0.0, 0.0, 0.45];
@@ -38,21 +38,27 @@ impl App {
         if let Some((level, toast)) = due {
             self.battery_warned = Warned(Some(level));
             self.hud.toast(toast, self.now());
+            self.pulse_haptics();
         }
     }
 
-    pub fn battery_badge(&self) -> bool {
-        self.extras.flag(BADGE, false)
+    pub fn battery_display(&self) -> BatteryDisplay {
+        self.extras.battery_display()
     }
 
-    pub(super) fn toggle_battery_badge(&mut self) {
-        let on = !self.battery_badge();
-        self.extras.set_flag(BADGE, on);
+    pub fn battery_badge(&self) -> bool {
+        self.battery_display() != BatteryDisplay::Off
+    }
+
+    pub(super) fn step_battery_display(&mut self, right: bool) {
+        let next = self.battery_display().step(right);
+        self.extras.set_battery_display(next);
     }
 
     /// The gauge in the bottom right corner over a game, while nothing else is up there.
     pub(super) fn draw_battery_badge(&self, out: &mut Vec<Draw>) {
-        if !self.battery_badge()
+        let display = self.battery_display();
+        if display == BatteryDisplay::Off
             || !matches!(self.phase, Phase::Playing { .. })
             || self.in_game_menu_shown().is_some()
             || self.footer > 0.0
@@ -63,7 +69,10 @@ impl App {
             return;
         };
         let canvas = self.canvas();
-        let w = gauge_width(self.battery_percent.w);
+        let w = gauge_width_for(display, self.battery_percent.w);
+        if w <= 0.0 {
+            return;
+        }
         let h = slot_ui::HINT_H as f32;
         let (x, y) = (canvas.w - BADGE_MARGIN - w, canvas.h - BADGE_MARGIN - h);
         out.push(Draw::Rect {
@@ -74,10 +83,11 @@ impl App {
             colour: BADGE_GROUND,
         });
         let gauge_y = y + (h - GAUGE_H) / 2.0;
-        draw_gauge(
+        draw_battery(
             x,
             gauge_y,
             Some(b),
+            display,
             self.battery_percent,
             self.hud_bolt,
             HUD_INK,

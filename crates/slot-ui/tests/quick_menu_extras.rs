@@ -5,7 +5,9 @@ use slot_ui::QuickRow;
 fn pages() -> Vec<&'static [QuickRow]> {
     vec![
         &QuickRow::MAIN,
-        &QuickRow::GENERAL,
+        &QuickRow::SHELF_SETTINGS,
+        &QuickRow::SYSTEM,
+        &QuickRow::CHEEVOS,
         &QuickRow::CONTROL_PAGES,
         &QuickRow::SHELF_KEYS,
         &QuickRow::CONTROLS,

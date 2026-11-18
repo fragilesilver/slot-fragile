@@ -107,15 +107,26 @@ impl Sprites {
     }
 
     pub fn create_texture(&mut self, w: u32, h: u32, rgba: &[u8]) -> TexId {
-        self.push(w, h, rgba, gl::LINEAR)
+        self.push(w, h, rgba, gl::LINEAR, gl::CLAMP_TO_EDGE)
     }
 
     pub fn create_texture_nearest(&mut self, w: u32, h: u32, rgba: &[u8]) -> TexId {
-        self.push(w, h, rgba, gl::NEAREST)
+        self.push(w, h, rgba, gl::NEAREST, gl::CLAMP_TO_EDGE)
     }
 
-    fn push(&mut self, w: u32, h: u32, rgba: &[u8], filter: gl::types::GLenum) -> TexId {
-        let tex = crate::gl::texture(w, h, filter, gl::CLAMP_TO_EDGE, gl::RGBA, Some(rgba));
+    pub fn create_texture_repeat(&mut self, w: u32, h: u32, rgba: &[u8]) -> TexId {
+        self.push(w, h, rgba, gl::NEAREST, gl::REPEAT)
+    }
+
+    fn push(
+        &mut self,
+        w: u32,
+        h: u32,
+        rgba: &[u8],
+        filter: gl::types::GLenum,
+        wrap: gl::types::GLenum,
+    ) -> TexId {
+        let tex = crate::gl::texture(w, h, filter, wrap, gl::RGBA, Some(rgba));
         self.textures.push(tex);
         TexId(self.textures.len() - 1)
     }

@@ -24,12 +24,6 @@ impl App {
         if !spec.overlays {
             hide(QuickRow::Bezel);
         }
-        if !matches!(
-            self.playing_platform(),
-            Platform::Gba | Platform::Gb | Platform::Gbc
-        ) {
-            hide(QuickRow::MotionBlur);
-        }
         if self.playing_platform() != Platform::Nds {
             hide(QuickRow::PlayNdsLayout);
             hide(QuickRow::ThisNdsLayout);

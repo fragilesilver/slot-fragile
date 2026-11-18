@@ -799,6 +799,11 @@ impl RetroCore for LibretroCore {
         discs.open()
     }
 
+    fn reset(&mut self) {
+        let _a = Active::bind(&mut self.host);
+        unsafe { (self.api.reset)() };
+    }
+
     fn set_native(&mut self, native: bool) {
         self.host.canvas = match native {
             true => Canvas::Native,

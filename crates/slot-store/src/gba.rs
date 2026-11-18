@@ -16,6 +16,10 @@ pub fn header_code(rom: &Path) -> Option<String> {
     field(rom, CODE_OFF, &mut [0u8; CODE_LEN])
 }
 
+pub fn cached_code(rom: &Path) -> String {
+    crate::header_index::gba_code(rom)
+}
+
 pub fn header_title_code(rom: &Path) -> Option<(String, String)> {
     let mut f = File::open(rom).ok()?;
     f.seek(SeekFrom::Start(TITLE_OFF)).ok()?;
