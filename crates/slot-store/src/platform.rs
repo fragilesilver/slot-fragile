@@ -13,10 +13,16 @@ pub enum Platform {
     Snes,
     PlayStation,
     Nds,
+    /// The PokeDaisy shelf (`Games/PokeDaisy/`): GBA, GB and GBC games gathered on one
+    /// shelf and played on PokeDaisy's companion cores; each keeps its own hardware identity
+    /// for saves, carts and RetroAchievements (`hardware`).
+    PdGba,
+    PdGb,
+    PdGbc,
 }
 
 impl Platform {
-    pub const COUNT: usize = 7;
+    pub const COUNT: usize = 10;
     pub const ALL: [Platform; Platform::COUNT] = [
         Platform::Gba,
         Platform::Gb,
@@ -25,6 +31,9 @@ impl Platform {
         Platform::Snes,
         Platform::PlayStation,
         Platform::Nds,
+        Platform::PdGba,
+        Platform::PdGb,
+        Platform::PdGbc,
     ];
 
     // --- extras: the names below read the system's row in `spec.rs` ---
@@ -46,15 +55,52 @@ impl Platform {
         }
     }
 
-    /// The dir name lower-cased, as config files spell it.
+    /// The real hardware platform a cart is for (PokeDaisy carts map to GBA/GB/GBC).
+    pub fn hardware(self) -> Platform {
+        match self {
+            Platform::PdGba => Platform::Gba,
+            Platform::PdGb => Platform::Gb,
+            Platform::PdGbc => Platform::Gbc,
+            p => p,
+        }
+    }
+
+    /// Whether the cart lives on the PokeDaisy shelf (`Games/PokeDaisy/`).
+    pub fn is_pokedaisy(self) -> bool {
+        matches!(self, Platform::PdGba | Platform::PdGb | Platform::PdGbc)
+    }
+
+    /// The canonical platform representing a shelf (`PdGba` gathers all PokeDaisy systems).
+    pub fn shelf(self) -> Platform {
+        if self.is_pokedaisy() {
+            Platform::PdGba
+        } else {
+            self
+        }
+    }
+
+    /// The folder under `Saves/` that holds battery saves (`Saves/GBA|GB|GBC` for PokeDaisy).
+    pub fn save_dir_name(self) -> &'static str {
+        if self.is_pokedaisy() {
+            self.hardware().dir_name()
+        } else {
+            self.dir_name()
+        }
+    }
+
+    /// The key used in config files (`recents.txt`, `favorites.txt`, `slot.state`).
     pub fn key(self) -> String {
-        self.dir_name().to_ascii_lowercase()
+        match self {
+            Platform::PdGb => "pokedaisy-gb".into(),
+            Platform::PdGbc => "pokedaisy-gbc".into(),
+            p => p.dir_name().to_ascii_lowercase(),
+        }
     }
 
     pub fn from_key(key: &str) -> Option<Platform> {
         Platform::ALL
             .into_iter()
-            .find(|p| key.eq_ignore_ascii_case(p.dir_name()))
+            .find(|p| p.key().eq_ignore_ascii_case(key) || key.eq_ignore_ascii_case(p.dir_name()))
     }
 
     pub fn name(self) -> &'static str {

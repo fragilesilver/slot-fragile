@@ -695,6 +695,7 @@ fn fake_faces(a: &mut App) {
         descriptions: (0..QuickRow::ALL.len())
             .map(|i| Some((id(3000 + i), 300, 44)))
             .collect(),
+        new_dot: None,
     });
     a.set_quick_clock_faces((id(500), 150, 40), (id(501), 150, 40));
 }
@@ -1038,6 +1039,7 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
         descriptions: (0..QuickRow::ALL.len())
             .map(|i| Some((id(3000 + i), 300, 44)))
             .collect(),
+        new_dot: None,
     });
     for page in [
         &QuickRow::SCREEN_GBA[..],

@@ -40,6 +40,8 @@ struct Host {
     format: PixelFormat,
     audio: Vec<i16>,
     inputs: [u16; 2],
+    analog: [i16; 4],
+    analog_active: bool,
     system_dir: CString,
     save_dir: CString,
     rumble: Rumble,
@@ -53,6 +55,9 @@ struct Host {
     declared: std::collections::HashMap<String, Vec<String>>,
     /// Fragile: the core's disc swapping, for a game on more than one disc.
     discs: Option<crate::disc::Discs>,
+    /// How the frontend is driving the core (`GET_THROTTLE_STATE` / `GET_FASTFORWARDING`).
+    throttle: crate::core::Throttle,
+    fps: f32,
 }
 
 thread_local! {
@@ -121,6 +126,32 @@ unsafe extern "C" fn environment(cmd: c_uint, data: *mut c_void) -> bool {
             }
             *(data as *mut bool) = true;
             true
+        }
+        GET_FASTFORWARDING => {
+            if data.is_null() {
+                return false;
+            }
+            with_host(|h| {
+                *(data as *mut bool) =
+                    matches!(h.throttle, crate::core::Throttle::FastForward { .. });
+            })
+            .is_some()
+        }
+        GET_THROTTLE_STATE => {
+            if data.is_null() {
+                return false;
+            }
+            with_host(|h| {
+                use crate::core::Throttle;
+                let (mode, rate) = match h.throttle {
+                    Throttle::Normal => (THROTTLE_NONE, h.fps),
+                    Throttle::FastForward { rate } => (THROTTLE_FAST_FORWARD, h.fps * rate),
+                    Throttle::Rewinding => (THROTTLE_REWINDING, h.fps),
+                    Throttle::Paused => (THROTTLE_NONE, 0.0),
+                };
+                *(data as *mut ThrottleState) = ThrottleState { mode, rate };
+            })
+            .is_some()
         }
         SET_PIXEL_FORMAT => {
             if data.is_null() {
@@ -420,7 +451,7 @@ unsafe extern "C" fn audio_batch(data: *const i16, frames: usize) -> usize {
 
 unsafe extern "C" fn input_poll() {}
 
-unsafe extern "C" fn input_state(port: c_uint, device: c_uint, _index: c_uint, id: c_uint) -> i16 {
+unsafe extern "C" fn input_state(port: c_uint, device: c_uint, index: c_uint, id: c_uint) -> i16 {
     with_host(|h| {
         let Some(&input) = h.inputs.get(port as usize) else {
             return 0;
@@ -431,25 +462,43 @@ unsafe extern "C" fn input_state(port: c_uint, device: c_uint, _index: c_uint, i
                 _ if id < 16 => ((input >> id) & 1) as i16,
                 _ => 0,
             },
-            DEVICE_ANALOG if _index == 0 => match id {
-                DEVICE_ID_ANALOG_X => {
-                    if (input & ButtonMask::RIGHT) != 0 {
-                        32767
-                    } else if (input & ButtonMask::LEFT) != 0 {
-                        -32767
+            DEVICE_ANALOG => match index {
+                DEVICE_INDEX_ANALOG_LEFT => {
+                    if port == 0 && h.analog_active {
+                        match id {
+                            DEVICE_ID_ANALOG_X => h.analog[0],
+                            DEVICE_ID_ANALOG_Y => h.analog[1],
+                            _ => 0,
+                        }
                     } else {
-                        0
+                        match id {
+                            DEVICE_ID_ANALOG_X => {
+                                if (input & ButtonMask::RIGHT) != 0 {
+                                    32767
+                                } else if (input & ButtonMask::LEFT) != 0 {
+                                    -32767
+                                } else {
+                                    0
+                                }
+                            }
+                            DEVICE_ID_ANALOG_Y => {
+                                if (input & ButtonMask::DOWN) != 0 {
+                                    32767
+                                } else if (input & ButtonMask::UP) != 0 {
+                                    -32767
+                                } else {
+                                    0
+                                }
+                            }
+                            _ => 0,
+                        }
                     }
                 }
-                DEVICE_ID_ANALOG_Y => {
-                    if (input & ButtonMask::DOWN) != 0 {
-                        32767
-                    } else if (input & ButtonMask::UP) != 0 {
-                        -32767
-                    } else {
-                        0
-                    }
-                }
+                DEVICE_INDEX_ANALOG_RIGHT if port == 0 => match id {
+                    DEVICE_ID_ANALOG_X => h.analog[2],
+                    DEVICE_ID_ANALOG_Y => h.analog[3],
+                    _ => 0,
+                },
                 _ => 0,
             },
             _ => 0,
@@ -579,6 +628,8 @@ impl LibretroCore {
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],
+            analog: [0; 4],
+            analog_active: false,
             system_dir: cdir(system_dir)?,
             save_dir: cdir(save_dir)?,
             rumble: Rumble::default(),
@@ -593,6 +644,8 @@ impl LibretroCore {
                 .collect(),
             options_dirty: false,
             declared: std::collections::HashMap::new(),
+            throttle: crate::core::Throttle::Normal,
+            fps: 60.0,
         });
         unsafe {
             let _a = Active::bind(&mut host);
@@ -724,6 +777,9 @@ impl RetroCore for LibretroCore {
             fps: av.timing.fps,
             sample_rate: av.timing.sample_rate,
         };
+        if av.timing.fps > 0.0 {
+            self.host.fps = av.timing.fps as f32;
+        }
         unsafe { (self.api.set_controller_port_device)(0, DEVICE_JOYPAD) };
         Ok(())
     }
@@ -739,6 +795,15 @@ impl RetroCore for LibretroCore {
         self.host.inputs = [p1.0, p2.0];
         let _a = Active::bind(&mut self.host);
         unsafe { (self.api.run)() };
+    }
+
+    fn set_analog(&mut self, axes: [i16; 4], active: bool) {
+        self.host.analog = axes;
+        self.host.analog_active = active;
+    }
+
+    fn set_throttle(&mut self, throttle: crate::core::Throttle) {
+        self.host.throttle = throttle;
     }
 
     fn set_frame_skip(&mut self, skip: bool) {
@@ -927,6 +992,8 @@ mod tests {
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],
+            analog: [0; 4],
+            analog_active: false,
             system_dir: CString::new(".").unwrap(),
             save_dir: CString::new(".").unwrap(),
             rumble: Rumble::default(),
@@ -938,6 +1005,8 @@ mod tests {
             options,
             options_dirty,
             declared: HashMap::new(),
+            throttle: crate::core::Throttle::Normal,
+            fps: 60.0,
         })
     }
 
@@ -1815,6 +1884,37 @@ mod tests {
         assert_eq!(analog(0, DEVICE_ID_ANALOG_Y), -32767);
         assert_eq!(analog(1, DEVICE_ID_ANALOG_X), -32767);
         assert_eq!(analog(1, DEVICE_ID_ANALOG_Y), 32767);
+    }
+
+    #[test]
+    fn input_state_answers_live_left_and_right_analog_sticks() {
+        let mut host = host_with(HashMap::new(), false);
+        host.inputs = [ButtonMask::RIGHT | ButtonMask::UP, 0];
+        host.analog = [-12000, 8000, 24500, -16384];
+        host.analog_active = true;
+        let _active = Active::bind(&mut host);
+
+        let analog = |port, idx, id| unsafe { input_state(port, DEVICE_ANALOG, idx, id) };
+        // Port 0 Left Analog reports live left stick (not D-Pad) when analog_active is true.
+        assert_eq!(
+            analog(0, DEVICE_INDEX_ANALOG_LEFT, DEVICE_ID_ANALOG_X),
+            -12000
+        );
+        assert_eq!(
+            analog(0, DEVICE_INDEX_ANALOG_LEFT, DEVICE_ID_ANALOG_Y),
+            8000
+        );
+        // Port 0 Right Analog reports live right stick directly.
+        assert_eq!(
+            analog(0, DEVICE_INDEX_ANALOG_RIGHT, DEVICE_ID_ANALOG_X),
+            24500
+        );
+        assert_eq!(
+            analog(0, DEVICE_INDEX_ANALOG_RIGHT, DEVICE_ID_ANALOG_Y),
+            -16384
+        );
+        // Port 1 right analog stays 0.
+        assert_eq!(analog(1, DEVICE_INDEX_ANALOG_RIGHT, DEVICE_ID_ANALOG_X), 0);
     }
 
     #[test]

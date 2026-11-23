@@ -1,5 +1,5 @@
-use gilrs::{EventType, Gilrs};
-use slot_input::{Btn, InputSource, Millis, RawEvent};
+use gilrs::{Axis, EventType, Gilrs};
+use slot_input::{Btn, InputSource, Millis, RawEvent, StickAxis};
 use winit::event::WindowEvent;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -84,10 +84,25 @@ impl HostInput {
             return;
         };
         let mut edges = Vec::new();
+        let mut axes = Vec::new();
         while let Some(ev) = pad.next_event() {
             match ev.event {
                 EventType::ButtonPressed(b, _) => edges.push((b, true)),
                 EventType::ButtonReleased(b, _) => edges.push((b, false)),
+                EventType::AxisChanged(axis, val, _) => {
+                    let mapped = match axis {
+                        Axis::LeftStickX => Some((StickAxis::LeftX, val)),
+                        Axis::LeftStickY => Some((StickAxis::LeftY, -val)),
+                        Axis::RightStickX => Some((StickAxis::RightX, val)),
+                        Axis::RightStickY => Some((StickAxis::RightY, -val)),
+                        _ => None,
+                    };
+                    if let Some((a, v)) = mapped {
+                        let scaled = (v.clamp(-1.0, 1.0) * 32767.0).round() as i16;
+                        let snapped = if scaled.abs() < 1600 { 0 } else { scaled };
+                        axes.push((a, snapped));
+                    }
+                }
                 _ => {}
             }
         }
@@ -95,6 +110,9 @@ impl HostInput {
             if let Some(btn) = pad_to_btn(b) {
                 self.push(btn, pressed);
             }
+        }
+        for (axis, val) in axes {
+            self.pending.push(RawEvent::Stick(axis, val));
         }
     }
 }

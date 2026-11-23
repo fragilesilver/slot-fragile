@@ -595,6 +595,7 @@ fn menu_faces(a: &mut App) {
         descriptions: (0..QuickRow::ALL.len())
             .map(|i| Some((id(3000 + i), 300, 44)))
             .collect(),
+        new_dot: None,
     });
 }
 

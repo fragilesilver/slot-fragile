@@ -17,10 +17,12 @@ pub enum Core {
     Supafaust,
     PcsxRearmed,
     Dsperate,
+    PokedaisyGba,
+    PokedaisyGbc,
 }
 
 impl Core {
-    pub const ALL: [Core; 8] = [
+    pub const ALL: [Core; 10] = [
         Core::Mgba,
         Core::Gpsp,
         Core::Gambatte,
@@ -29,6 +31,8 @@ impl Core {
         Core::Supafaust,
         Core::PcsxRearmed,
         Core::Dsperate,
+        Core::PokedaisyGba,
+        Core::PokedaisyGbc,
     ];
 
     pub fn as_str(&self) -> &'static str {
@@ -41,6 +45,8 @@ impl Core {
             Core::Supafaust => "mednafen_supafaust",
             Core::PcsxRearmed => "pcsx_rearmed",
             Core::Dsperate => "dsperate",
+            Core::PokedaisyGba => "pokedaisy_gba",
+            Core::PokedaisyGbc => "pokedaisy_gbc",
         }
     }
 
@@ -58,7 +64,13 @@ impl Core {
             Core::Supafaust => "Supafaust",
             Core::PcsxRearmed => "PCSX ReARMed",
             Core::Dsperate => "DSperate",
+            Core::PokedaisyGba => "PokeDaisy (GBA)",
+            Core::PokedaisyGbc => "PokeDaisy (GB/C)",
         }
+    }
+
+    pub fn is_pokedaisy(self) -> bool {
+        matches!(self, Core::PokedaisyGba | Core::PokedaisyGbc)
     }
 
     pub fn parse(s: &str) -> Option<Core> {

@@ -308,7 +308,8 @@ impl Playback {
             }
             match self.pcm {
                 Some(pcm) => {
-                    pace.reset();
+                    // Keep the queue at its target on deep ALSA dmix rings (`cloudwithax/unslot@ffa9f4d`).
+                    std::thread::sleep(pace.wait(Instant::now()));
                     if !self.write(pcm, &buf) {
                         return;
                     }

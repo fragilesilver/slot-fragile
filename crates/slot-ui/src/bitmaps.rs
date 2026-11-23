@@ -15,6 +15,18 @@ pub const GBA_CART_W: u32 = 360;
 pub const GBA_CART_H: u32 = 212;
 pub const GB_CART_W: u32 = 312;
 pub const GB_CART_H: u32 = 337;
+pub const NDS_CART_W: u32 = 288;
+pub const NDS_CART_H: u32 = 304;
+pub const NES_CART_W: u32 = 304;
+pub const NES_CART_H: u32 = 343;
+pub const SNES_CART_W: u32 = 360;
+pub const SNES_CART_H: u32 = 229;
+pub const DISC_CART_W: u32 = 337;
+pub const DISC_CART_H: u32 = 337;
+pub const GB_CHIP_W: u32 = 59;
+pub const GB_CHIP_H: u32 = 92;
+pub const POKEDAISY_STICKER_W: u32 = 38;
+pub const POKEDAISY_STICKER_H: u32 = 38;
 pub const BOARD_W: u32 = GBA_CART_W;
 pub const BOARD_H: u32 = GBA_CART_H;
 pub const SOCKET_W: u32 = 64;
@@ -39,7 +51,17 @@ const GBA_INTERIOR_PNG: &[u8] = include_bytes!("../../../assets/gba_interior.png
 const GB_INTERIOR_PNG: &[u8] = include_bytes!("../../../assets/gb_interior.png");
 const GBC_INTERIOR_PNG: &[u8] = include_bytes!("../../../assets/gbc_interior.png");
 const GB_BOARD_PNG: &[u8] = include_bytes!("../../../assets/gb_board.png");
+const GB_BOARD_EMPTY_PNG: &[u8] = include_bytes!("../../../assets/gb_board_empty.png");
+const GB_CHIP_PNG: &[u8] = include_bytes!("../../../assets/gb_chip.png");
 const BOARD_PNG: &[u8] = include_bytes!("../../../assets/board.png");
+const NDS_INTERIOR_PNG: &[u8] = include_bytes!("../../../assets/nds_interior.png");
+const NDS_BOARD_PNG: &[u8] = include_bytes!("../../../assets/nds_board.png");
+const NES_INTERIOR_PNG: &[u8] = include_bytes!("../../../assets/nes_interior.png");
+const NES_BOARD_PNG: &[u8] = include_bytes!("../../../assets/nes_board.png");
+const SNES_INTERIOR_PNG: &[u8] = include_bytes!("../../../assets/snes_interior.png");
+const SNES_BOARD_PNG: &[u8] = include_bytes!("../../../assets/snes_board.png");
+const DISC_BOARD_PNG: &[u8] = include_bytes!("../../../assets/disc_board.png");
+const POKEDAISY_STICKER_PNG: &[u8] = include_bytes!("../../../assets/pokedaisy_sticker.png");
 const SOCKET_PNG: &[u8] = include_bytes!("../../../assets/socket.png");
 const CHIP_PNG: &[u8] = include_bytes!("../../../assets/chip.png");
 const SLOT_BACK_DARK_PNG: &[u8] = include_bytes!("../../../assets/slot_back_dark.png");
@@ -48,6 +70,12 @@ const SLOT_FRONT_DARK_PNG: &[u8] = include_bytes!("../../../assets/slot_front_da
 const SLOT_FRONT_LIGHT_PNG: &[u8] = include_bytes!("../../../assets/slot_front_light.png");
 const SLOT_PLUGGED_DARK_PNG: &[u8] = include_bytes!("../../../assets/slot_plugged_dark.png");
 const SLOT_PLUGGED_LIGHT_PNG: &[u8] = include_bytes!("../../../assets/slot_plugged_light.png");
+const SLOT_NDS_BACK_PNG: &[u8] = include_bytes!("../../../assets/slot_nds_back.png");
+const SLOT_NDS_FRONT_PNG: &[u8] = include_bytes!("../../../assets/slot_nds_front.png");
+const SLOT_NDS_PLUGGED_PNG: &[u8] = include_bytes!("../../../assets/slot_nds_plugged.png");
+const SLOT_PD_BACK_PNG: &[u8] = include_bytes!("../../../assets/slot_pd_back.png");
+const SLOT_PD_FRONT_PNG: &[u8] = include_bytes!("../../../assets/slot_pd_front.png");
+const SLOT_PD_PLUGGED_PNG: &[u8] = include_bytes!("../../../assets/slot_pd_plugged.png");
 const PORT_DARK_PNG: &[u8] = include_bytes!("../../../assets/link_port_dark.png");
 const PORT_LIGHT_PNG: &[u8] = include_bytes!("../../../assets/link_port_light.png");
 const PLUG_HOST_PNG: &[u8] = include_bytes!("../../../assets/link_plug_host.png");
@@ -165,9 +193,87 @@ pub fn gb_board() -> &'static [u8] {
     load(GB_BOARD_PNG, GB_CART_W, GB_CART_H, &P)
 }
 
+pub fn gb_board_empty() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(GB_BOARD_EMPTY_PNG, GB_CART_W, GB_CART_H, &P)
+}
+
+pub fn gb_chip() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(GB_CHIP_PNG, GB_CHIP_W, GB_CHIP_H, &P)
+}
+
 pub fn board() -> &'static [u8] {
     static P: OnceLock<Vec<u8>> = OnceLock::new();
     load(BOARD_PNG, BOARD_W, BOARD_H, &P)
+}
+
+pub fn nds_interior() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(NDS_INTERIOR_PNG, NDS_CART_W, NDS_CART_H, &P)
+}
+
+pub fn nds_board() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(NDS_BOARD_PNG, NDS_CART_W, NDS_CART_H, &P)
+}
+
+pub fn nes_interior() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(NES_INTERIOR_PNG, NES_CART_W, NES_CART_H, &P)
+}
+
+pub fn nes_board() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(NES_BOARD_PNG, NES_CART_W, NES_CART_H, &P)
+}
+
+pub fn snes_interior() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(SNES_INTERIOR_PNG, SNES_CART_W, SNES_CART_H, &P)
+}
+
+pub fn snes_board() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(SNES_BOARD_PNG, SNES_CART_W, SNES_CART_H, &P)
+}
+
+pub fn disc_board() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(DISC_BOARD_PNG, DISC_CART_W, DISC_CART_H, &P)
+}
+
+pub fn pokedaisy_sticker() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(
+        POKEDAISY_STICKER_PNG,
+        POKEDAISY_STICKER_W,
+        POKEDAISY_STICKER_H,
+        &P,
+    )
+}
+
+/// System-specific cart slots for shelves with bespoke strips (Nintendo DS and PokeDaisy).
+pub fn bespoke_slot(platform: slot_store::Platform) -> Option<[&'static [u8]; 3]> {
+    static NDS_BACK: OnceLock<Vec<u8>> = OnceLock::new();
+    static NDS_FRONT: OnceLock<Vec<u8>> = OnceLock::new();
+    static NDS_PLUGGED: OnceLock<Vec<u8>> = OnceLock::new();
+    static PD_BACK: OnceLock<Vec<u8>> = OnceLock::new();
+    static PD_FRONT: OnceLock<Vec<u8>> = OnceLock::new();
+    static PD_PLUGGED: OnceLock<Vec<u8>> = OnceLock::new();
+    match platform {
+        slot_store::Platform::Nds => Some([
+            load(SLOT_NDS_BACK_PNG, SLOT_W, SLOT_H, &NDS_BACK),
+            load(SLOT_NDS_FRONT_PNG, SLOT_W, SLOT_H, &NDS_FRONT),
+            load(SLOT_NDS_PLUGGED_PNG, SLOT_W, SLOT_H, &NDS_PLUGGED),
+        ]),
+        p if p.is_pokedaisy() => Some([
+            load(SLOT_PD_BACK_PNG, SLOT_W, SLOT_H, &PD_BACK),
+            load(SLOT_PD_FRONT_PNG, SLOT_W, SLOT_H, &PD_FRONT),
+            load(SLOT_PD_PLUGGED_PNG, SLOT_W, SLOT_H, &PD_PLUGGED),
+        ]),
+        _ => None,
+    }
 }
 
 pub fn socket() -> &'static [u8] {

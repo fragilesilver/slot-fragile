@@ -93,6 +93,10 @@ impl CorePicker {
         self.choices
     }
 
+    pub fn alone(&self) -> bool {
+        self.choices[0] == self.choices[1]
+    }
+
     pub fn closing(&self) -> bool {
         self.close.is_some()
     }

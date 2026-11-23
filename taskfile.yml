@@ -11,6 +11,12 @@ vars:
   SNES9X_COMMIT: fae2fea08f74180759ef540ee94259213f503480
   SUPAFAUST_COMMIT: 642d1d1b6684aa7e306a02a89885f3f5456a5157
   PCSX_REARMED_COMMIT: c8816799b50388e61cfe237fe2cdbb7d8175f20a
+  # PokeDaisy companion cores (lidor30/pokedaisy) with pinned submodules: mGBA, armGBA, zlib
+  POKEDAISY_COMMIT: 79bd00e155fcc7d4373f23f5386d6e67c8c423eb
+  POKEDAISY_MGBA_COMMIT: 26b7884bc25a5933960f3cdcd98bac1ae14d42e2
+  POKEDAISY_ARMGBA_COMMIT: d528d09e750cb781c476a3a21d567fb227679578
+  POKEDAISY_ZLIB_COMMIT: 51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf
+  POKEDAISY_COMMITS: '{{.POKEDAISY_COMMIT}}:{{.POKEDAISY_MGBA_COMMIT}}:{{.POKEDAISY_ARMGBA_COMMIT}}:{{.POKEDAISY_ZLIB_COMMIT}}'
   # NAME:LIBRARY:COMMIT for each, as cores/libretro/build.sh names them.
   MORE_CORES: >-
     fceumm:fceumm:{{.FCEUMM_COMMIT}}
@@ -474,9 +480,42 @@ tasks:
       - rm -f vendor/gambatte_libretro.so vendor/gambatte_libretro.so.meta vendor/gambatte-src.tar.gz vendor/gambatte-src.sha
       - task: core:gambatte
 
+  core:pokedaisy:
+    desc: >-
+      Build the pinned aarch64 PokeDaisy companion cores (pokedaisy_gba_libretro.so and
+      pokedaisy_gbc_libretro.so) from their assembled GPL-3.0 source archive
+    status:
+      - test -f vendor/pokedaisy_gba_libretro.so
+      - test -f vendor/pokedaisy_gbc_libretro.so
+      - test -f vendor/pokedaisy-src.tar.gz
+      - test "$(cat vendor/pokedaisy-src.sha 2>/dev/null)" = "{{.POKEDAISY_COMMIT}}"
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p vendor target-device/pokedaisy-archives
+        rm -f vendor/pokedaisy_gba_libretro.so vendor/pokedaisy_gbc_libretro.so vendor/pokedaisy_libretro.meta \
+              vendor/pokedaisy-src.tar.gz vendor/pokedaisy-src.sha vendor/pokedaisy-src.meta
+        a=target-device/pokedaisy-archives
+        curl -fsSL -o $a/pokedaisy.tar.gz "https://github.com/lidor30/pokedaisy/archive/{{.POKEDAISY_COMMIT}}.tar.gz"
+        curl -fsSL -o $a/mgba.tar.gz "https://github.com/mgba-emu/mgba/archive/{{.POKEDAISY_MGBA_COMMIT}}.tar.gz"
+        curl -fsSL -o $a/armgba.tar.gz "https://github.com/ratherDashing/armGBA/archive/{{.POKEDAISY_ARMGBA_COMMIT}}.tar.gz"
+        curl -fsSL -o $a/zlib.tar.gz "https://github.com/madler/zlib/archive/{{.POKEDAISY_ZLIB_COMMIT}}.tar.gz"
+        sh cores/pokedaisy/build.sh assemble {{.POKEDAISY_COMMITS}} \
+          $a/pokedaisy.tar.gz $a/mgba.tar.gz $a/armgba.tar.gz $a/zlib.tar.gz vendor/pokedaisy-src.tar.gz
+      - task: device:sh
+        vars:
+          CMD: >-
+            sh cores/pokedaisy/build.sh build {{.POKEDAISY_COMMITS}} vendor/pokedaisy-src.tar.gz
+            target-device/pokedaisy vendor
+      - file vendor/pokedaisy_gba_libretro.so | grep -q aarch64
+      - file vendor/pokedaisy_gbc_libretro.so | grep -q aarch64
+      - echo "{{.POKEDAISY_COMMIT}}" > vendor/pokedaisy-src.sha
+      - cp vendor/pokedaisy_libretro.meta vendor/pokedaisy-src.meta
+      - 'echo "built vendor/pokedaisy_gba_libretro.so and vendor/pokedaisy_gbc_libretro.so @ {{.POKEDAISY_COMMIT}}"'
+
   dist:device:
     desc: Build the SD2 tree for an H700 device, OUT defaults to ./dist-device
-    deps: [core:device, core:gpsp, core:gambatte, core:more, fsck:exfat, build:device]
+    deps: [core:device, core:gpsp, core:gambatte, core:more, core:pokedaisy, fsck:exfat, build:device]
     vars:
       OUT: '{{.OUT | default "dist-device"}}'
     cmds:
@@ -533,6 +572,15 @@ tasks:
       - file vendor/dsperate_libretro.so | grep -q aarch64
       - cp vendor/dsperate_libretro.so {{.OUT}}/System/
       - cp licenses/dsperate-GPL-3.0.txt {{.OUT}}/System/licenses/
+      - file vendor/pokedaisy_gba_libretro.so | grep -q aarch64
+      - file vendor/pokedaisy_gbc_libretro.so | grep -q aarch64
+      - cp vendor/pokedaisy_gba_libretro.so vendor/pokedaisy_gbc_libretro.so {{.OUT}}/System/
+      - cp licenses/pokedaisy-GPL-3.0.txt licenses/pokedaisy-NOTICE.txt {{.OUT}}/System/licenses/
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/pokedaisy-src.sha)"
+        cp vendor/pokedaisy-src.tar.gz "{{.OUT}}/System/licenses/pokedaisy-${sha}.tar.gz"
+        cp vendor/pokedaisy-src.meta "{{.OUT}}/System/licenses/pokedaisy-${sha}.meta"
       - 'echo "device tree ready at {{.OUT}}, copy its contents to SD2"'
 
   deploy:device:

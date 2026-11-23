@@ -15,6 +15,7 @@ Special thanks to **Markus Maribu** for the exquisite skeuomorphic cartridge, pa
 | [Baggio94/slot-konkr](https://github.com/Baggio94/slot-konkr) | The GBA Color and LCD Grid V2 shader ports the card shaders are made from (`card/Shaders/`) |
 | [fragilesilver/slot-for-android](https://github.com/fragilesilver/slot-for-android) | The mGBA patch that takes a master code's hook out when cheats are cleared (`cores/mgba/zzz-cheat-reset-removes-hooks.patch`); sending the core only the cheats that are on; the plain `CODE # name` cheat lists (its cheat design is after RetroGame66/slot's) |
 | [suprsomething/slot.advance](https://github.com/suprsomething/slot.advance) | Card free space (`slot/src/card_space.rs`); per-game settings (`slot-store/src/game_profile.rs`) |
+| [nelynes/slotPlus](https://github.com/nelynes/slotPlus) | ROM soft-patching (`slot/src/rom_patch.rs`), rolling save backups, play log & Kid Play Time (`slot-store/src/play_log.rs`, `slot/src/kid.rs`), Shelf Life, cart interior stickers, Game Boy Printer achievement printouts, 1-line menu help, What's New indicator, DS nickname/RTC options, DS cart mould, and PokeDaisy companion support |
 
 ## Libraries
 
@@ -37,3 +38,5 @@ and About > Details lists it.
 | [Supafaust](https://github.com/libretro/supafaust) | the Mednafen team and the libretro team | GPL-2.0 |
 | [PCSX ReARMed](https://github.com/libretro/pcsx_rearmed) | notaz, the PCSX teams and the libretro team | GPL-2.0 |
 | [DSperate](https://github.com/beebono/DSperate) | beebono and the DSperate contributors | GPL-3.0 |
+| [PokeDaisy (GBA)](https://github.com/lidor30/pokedaisy) | lidor30 and the armGBA contributors | GPL-3.0 |
+| [PokeDaisy (GB/C)](https://github.com/lidor30/pokedaisy) | lidor30 and the mGBA contributors | GPL-3.0 |

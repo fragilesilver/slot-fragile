@@ -230,6 +230,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             shelf_cart: None,
             kid_mode: slot_store::KidMode::Off,
             kid_shelf: slot_store::KID_SHELF_ALL.to_string(),
+            ..SlotState::default()
         }
     );
 }
@@ -429,7 +430,7 @@ fn every_platform_round_trips_as_its_own_line() {
             "{platform:?} did not come back"
         );
         let text = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
-        let want = format!("cart_platform={}", platform.dir_name().to_lowercase());
+        let want = format!("cart_platform={}", platform.key());
         assert!(text.lines().any(|l| l == want), "no {want} in {text:?}");
     }
 }

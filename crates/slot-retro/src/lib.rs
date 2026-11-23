@@ -8,7 +8,7 @@ mod memory;
 mod mock;
 mod rumble;
 
-pub use core::{AvInfo, ButtonMask, CoreError, RetroCore, GBA_H, GBA_W};
+pub use core::{AvInfo, ButtonMask, CoreError, RetroCore, Throttle, GBA_H, GBA_W};
 pub use ffi::{
     NETPACKET_BROADCAST, NETPACKET_FLUSH_HINT, NETPACKET_RELIABLE, NETPACKET_UNRELIABLE,
     NETPACKET_UNSEQUENCED,

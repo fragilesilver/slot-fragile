@@ -39,6 +39,9 @@ pub enum Toast {
     ShaderFailed,
     /// A disc system's game started on its core's own BIOS, there being none on the card.
     BuiltInBios,
+    CartsCleaned,
+    KidWarning,
+    KidTimeUp,
 }
 
 impl Toast {
@@ -69,11 +72,14 @@ impl Toast {
     ];
 
     /// Fragile's banners, after upstream's every one so none of theirs moves place.
-    const EXTRAS: [Toast; 4] = [
+    const EXTRAS: [Toast; 7] = [
         Toast::BatteryLow15,
         Toast::BatteryLow10,
         Toast::ShaderFailed,
         Toast::BuiltInBios,
+        Toast::CartsCleaned,
+        Toast::KidWarning,
+        Toast::KidTimeUp,
     ];
 
     pub fn all() -> Vec<Toast> {
@@ -96,7 +102,10 @@ impl Toast {
             extra @ (Toast::BatteryLow15
             | Toast::BatteryLow10
             | Toast::ShaderFailed
-            | Toast::BuiltInBios) => {
+            | Toast::BuiltInBios
+            | Toast::CartsCleaned
+            | Toast::KidWarning
+            | Toast::KidTimeUp) => {
                 Self::FIXED.len()
                     + GbPalette::all().count()
                     + bound_rows().count()
@@ -181,6 +190,9 @@ impl Toast {
             Toast::BatteryLow10 => "Battery Low: 10%",
             Toast::ShaderFailed => "Card shader failed to load",
             Toast::BuiltInBios => "Built-in BIOS: add scph5501.bin",
+            Toast::CartsCleaned => "All carts cleaned",
+            Toast::KidWarning => "5 minutes left today",
+            Toast::KidTimeUp => "Time's up for today",
             Toast::Palette(p) => p.label(),
             Toast::Duplicate(_) => "",
         }

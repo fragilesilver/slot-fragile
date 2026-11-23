@@ -20,6 +20,18 @@ pub const SET_NETPACKET_INTERFACE: c_uint = 78;
 // --- extras ---
 pub const SET_SYSTEM_AV_INFO: c_uint = 32;
 pub const SET_GEOMETRY: c_uint = 37;
+pub const GET_FASTFORWARDING: c_uint = 49 | 0x10000;
+pub const GET_THROTTLE_STATE: c_uint = 71 | 0x10000;
+
+pub const THROTTLE_NONE: c_uint = 0;
+pub const THROTTLE_FAST_FORWARD: c_uint = 2;
+pub const THROTTLE_REWINDING: c_uint = 4;
+
+#[repr(C)]
+pub struct ThrottleState {
+    pub mode: c_uint,
+    pub rate: f32,
+}
 
 pub const RUMBLE_STRONG: c_uint = 0;
 pub const RUMBLE_WEAK: c_uint = 1;
@@ -28,6 +40,8 @@ pub const PIXEL_FORMAT_XRGB8888: c_uint = 1;
 pub const PIXEL_FORMAT_RGB565: c_uint = 2;
 pub const DEVICE_JOYPAD: c_uint = 1;
 pub const DEVICE_ANALOG: c_uint = 5;
+pub const DEVICE_INDEX_ANALOG_LEFT: c_uint = 0;
+pub const DEVICE_INDEX_ANALOG_RIGHT: c_uint = 1;
 pub const DEVICE_ID_ANALOG_X: c_uint = 0;
 pub const DEVICE_ID_ANALOG_Y: c_uint = 1;
 pub const MEMORY_SAVE_RAM: c_uint = 0;

@@ -1,9 +1,15 @@
 use slot_gfx::Canvas;
-use slot_store::{Cart, Core};
+use slot_store::{Cart, Core, Platform};
 
-use crate::bitmaps;
-use crate::cart::{clean_label, CartFace, CART_H, CART_W};
+use crate::bitmaps::{
+    self, DISC_CART_H, DISC_CART_W, GB_CHIP_H, GB_CHIP_W, NDS_CART_H, NDS_CART_W, NES_CART_H,
+    NES_CART_W, SNES_CART_H, SNES_CART_W,
+};
+use crate::cart::{
+    clean_label, gb_backing, gb_shell_of, CartFace, CART_H, CART_W, GB_CART_H, GB_CART_W,
+};
 use crate::shelf::foot_y;
+use crate::silhouette::GbShell;
 use crate::slot_chrome::ease;
 use crate::text;
 
@@ -15,6 +21,39 @@ pub const ROM_X: u32 = 61;
 pub const ROM_Y: u32 = 48;
 pub const ROM_W: u32 = 71;
 pub const ROM_H: u32 = 90;
+
+/// The main ROM chip on `assets/nds_board.png`.
+pub const NDS_ROM_X: u32 = 52;
+pub const NDS_ROM_Y: u32 = 92;
+pub const NDS_ROM_W: u32 = 126;
+pub const NDS_ROM_H: u32 = 78;
+
+/// The PRG-ROM DIP chip on `assets/nes_board.png`.
+pub const NES_ROM_X: u32 = 52;
+pub const NES_ROM_Y: u32 = 145;
+pub const NES_ROM_W: u32 = 92;
+pub const NES_ROM_H: u32 = 70;
+
+/// The Mask ROM DIP chip on `assets/snes_board.png`.
+pub const SNES_ROM_X: u32 = 116;
+pub const SNES_ROM_Y: u32 = 62;
+pub const SNES_ROM_W: u32 = 128;
+pub const SNES_ROM_H: u32 = 56;
+
+/// Systems whose opened view has no core sockets to pick — only the PCB/disc back and its
+/// play-time & achievement stickers.
+pub fn shows_board_alone(platform: Platform) -> bool {
+    matches!(
+        platform,
+        Platform::Nes
+            | Platform::Snes
+            | Platform::PlayStation
+            | Platform::Nds
+            | Platform::PdGba
+            | Platform::PdGb
+            | Platform::PdGbc
+    )
+}
 
 const MARK_LINE_CHARS: usize = 10;
 const MARK_LINES: usize = 3;
@@ -42,19 +81,26 @@ pub fn rom_marking(stem: &str) -> Vec<String> {
 }
 
 pub fn rom_marking_face(stem: &str) -> CartFace {
-    let title = rom_marking(stem);
+    marking_sized(&rom_marking(stem), ROM_W, ROM_H)
+}
+
+pub fn bare_board_face() -> CartFace {
+    bitmap_face(bitmaps::board(), BOARD_W, BOARD_H)
+}
+
+fn marking_sized(title: &[String], w: u32, h: u32) -> CartFace {
     let mut face = CartFace {
-        rgba: vec![0; (ROM_W * ROM_H * 4) as usize],
-        w: ROM_W,
-        h: ROM_H,
+        rgba: vec![0; (w * h * 4) as usize],
+        w,
+        h,
     };
     let Some(font) = text::label_font() else {
         return face;
     };
-    let max_w = (ROM_W - 2 * MARK_PAD) as f32;
+    let max_w = (w - 2 * MARK_PAD) as f32;
     let line_h = (MARK_PX * 1.25).ceil() as u32;
-    let mut top = ROM_H.saturating_sub(line_h * title.len() as u32) / 2;
-    for line in &title {
+    let mut top = h.saturating_sub(line_h * title.len() as u32) / 2;
+    for line in title {
         let layout = text::fit(font, line, max_w, 1, MARK_PX, MARK_MIN_PX);
         ink_band(&mut face, top, line_h, &layout, MARK_INK, 1.0);
         top += line_h;
@@ -63,12 +109,80 @@ pub fn rom_marking_face(stem: &str) -> CartFace {
 }
 
 pub fn board_face(cart: &Cart) -> CartFace {
+    match cart.platform.hardware() {
+        Platform::Gb | Platform::Gbc => {
+            let shell = gb_shell_of(cart).unwrap_or(GbShell::Notched);
+            return gb_backing(bitmaps::gb_board_empty(), shell);
+        }
+        Platform::Nds => {
+            let mut face = bitmap_face(bitmaps::nds_board(), NDS_CART_W, NDS_CART_H);
+            let mark = marking_sized(&rom_marking(&cart.stem), NDS_ROM_W, NDS_ROM_H);
+            over(&mut face, &mark, NDS_ROM_X, NDS_ROM_Y);
+            return face;
+        }
+        Platform::Nes => {
+            let mut face = bitmap_face(bitmaps::nes_board(), NES_CART_W, NES_CART_H);
+            let mark = marking_sized(&rom_marking(&cart.stem), NES_ROM_W, NES_ROM_H);
+            over(&mut face, &mark, NES_ROM_X, NES_ROM_Y);
+            return face;
+        }
+        Platform::Snes => {
+            let mut face = bitmap_face(bitmaps::snes_board(), SNES_CART_W, SNES_CART_H);
+            let mark = marking_sized(&rom_marking(&cart.stem), SNES_ROM_W, SNES_ROM_H);
+            over(&mut face, &mark, SNES_ROM_X, SNES_ROM_Y);
+            return face;
+        }
+        Platform::PlayStation => {
+            return bitmap_face(bitmaps::disc_board(), DISC_CART_W, DISC_CART_H);
+        }
+        _ => {}
+    }
     let mut face = CartFace {
         rgba: bitmaps::board().to_vec(),
         w: BOARD_W,
         h: BOARD_H,
     };
     over(&mut face, &rom_marking_face(&cart.stem), ROM_X, ROM_Y);
+    face
+}
+
+/// The interior back shell rendered behind the PCB when a cart is opened on START.
+pub fn interior_face(cart: &Cart) -> Option<CartFace> {
+    match cart.platform.hardware() {
+        Platform::PlayStation => None,
+        Platform::Nds => Some(bitmap_face(bitmaps::nds_interior(), NDS_CART_W, NDS_CART_H)),
+        Platform::Nes => Some(bitmap_face(bitmaps::nes_interior(), NES_CART_W, NES_CART_H)),
+        Platform::Snes => Some(bitmap_face(
+            bitmaps::snes_interior(),
+            SNES_CART_W,
+            SNES_CART_H,
+        )),
+        Platform::Gb => Some(gb_backing(
+            bitmaps::gb_interior(),
+            gb_shell_of(cart).unwrap_or(GbShell::Notched),
+        )),
+        Platform::Gbc => Some(gb_backing(
+            bitmaps::gbc_interior(),
+            gb_shell_of(cart).unwrap_or(GbShell::Rounded),
+        )),
+        Platform::Gba => Some(bitmap_face(bitmaps::gba_interior(), BOARD_W, BOARD_H)),
+        _ => None,
+    }
+}
+
+/// The opened board stamped with the game's play-time stopwatch and gold achievement stickers.
+pub fn board_face_with_stickers(
+    cart: &Cart,
+    play_time: Option<&str>,
+    achievements: Option<&str>,
+) -> CartFace {
+    let mut face = board_face(cart);
+    if let Some(time) = play_time {
+        crate::shelf_life::play_sticker(&mut face, cart, time);
+    }
+    if let Some(text) = achievements {
+        crate::shelf_life::achievement_sticker(&mut face, cart, text);
+    }
     face
 }
 
@@ -232,6 +346,167 @@ pub fn lid_from(canvas: Canvas, shelf: Placed, progress: f32) -> (Placed, f32) {
     (lerp(slid, lid_rest(canvas), lift), LID_TURN * lift)
 }
 
+fn opens_wide((cw, ch): (u32, u32)) -> bool {
+    let wide = CART_W as f32 / CART_H as f32;
+    (cw as f32 / ch as f32) > wide * 0.9
+}
+
+pub fn shelf_cart_shaped(
+    canvas: Canvas,
+    shell: Option<GbShell>,
+    size: (u32, u32),
+    x: f32,
+    scale: f32,
+) -> Placed {
+    let (cw, ch) = match shell {
+        Some(_) => (GB_CART_W, GB_CART_H),
+        None if !opens_wide(size) => size,
+        None => return shelf_cart_at(x, scale),
+    };
+    let (w, h) = (cw as f32 * scale, ch as f32 * scale);
+    let _ = canvas;
+    Placed {
+        x,
+        y: foot_y(ch as f32) - h,
+        w,
+        h,
+    }
+}
+
+const GB_BOARD_Y: f32 = 128.0;
+const GB_BOARD_REST_H: f32 = 284.0;
+const GB_LID_REST_H: f32 = 92.0;
+const GB_LID_REST_Y: f32 = 56.0;
+const GB_SLIDE_UP: f32 = 36.0;
+
+pub fn board_from_shaped(
+    canvas: Canvas,
+    shell: Option<GbShell>,
+    size: (u32, u32),
+    shelf: Placed,
+    progress: f32,
+) -> Placed {
+    if shell.is_none() {
+        if !opens_wide(size) {
+            let (cw, ch) = (size.0 as f32, size.1 as f32);
+            let k = (GB_BOARD_REST_H / ch).min(BOARD_W as f32 / cw);
+            let (w, h) = (cw * k, ch * k);
+            let rest = Placed {
+                x: canvas.centred(w),
+                y: GB_BOARD_Y + (GB_BOARD_REST_H - h) / 2.0,
+                w,
+                h,
+            };
+            return lerp(board_in(shelf), rest, lift_of(progress));
+        }
+        return board_from(canvas, shelf, progress);
+    }
+    let w = GB_BOARD_REST_H * GB_CART_W as f32 / GB_CART_H as f32;
+    let rest = Placed {
+        x: canvas.centred(w),
+        y: GB_BOARD_Y,
+        w,
+        h: GB_BOARD_REST_H,
+    };
+    lerp(board_in(shelf), rest, lift_of(progress))
+}
+
+pub fn lid_from_shaped(
+    canvas: Canvas,
+    shell: Option<GbShell>,
+    size: (u32, u32),
+    shelf: Placed,
+    progress: f32,
+) -> (Placed, f32) {
+    if shell.is_none() && opens_wide(size) {
+        return lid_from(canvas, shelf, progress);
+    }
+    let slid = Placed {
+        y: shelf.y - GB_SLIDE_UP * slide_of(progress),
+        ..shelf
+    };
+    let (cw, ch) = match shell {
+        Some(_) => (GB_CART_W, GB_CART_H),
+        None => size,
+    };
+    let w = GB_LID_REST_H * cw as f32 / ch as f32;
+    let rest = Placed {
+        x: canvas.centred(w),
+        y: GB_LID_REST_Y - GB_LID_REST_H / 2.0,
+        w,
+        h: GB_LID_REST_H,
+    };
+    let lift = lift_of(progress);
+    (lerp(slid, rest, lift), LID_TURN * lift)
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Seats {
+    pub socket_u: [f32; 2],
+    pub socket_v: f32,
+    pub chip_u: [f32; 2],
+    pub chip_v: f32,
+    pub socket_size: (f32, f32),
+    pub chip_size: (f32, f32),
+    pub shadow_uv: (f32, f32),
+    units_w: f32,
+    units_h: f32,
+    bitmap_w: f32,
+}
+
+pub const GBA_SEATS: Seats = Seats {
+    socket_u: SOCKET_U,
+    socket_v: SOCKET_V,
+    chip_u: CHIP_U,
+    chip_v: CHIP_V,
+    socket_size: (SOCKET_W as f32, SOCKET_H as f32),
+    chip_size: (CHIP_W as f32, CHIP_H as f32),
+    shadow_uv: (19.0, 29.4),
+    units_w: UNITS_W,
+    units_h: UNITS_H,
+    bitmap_w: BOARD_W as f32,
+};
+
+const GB_UNIT: f32 = BOARD_W as f32 / UNITS_W;
+const GB_FOOT_U: [f32; 2] = [70.0 / GB_UNIT, 189.0 / GB_UNIT];
+const GB_FOOT_V: f32 = 169.0 / GB_UNIT;
+
+pub const GB_SEATS: Seats = Seats {
+    socket_u: GB_FOOT_U,
+    socket_v: GB_FOOT_V,
+    chip_u: GB_FOOT_U,
+    chip_v: GB_FOOT_V,
+    socket_size: (GB_CHIP_W as f32, GB_CHIP_H as f32),
+    chip_size: (GB_CHIP_W as f32, GB_CHIP_H as f32),
+    shadow_uv: (
+        GB_CHIP_W as f32 / 2.0 / GB_UNIT,
+        GB_CHIP_H as f32 / GB_UNIT + 2.0,
+    ),
+    units_w: GB_CART_W as f32 / GB_UNIT,
+    units_h: GB_CART_H as f32 / GB_UNIT,
+    bitmap_w: GB_CART_W as f32,
+};
+
+pub fn seats(shell: Option<GbShell>) -> Seats {
+    match shell {
+        None => GBA_SEATS,
+        Some(_) => GB_SEATS,
+    }
+}
+
+impl Seats {
+    pub fn at(&self, board: Placed, u: f32, v: f32) -> (f32, f32) {
+        (
+            board.x + u * board.w / self.units_w,
+            board.y + v * board.h / self.units_h,
+        )
+    }
+
+    pub fn zoom(&self, board: Placed) -> f32 {
+        board.w / self.bitmap_w
+    }
+}
+
 const UNITS_W: f32 = 240.0;
 const UNITS_H: f32 = 135.0;
 
@@ -282,6 +557,47 @@ pub fn socket_face(core: Core) -> CartFace {
         ink_band(&mut face, 4, 37, &layout, SOCKET_INK, 0.5);
     }
     face
+}
+
+fn ink_turned(face: &mut CartFace, layout: &text::Layout, ink: [u8; 3], strength: f32) {
+    let band = face.w;
+    let cov = text::coverage(face.h, band, layout);
+    for (i, a) in cov.into_iter().enumerate() {
+        let a = (a as f32 * strength).round() as u8;
+        if a == 0 {
+            continue;
+        }
+        let (along, across) = (i as u32 % face.h, i as u32 / face.h);
+        let at = (((face.h - 1 - along) * face.w + across) * 4) as usize;
+        let (a, d_a) = (a as f32 / 255.0, face.rgba[at + 3] as f32 / 255.0);
+        let out_a = a + d_a * (1.0 - a);
+        for (k, &c) in ink.iter().enumerate() {
+            let d_rgb = face.rgba[at + k] as f32 / 255.0;
+            let out_rgb = (c as f32 / 255.0 * a + d_rgb * d_a * (1.0 - a)) / out_a;
+            face.rgba[at + k] = (out_rgb * 255.0).round() as u8;
+        }
+        face.rgba[at + 3] = (out_a * 255.0).round() as u8;
+    }
+}
+
+pub fn gb_socket_face(core: Core) -> CartFace {
+    let mut face = CartFace {
+        rgba: vec![0; (GB_CHIP_W * GB_CHIP_H * 4) as usize],
+        w: GB_CHIP_W,
+        h: GB_CHIP_H,
+    };
+    if let Some(layout) = name_layout(core, (GB_CHIP_H - 12) as f32) {
+        ink_turned(&mut face, &layout, SOCKET_INK, 0.5);
+    }
+    face
+}
+
+pub fn gb_chip_face(core: Option<Core>) -> CartFace {
+    let mut face = bitmap_face(bitmaps::gb_chip(), GB_CHIP_W, GB_CHIP_H);
+    if let Some(layout) = core.and_then(|c| name_layout(c, (GB_CHIP_H - 12) as f32)) {
+        ink_turned(&mut face, &layout, CHIP_INK, 1.0);
+    }
+    padded(&face, TURN_PAD)
 }
 
 pub fn chip_face(core: Option<Core>) -> CartFace {

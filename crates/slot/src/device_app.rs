@@ -234,6 +234,7 @@ pub fn run() {
         .name("slot-logsync".into())
         .spawn(sync_log_writes);
     let mut drawn = false;
+    let mut dozed_blank = false;
     frontend.drive_emulator();
     let mut pacer = Pacer::new();
     let (mut frames, mut missed, mut early) = (0u32, 0u32, 0u32);
@@ -242,7 +243,9 @@ pub fn run() {
     loop {
         pacer.wait();
         let began = Instant::now();
-        input.steer_with_stick(frontend.app().left_stick_dpad());
+        input.steer_with_stick(
+            frontend.app().left_stick_dpad() && !frontend.app().left_stick_is_stylus(),
+        );
         frontend.advance(&mut input);
 
         if input.check_rescue() {
@@ -291,6 +294,14 @@ pub fn run() {
             frontend.poweroff();
             return;
         }
+        let dozing = frontend.dozing() && !frontend.shutting_down();
+        if dozing && dozed_blank {
+            std::thread::sleep(Duration::from_millis(50));
+            continue;
+        }
+        if !dozing {
+            dozed_blank = false;
+        }
         frontend.step_emulator(pacer.period, STEP_TIMEOUT);
         frontend.render(&mut compositor, window);
         let swap = Instant::now();
@@ -298,6 +309,11 @@ pub fn run() {
         if let Err(e) = surface.swap() {
             eprintln!("slot: {e}");
             return;
+        }
+        if dozing {
+            dozed_blank = true;
+            pacer.last_return = None;
+            continue;
         }
         let swap_took = swap.elapsed();
         slot::latency::swapped(swap_took.as_secs_f64() * 1000.0);

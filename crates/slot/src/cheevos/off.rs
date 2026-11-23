@@ -45,6 +45,14 @@ pub fn achievements() -> Vec<slot_cheevos_off::Achievement> {
 
 pub fn sign_in_again(_root: &Path) {}
 
+pub fn set_list(_root: &Path, _rom: &Path) -> Option<super::CachedSet> {
+    None
+}
+
+pub fn load_badge(_root: &Path, _name: &str) -> Option<super::SetBadge> {
+    None
+}
+
 pub mod slot_cheevos_off {
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct Achievement {

@@ -44,6 +44,7 @@ struct Seated {
     boot_left: u32,
     last_frame: Option<Instant>,
     last_idle: Option<Instant>,
+    pause: Option<Box<dyn FnMut() -> bool + Send>>,
 }
 
 struct Shown {
@@ -274,37 +275,233 @@ impl Transport for OfflineTransport {
                     }
                 }
             }
-        } else if op == "awardachievement" && resp.status < 0 {
+        } else if op == "startsession" {
+            if let Some(gid) = req_param(req, "g") {
+                let key = format!("g{gid}_unlocks");
+                if resp.status == 200 && !resp.body.is_empty() {
+                    let _ = cache_game_blob(&self.root, &key, &resp.body);
+                } else if resp.status < 0 {
+                    if let Some(cached) = read_game_blob(&self.root, &key) {
+                        return Response {
+                            status: 200,
+                            body: cached,
+                        };
+                    }
+                }
+            }
+        } else if op == "awardachievement" {
             if let Some(aid) = req_param(req, "a").and_then(|s| s.parse::<u32>().ok()) {
                 let gid = req_param(req, "g")
                     .and_then(|s| s.parse::<u32>().ok())
                     .unwrap_or(0);
-                let hash = req_param(req, "h").unwrap_or("");
                 let now = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .map(|d| d.as_secs() as i64)
                     .unwrap_or(0);
-                let _ = queue_pending_unlock(
-                    &self.root,
-                    PendingUnlock {
-                        game_id: gid,
-                        achievement_id: aid,
-                        earned_utc: now,
-                        title: hash.to_string(),
-                    },
-                );
-                return Response {
-                    status: 200,
-                    body: format!(r#"{{"Success":true,"AchievementID":{aid}}}"#).into_bytes(),
-                };
+                record_unlock_in_cache(&self.root, gid, aid, now);
+                if resp.status < 0 {
+                    let hash = req_param(req, "h").unwrap_or("");
+                    let _ = queue_pending_unlock(
+                        &self.root,
+                        PendingUnlock {
+                            game_id: gid,
+                            achievement_id: aid,
+                            earned_utc: now,
+                            title: hash.to_string(),
+                        },
+                    );
+                    return Response {
+                        status: 200,
+                        body: format!(r#"{{"Success":true,"AchievementID":{aid}}}"#).into_bytes(),
+                    };
+                }
             }
         }
         resp
     }
 
     fn fetch(&self, url: &str) -> Option<Vec<u8>> {
+        if let Some(name) = badge_filename(url) {
+            let cached = badge_cache_path(&self.root, name);
+            if let Ok(bytes) = std::fs::read(&cached) {
+                if !bytes.is_empty() {
+                    return Some(bytes);
+                }
+            }
+            if let Some(bytes) = self.http.fetch(url) {
+                if let Some(dir) = cached.parent() {
+                    let _ = std::fs::create_dir_all(dir);
+                }
+                let _ = std::fs::write(&cached, &bytes);
+                return Some(bytes);
+            }
+            return None;
+        }
         self.http.fetch(url)
     }
+}
+
+fn badge_filename(url: &str) -> Option<&str> {
+    url.rsplit('/').next().filter(|s| s.ends_with(".png"))
+}
+
+fn badge_cache_path(root: &Path, name: &str) -> PathBuf {
+    let clean: String = name
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+        .collect();
+    root.join(slot_store::cheevos_cache::CHEEVOS_CACHE_DIR)
+        .join("badges")
+        .join(clean)
+}
+
+fn record_unlock_in_cache(root: &Path, gid: u32, aid: u32, earned_utc: i64) {
+    if gid == 0 {
+        return;
+    }
+    let key = format!("g{gid}_local");
+    let mut text = read_game_blob(root, &key)
+        .and_then(|b| String::from_utf8(b).ok())
+        .unwrap_or_default();
+    let prefix = format!("{aid}\t");
+    if text.lines().any(|l| l.starts_with(&prefix)) {
+        return;
+    }
+    text.push_str(&format!("{aid}\t{earned_utc}\n"));
+    let _ = cache_game_blob(root, &key, text.as_bytes());
+}
+
+pub fn set_list(root: &Path, rom: &Path) -> Option<super::CachedSet> {
+    let mut header = [0u8; 512];
+    let header_len = std::fs::File::open(rom)
+        .and_then(|mut f| std::io::Read::read(&mut f, &mut header))
+        .unwrap_or(0);
+    let console = game::console_for(rom, &header[..header_len]);
+    let hash = game::hash_file(console, rom).or_else(|| {
+        std::fs::metadata(rom)
+            .ok()
+            .filter(|m| m.len() <= 64 * 1024 * 1024)
+            .and_then(|_| std::fs::read(rom).ok())
+            .and_then(|b| game::hash(console, &b))
+    })?;
+    let blob = read_game_blob(root, &hash)?;
+    let parsed: serde_json::Value = serde_json::from_slice(&blob).ok()?;
+    let patch = parsed.get("PatchData")?;
+    let gid = patch.get("ID").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let game_title = patch
+        .get("Title")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| {
+            rom.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Achievements")
+                .to_string()
+        });
+    let mut unlocked = std::collections::HashMap::<u32, u64>::new();
+    if let Some(unlock_blob) = read_game_blob(root, &format!("g{gid}_unlocks"))
+        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+    {
+        for field in ["Unlocks", "HardcoreUnlocks"] {
+            if let Some(arr) = unlock_blob.get(field).and_then(|v| v.as_array()) {
+                for u in arr {
+                    if let Some(id) = u.get("ID").and_then(|v| v.as_u64()) {
+                        let when = u.get("When").and_then(|v| v.as_u64()).unwrap_or(0);
+                        unlocked.entry(id as u32).or_insert(when);
+                    }
+                }
+            }
+        }
+    }
+    if let Some(local_blob) =
+        read_game_blob(root, &format!("g{gid}_local")).and_then(|b| String::from_utf8(b).ok())
+    {
+        for line in local_blob.lines() {
+            if let Some((a, t)) = line.split_once('\t') {
+                if let (Ok(aid), Ok(when)) = (a.parse::<u32>(), t.parse::<u64>()) {
+                    unlocked.entry(aid).or_insert(when);
+                }
+            }
+        }
+    }
+    for p in read_pending_unlocks(root) {
+        if p.game_id == gid {
+            unlocked
+                .entry(p.achievement_id)
+                .or_insert(p.earned_utc.max(0) as u64);
+        }
+    }
+    let achs = patch.get("Achievements")?.as_array()?;
+    let entries: Vec<super::SetEntry> = achs
+        .iter()
+        .filter(|a| a.get("Flags").and_then(|v| v.as_u64()).unwrap_or(3) == 3)
+        .filter_map(|a| {
+            let aid = a.get("ID")?.as_u64()? as u32;
+            let title = a.get("Title")?.as_str()?.to_string();
+            let description = a
+                .get("Description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let points = a.get("Points").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let badge_name = a
+                .get("BadgeName")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty());
+            let when = unlocked.get(&aid).copied();
+            let earned = when.is_some();
+            let badge = badge_name.map(|b| {
+                if earned {
+                    format!("{b}.png")
+                } else {
+                    format!("{b}_lock.png")
+                }
+            });
+            Some(super::SetEntry {
+                title,
+                description,
+                points,
+                badge,
+                earned,
+                earned_at: when.filter(|&w| w > 0),
+            })
+        })
+        .collect();
+    if entries.is_empty() {
+        return None;
+    }
+    Some(super::CachedSet {
+        game: game_title,
+        entries,
+    })
+}
+
+pub fn load_badge(root: &Path, name: &str) -> Option<super::SetBadge> {
+    let path = badge_cache_path(root, name);
+    let bytes = match std::fs::read(&path) {
+        Ok(b) if !b.is_empty() => b,
+        _ => {
+            let url = format!("https://media.retroachievements.org/Badge/{name}");
+            let agent = ureq::AgentBuilder::new()
+                .timeout(Duration::from_secs(4))
+                .build();
+            let resp = agent.get(&url).call().ok()?;
+            let mut b = Vec::new();
+            std::io::Read::read_to_end(&mut resp.into_reader(), &mut b).ok()?;
+            if let Some(dir) = path.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
+            let _ = std::fs::write(&path, &b);
+            b
+        }
+    };
+    let img = image::load_from_memory(&bytes).ok()?.to_rgba8();
+    Some(super::SetBadge {
+        width: img.width(),
+        height: img.height(),
+        rgba: img.into_raw(),
+    })
 }
 
 fn flush_pending_unlocks(root: &Path, host: Option<&str>, user: &str, token: &str) {
@@ -312,7 +509,7 @@ fn flush_pending_unlocks(root: &Path, host: Option<&str>, user: &str, token: &st
     if pending.is_empty() {
         return;
     }
-    let http = Http::new("slot/1.9.8");
+    let http = Http::new("slot/1.9.9");
     let base = host
         .unwrap_or("https://retroachievements.org")
         .trim_end_matches('/');
@@ -377,6 +574,12 @@ pub fn loaded(rom: &Path, resumed: bool) -> Guard {
         live.booting.store(ticket, Ordering::Release);
     }
     let console = Arc::new(AtomicU32::new(0));
+    let pause: Option<Box<dyn FnMut() -> bool + Send>> = (rom
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|s| s.to_str())
+        == Some("PokeDaisy"))
+    .then(|| Box::new(crate::pokedaisy::flying_anywhere(&live.root)) as _);
     SEATED.with_borrow_mut(|s| {
         *s = Some(Seated {
             ticket,
@@ -384,6 +587,7 @@ pub fn loaded(rom: &Path, resumed: bool) -> Guard {
             boot_left,
             last_frame: None,
             last_idle: None,
+            pause,
         })
     });
     let rom = rom.to_path_buf();
@@ -453,7 +657,8 @@ pub fn frame(core: &dyn RetroCore) {
                 live.booted(seated.ticket);
             }
         }
-        if ready(live, seated, core) {
+        let paused = seated.pause.as_mut().is_some_and(|p| p());
+        if !paused && ready(live, seated, core) {
             live.cheevos.do_frame();
             seated.last_frame = Some(Instant::now());
         }
@@ -471,7 +676,8 @@ pub fn idle(core: &dyn RetroCore) {
         let recently = seated
             .last_idle
             .is_some_and(|t| now.duration_since(t) < IDLE_EVERY);
-        if running || recently || !ready(live, seated, core) {
+        let paused = seated.pause.as_mut().is_some_and(|p| p());
+        if running || recently || paused || !ready(live, seated, core) {
             return;
         }
         live.cheevos.idle();

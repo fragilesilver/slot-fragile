@@ -30,7 +30,7 @@ pub struct GameArt {
     /// How many of the scraper's labels are on the shelves already.
     labelled: usize,
     /// Carts given a label since their face was built, for the face builder.
-    relabelled: Vec<(usize, usize)>,
+    pub(super) relabelled: Vec<(usize, usize)>,
     /// What A last said, until the cursor moves.
     note: Option<String>,
     /// The games Automatic has asked for since boot, so one with no art is asked for once.
@@ -123,7 +123,7 @@ impl App {
         self.shelves
             .iter()
             .filter(|(rack, _)| match (rack, platform) {
-                (Rack::Of(p), Some(want)) => *p == want,
+                (Rack::Of(p), Some(want)) => *p == want.shelf(),
                 (Rack::Of(_), None) => true,
                 _ => false,
             })

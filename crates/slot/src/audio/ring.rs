@@ -130,6 +130,16 @@ impl Ring {
         self.queued.store(i.len, Ordering::Relaxed);
     }
 
+    /// Silence any trailing SFX mixed onto the ring (when printer buzz stops early).
+    pub fn hush(&self) {
+        let mut i = self.lock();
+        i.pending.clear();
+        i.placed = 0;
+        i.buf.fill(0);
+        i.len = 0;
+        self.queued.store(0, Ordering::Relaxed);
+    }
+
     pub fn fill(&self, out: &mut [i16]) {
         let mut i = self.lock();
         lay_pending(&mut i);

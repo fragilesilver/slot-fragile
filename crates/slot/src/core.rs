@@ -122,6 +122,12 @@ fn open_named(
                     colour,
                     palette,
                 );
+                if core == Core::Dsperate {
+                    apply_ds_console(&mut opened, root);
+                }
+                if matches!(core, Core::PokedaisyGba | Core::PokedaisyGbc) {
+                    apply_pokedaisy(&mut opened);
+                }
                 if let Some(player) = link {
                     apply_link_options(&mut opened, core, player);
                 }
@@ -146,7 +152,7 @@ pub fn palette_for(
 /// Fragile: whether a game can be given a palette at all, whether or not palettes are on: a
 /// monochrome Game Boy game, not linked. A NES or SNES file's byte at 0x143 is not a GB header's.
 pub fn takes_palette(platform: Platform, rom: &Path, link: Option<u8>) -> bool {
-    link.is_none() && matches!(platform, Platform::Gb | Platform::Gbc) && dmg_only(rom)
+    link.is_none() && matches!(platform.hardware(), Platform::Gb | Platform::Gbc) && dmg_only(rom)
 }
 
 pub fn dmg_only(rom: &Path) -> bool {
@@ -190,7 +196,13 @@ pub fn colour_option(
             if on { "enabled" } else { "disabled" },
         )),
         Core::Gambatte => Some(crate::gambatte::colour_option(on)),
-        Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::PcsxRearmed | Core::Dsperate => None,
+        Core::Fceumm
+        | Core::Snes9x
+        | Core::Supafaust
+        | Core::PcsxRearmed
+        | Core::Dsperate
+        | Core::PokedaisyGba
+        | Core::PokedaisyGbc => None,
     }
 }
 
@@ -210,10 +222,52 @@ pub fn motion_blur_option(which: Core, _on: bool) -> Option<(&'static str, &'sta
         Core::Mgba => ("mgba_interframe_blending", "OFF"),
         Core::Gpsp => ("gpsp_frame_mixing", "disabled"),
         Core::Gambatte => crate::gambatte::motion_blur_option(false),
-        Core::Fceumm | Core::Snes9x | Core::Supafaust | Core::PcsxRearmed | Core::Dsperate => {
-            return None
-        }
+        Core::Dsperate => ("dsperate_blending", "off"),
+        Core::Fceumm
+        | Core::Snes9x
+        | Core::Supafaust
+        | Core::PcsxRearmed
+        | Core::PokedaisyGba
+        | Core::PokedaisyGbc => return None,
     })
+}
+
+/// The DS firmware holds up to ten characters of nickname.
+pub const NDS_NAME_MAX: usize = 10;
+
+/// The screen PokeDaisy draws for: 720x480 so its companion and menus scale cleanly.
+pub const POKEDAISY_PANEL: &str = "720x480";
+
+fn apply_pokedaisy(core: &mut LibretroCore) {
+    core.set_option("pokedaisy_panel", POKEDAISY_PANEL);
+}
+
+pub fn ds_console_options(
+    nickname: &str,
+    zone: slot_store::Zone,
+    utc: i64,
+) -> Vec<(&'static str, String)> {
+    let mut out = Vec::new();
+    let name: String = nickname.trim().chars().take(NDS_NAME_MAX).collect();
+    if !name.is_empty() {
+        out.push(("dsperate_nickname", name));
+    }
+    out.push(("dsperate_utc_offset", zone.offset_min(utc).to_string()));
+    out
+}
+
+fn apply_ds_console(core: &mut LibretroCore, root: &Path) {
+    let state = slot_store::read_slot_state(root);
+    let extras = slot_store::read_extras(root);
+    let utc = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64);
+    let zone = extras
+        .zone()
+        .unwrap_or_else(|| slot_store::Zone::for_offset(i64::from(state.utc_offset_min), utc));
+    for (key, value) in ds_console_options(extras.nickname(), zone, utc) {
+        core.set_option(key, &value);
+    }
 }
 
 pub fn sunlight_at(local_secs: i64) -> u8 {

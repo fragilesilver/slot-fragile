@@ -1,4 +1,4 @@
-use slot_input::{Action, Btn};
+use slot_input::{Action, Btn, StickAxis};
 use slot_retro::ButtonMask;
 use slot_store::{Controls, GameButton, Modifier};
 
@@ -8,10 +8,23 @@ use super::bind::device_btn;
 pub struct Pad {
     held: Vec<Btn>,
     chorded: Vec<Btn>,
+    analog: [i16; 4],
+    analog_seen: bool,
 }
 
 impl Pad {
     pub fn apply(&mut self, action: Action) {
+        if let Action::Stick(axis, value) = action {
+            let slot = match axis {
+                StickAxis::LeftX => 0,
+                StickAxis::LeftY => 1,
+                StickAxis::RightX => 2,
+                StickAxis::RightY => 3,
+            };
+            self.analog[slot] = value;
+            self.analog_seen = true;
+            return;
+        }
         let (list, b, down) = match action {
             Action::GbaDown(b) => (&mut self.held, b, true),
             Action::GbaUp(b) => (&mut self.held, b, false),
@@ -23,6 +36,14 @@ impl Pad {
         if down {
             list.push(b);
         }
+    }
+
+    pub fn analog(&self) -> [i16; 4] {
+        self.analog
+    }
+
+    pub fn analog_seen(&self) -> bool {
+        self.analog_seen
     }
 
     pub fn mask(&self, controls: &Controls) -> ButtonMask {
@@ -68,6 +89,7 @@ impl Pad {
     pub fn clear(&mut self) {
         self.held.clear();
         self.chorded.clear();
+        self.analog = [0; 4];
     }
 }
 

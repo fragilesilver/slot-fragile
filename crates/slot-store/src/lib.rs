@@ -21,6 +21,7 @@ pub mod ini;
 mod label_style;
 mod platform;
 pub mod platform_settings;
+pub mod play_log;
 mod ring;
 pub mod romm;
 pub mod scaling;
@@ -61,9 +62,15 @@ pub use guides::{
 };
 pub use label_style::{LabelStyle, SCRAPED_LABELS};
 pub use platform::Platform;
+pub use play_log::{
+    play_log_path, play_time_text, read_play_log, update_play_log, write_play_log, PlayLog,
+    PlayRecord, PLAY_LOG_FILE,
+};
 pub use ring::{StateEntry, StateRing, RING_MAX};
 pub use scaling::{get_scaling, scaling_key, set_scaling, Scaling};
-pub use scan::{initial, is_hidden, listing, scan, sort_key, Cart, StoreError};
+pub use scan::{
+    initial, is_hidden, listing, scan, scan_platform, scan_shelf, sort_key, Cart, StoreError,
+};
 pub use shaders::{
     list_shaders, load_shader_params, save_shader_params, shader_config_path, shader_path,
     SHADERS_DIR, SHADER_CONFIG_DIR,
@@ -71,9 +78,9 @@ pub use shaders::{
 pub use shots::{shot_stamp, ShotDir, ShotEntry, SCREENSHOTS_DIR};
 pub use slot_state::{
     bezel_for_scale, bezel_scale, ff_speed_text, ff_speed_value, read_slot_state, write_slot_state,
-    Appearance, AutoLoad, BatteryDisplay, BezelPick, Blending, KidMode, Recent, Scale, Shader,
-    SlotState, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, DIM_MAX,
-    FF_SPEEDS, FF_SPEED_DEFAULT, KID_SHELF_ALL, LID_OFF_MIN, RECENTS_MAX, SATURATION_MAX,
+    Appearance, AutoLoad, BatteryDisplay, BezelPick, Blending, CleanResets, KidMode, Recent, Scale,
+    Shader, SlotState, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX,
+    DIM_MAX, FF_SPEEDS, FF_SPEED_DEFAULT, KID_SHELF_ALL, LID_OFF_MIN, RECENTS_MAX, SATURATION_MAX,
     SUNLIGHT_MAX, UTC_OFFSET_MAX, UTC_OFFSET_MIN, VOLUME_MAX,
 };
 pub use spec::{Header, Spec};

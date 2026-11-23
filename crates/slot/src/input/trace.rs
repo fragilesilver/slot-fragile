@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use super::evdev::{
-    code_to_btn, device_name, pick_devices, Ev, ABS_HAT0X, ABS_HAT0Y, ABS_LSX, ABS_LSY, EV_ABS,
-    EV_KEY, EV_SW, SW_LID,
+    code_to_btn, device_name, pick_devices, Ev, ABS_HAT0X, ABS_HAT0Y, ABS_LSX, ABS_LSY, ABS_RSX,
+    ABS_RSY, EV_ABS, EV_KEY, EV_SW, SW_LID,
 };
 
 pub const TRACE_VAR: &str = "SLOT_TRACE_INPUT";
@@ -45,9 +45,10 @@ pub fn survey(dev: &Path, sys: &Path) -> Vec<String> {
                     .unwrap_or_else(|_| "-".to_string())
             };
             format!(
-                "{file} {state} name={:?} key=[{}] sw=[{}]",
+                "{file} {state} name={:?} key=[{}] abs=[{}] sw=[{}]",
                 device_name(sys, node),
                 cap("key"),
+                cap("abs"),
                 cap("sw")
             )
         })
@@ -62,6 +63,8 @@ pub fn event_line(node: &str, ms: u128, ev: Ev) -> String {
         EV_ABS if ev.code == ABS_HAT0Y => "hat0y".to_string(),
         EV_ABS if ev.code == ABS_LSX => "lsx".to_string(),
         EV_ABS if ev.code == ABS_LSY => "lsy".to_string(),
+        EV_ABS if ev.code == ABS_RSX => "rsx".to_string(),
+        EV_ABS if ev.code == ABS_RSY => "rsy".to_string(),
         _ => "ignored".to_string(),
     };
     format!(

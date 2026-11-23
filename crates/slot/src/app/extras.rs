@@ -136,6 +136,7 @@ impl StartShelf {
             StartShelf::Of(Platform::Snes) => QuickValue::SnesShelf,
             StartShelf::Of(Platform::PlayStation) => QuickValue::Ps1Shelf,
             StartShelf::Of(Platform::Nds) => QuickValue::NdsShelf,
+            StartShelf::Of(Platform::PdGba | Platform::PdGb | Platform::PdGbc) => QuickValue::Last,
         }
     }
 

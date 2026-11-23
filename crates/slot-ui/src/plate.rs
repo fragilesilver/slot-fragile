@@ -172,6 +172,10 @@ fn capped_width(label: &str, max_w: f32) -> u32 {
 }
 
 pub fn title_line_face(text: &str) -> UndoFace {
+    title_line_face_ink(text, [0xff, 0xff, 0xff])
+}
+
+pub fn title_line_face_ink(text: &str, color: [u8; 3]) -> UndoFace {
     let Some(font) = text::label_font() else {
         return UndoFace {
             rgba: Vec::new(),
@@ -194,7 +198,7 @@ pub fn title_line_face(text: &str) -> UndoFace {
         .fold(0.0, f32::max);
     let w = (ink.ceil() as u32).clamp(1, TITLE_LINE_MAX_W as u32);
     let mut rgba = vec![0u8; (w * TITLE_LINE_H * 4) as usize];
-    text::draw_centred(&mut rgba, w, TITLE_LINE_H, &layout, [0xff, 0xff, 0xff]);
+    text::draw_centred(&mut rgba, w, TITLE_LINE_H, &layout, color);
     UndoFace {
         rgba,
         w,

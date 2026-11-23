@@ -8,7 +8,8 @@ use std::time::Instant;
 use slot_input::{Btn, InputSource, Millis, RawEvent};
 
 use super::evdev::{
-    decode, device_name, pick_devices, to_raw, Ev, Hat, EVENT_BYTES, EV_ABS, EV_KEY, EV_SYN,
+    decode, device_name, pick_devices, to_raw, AbsRange, Ev, Hat, StickMapper, ABS_LSX, ABS_LSY,
+    ABS_RSX, ABS_RSY, EVENT_BYTES, EV_ABS, EV_KEY, EV_SYN,
 };
 use super::trace;
 
@@ -91,6 +92,36 @@ fn quicken_poll(sys: &Path, node: &Path) {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn query_abs_range(file: &File, code: u16) -> Option<AbsRange> {
+    use std::os::unix::io::AsRawFd;
+
+    #[repr(C)]
+    #[derive(Default)]
+    struct InputAbsInfo {
+        value: i32,
+        minimum: i32,
+        maximum: i32,
+        fuzz: i32,
+        flat: i32,
+        resolution: i32,
+    }
+
+    // Linux EVIOCGABS(abs) = _IOR('E', 0x40 + abs, struct input_absinfo)
+    let req = 0x8018_4540u64 + u64::from(code);
+    let mut info = InputAbsInfo::default();
+    let ok = unsafe { libc::ioctl(file.as_raw_fd(), req as _, &mut info) } == 0;
+    (ok && info.maximum > info.minimum).then_some(AbsRange {
+        min: info.minimum,
+        max: info.maximum,
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn query_abs_range(_file: &File, _code: u16) -> Option<AbsRange> {
+    None
+}
+
 fn read_node(
     node: &Path,
     queue: &Mutex<Vec<RawEvent>>,
@@ -102,6 +133,7 @@ fn read_node(
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| node.display().to_string());
     let mut hat = Hat::default();
+    let mut sticks = StickMapper::default();
     let mut file = match File::open(node) {
         Ok(f) => f,
         Err(e) => {
@@ -109,6 +141,11 @@ fn read_node(
             return;
         }
     };
+    for code in [ABS_LSX, ABS_LSY, ABS_RSX, ABS_RSY] {
+        if let Some(range) = query_abs_range(&file, code) {
+            sticks.set_range(code, range);
+        }
+    }
     let mut buf = [0u8; EVENT_BYTES * 16];
     loop {
         let read = match file.read(&mut buf) {
@@ -132,6 +169,9 @@ fn read_node(
                 EV_ABS => {
                     hat.steer_with_stick(steers.load(Ordering::Relaxed));
                     events.extend(hat.feed(ev));
+                    if let Some(stick_ev) = sticks.feed(ev) {
+                        events.push(stick_ev);
+                    }
                 }
                 _ => events.extend(to_raw(ev)),
             }

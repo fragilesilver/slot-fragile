@@ -408,3 +408,59 @@ fn only_the_clamshells_and_a_card_naming_no_target_have_a_lid() {
         assert!(!has_lid(t), "{t}");
     }
 }
+
+#[test]
+fn right_and_left_sticks_normalize_to_libretro_range_and_right_stick_never_presses_dpad() {
+    use slot::input::evdev::{
+        normalize_axis, AbsRange, Hat, StickMapper, ABS_LSX, ABS_LSY, ABS_RSX, ABS_RSY,
+    };
+    use slot_input::StickAxis;
+
+    // Normalize across H700 +-4096, +-1800, and 0..255 ranges.
+    assert_eq!(normalize_axis(0, AbsRange::default()), 0);
+    assert_eq!(normalize_axis(4096, AbsRange::default()), 32767);
+    assert_eq!(normalize_axis(-4096, AbsRange::default()), -32767);
+    assert_eq!(
+        normalize_axis(
+            1800,
+            AbsRange {
+                min: -1800,
+                max: 1800
+            }
+        ),
+        32767
+    );
+    assert_eq!(normalize_axis(255, AbsRange { min: 0, max: 255 }), 32767);
+    assert_eq!(normalize_axis(127, AbsRange { min: 0, max: 255 }), 0);
+
+    // Hat ignores right stick axes even with steer_with_stick(true).
+    let mut hat = Hat::default();
+    hat.steer_with_stick(true);
+    assert!(hat.feed(abs(ABS_RSX, 4096)).is_empty());
+    assert!(hat.feed(abs(ABS_RSY, -4096)).is_empty());
+
+    // StickMapper emits normalized Left and Right stick events, snaps resting jitter, and dedups.
+    let mut sticks = StickMapper::default();
+    assert_eq!(sticks.feed(abs(ABS_RSX, 100)), None); // within resting jitter deadzone -> 0 (unchanged)
+    assert_eq!(
+        sticks.feed(abs(ABS_RSX, 2048)),
+        Some(RawEvent::Stick(StickAxis::RightX, 16383))
+    );
+    assert_eq!(sticks.feed(abs(ABS_RSX, 2048)), None); // deduped
+    assert_eq!(
+        sticks.feed(abs(ABS_RSX, 0)),
+        Some(RawEvent::Stick(StickAxis::RightX, 0))
+    );
+    assert_eq!(
+        sticks.feed(abs(ABS_RSY, -4096)),
+        Some(RawEvent::Stick(StickAxis::RightY, -32767))
+    );
+    assert_eq!(
+        sticks.feed(abs(ABS_LSX, -2048)),
+        Some(RawEvent::Stick(StickAxis::LeftX, -16383))
+    );
+    assert_eq!(
+        sticks.feed(abs(ABS_LSY, 4096)),
+        Some(RawEvent::Stick(StickAxis::LeftY, 32767))
+    );
+}

@@ -181,6 +181,52 @@ pub(crate) const SPECS: [Spec; Platform::COUNT] = [
         bios: &["bios9.bin", "bios7.bin", "firmware.bin"],
         ..CONSOLE
     },
+    Spec {
+        name: "PokeDaisy",
+        dir: "PokeDaisy",
+        extensions: &["gba"],
+        native: true,
+        picture: (480, 320),
+        header: Header::Gba,
+        cores: &[Core::PokedaisyGba],
+        shaders: &Shader::GBA,
+        shader: Shader::Grid,
+        colour_correction: true,
+        overlays: true,
+        shoulders: true,
+        turbo: false,
+        ..CONSOLE
+    },
+    Spec {
+        name: "PokeDaisy",
+        dir: "PokeDaisy",
+        extensions: &["gb"],
+        native: true,
+        picture: (480, 320),
+        header: Header::Gb,
+        cores: &[Core::PokedaisyGbc],
+        shaders: &Shader::GB,
+        shader: Shader::Simpletex,
+        colour_correction: true,
+        overlays: true,
+        turbo: false,
+        ..CONSOLE
+    },
+    Spec {
+        name: "PokeDaisy",
+        dir: "PokeDaisy",
+        extensions: &["gbc"],
+        native: true,
+        picture: (480, 320),
+        header: Header::Gb,
+        cores: &[Core::PokedaisyGbc],
+        shaders: &Shader::GB,
+        shader: Shader::Simpletex,
+        colour_correction: true,
+        overlays: true,
+        turbo: false,
+        ..CONSOLE
+    },
 ];
 
 #[cfg(test)]

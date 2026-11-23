@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.9.9](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.9)
+
+- Shelf Life, Cart Wear, & Maintenance:
+  - Added Shelf Life (default On under `Settings -> Shelf -> Shelf Life`): unplayed carts with no save display shrink wrap with localized price tags and rip open on insert; untouched carts gather dust (2w / 6w / 3m) and played carts accumulate edge wear (3h / 8h / 25h / 100h).
+  - Holding `B` on the shelf wipes dust and/or wear (configurable via `Hold B Wipes`), and `Clean All Carts` wipes and unwraps every cart after a 5-second `B` hold.
+  - Added per-game play-time tracking (`Saves/play_log.txt`) and `Kid Play Time` daily allowance limits in `Settings -> System -> Kid Mode`, with a 5-minute warning toast and automatic save-and-eject when time expires.
+- Cart Interior Stickers, PCBs Across Systems, & Game Boy Printer:
+  - Upgraded the opened cartridge view (`START` on shelf) to work across all systems (NES, SNES, PS1, Nintendo DS, Game Boy, Game Boy Color, GBA, and PokeDaisy) with custom inside PCBs and disc mirrors.
+  - Stamped opened cart interiors with handwritten stopwatch play-time stickers and gold RetroAchievements progress stickers (`earned / total` or `Mastered`).
+  - Pressing `SELECT` on an opened cart with cached RetroAchievements prints the achievement set through the Game Boy Printer scene and saves printouts under `Screenshots/<system>/<game>/`.
+- PokeDaisy Companion & Nintendo DS Cartridge Upgrade:
+  - Added `Games/PokeDaisy/` support with ARM64 `pokedaisy_gba_libretro.so` and `pokedaisy_gbc_libretro.so` cores sharing one `PokeDaisy` shelf and `Saves/PokeDaisy/` save folder, daisymarks on mixed shelves, and RetroAchievements pausing when `Flight Area = Anywhere`.
+  - Updated Nintendo DS cartridges and slot housing art to the sculpted DS game card design, and passed `Nickname` (`dsperate_nickname`) plus timezone UTC offset (`dsperate_utc_offset`) to DSperate with automatic RTC resync on state load (`retro_unserialize`).
+- Soft-Patching, Save Safety, Audio/Power, & UI Polish:
+  - Added automatic in-memory `.ips`, `.bps`, and `.ups` ROM soft-patching alongside loaded ROMs.
+  - Added rolling `.sav` backups (3 per game, at most hourly) plus stale-resume retirement when a newer battery save exists on the SD card.
+  - Paused the 60 Hz GPU swap loop during `Phase::Doze`, added ALSA write pacing before period writes, hid the in-game `Bezel` row on wide TV outputs, added 1-line Settings help text, the What's New blue dot, and dynamic shelf-name & footer ink keyed to wallpaper luminance.
+
 ## [1.9.8](https://github.com/fragilesilver/slot-fragile/releases/tag/v1.9.8)
 
 - GPU Frame Blending & LCD Screen Effects:
@@ -20,6 +38,7 @@
   - Added `Haptics` pulses on charger connect, low battery alerts, and achievement unlocks.
   - Added hot-plug USB DAC audio routing via `/proc/asound/cards` and clean audio ramp fade-out before shutdown/restart.
   - Added `Reset Game` shortcut and 1-click `Undo Reset` in the in-game Pause menu.
+  - Wired normalized Left and Right analog stick axes (`EV_ABS` via `EVIOCGABS`) end to end into libretro `RETRO_DEVICE_ANALOG` (`index 0` and `index 1`), fixing Nintendo DS `Right Stick` and `Left Stick` stylus cursor control and automatically pausing `Left Stick as D-Pad` during DS `Left Stick` stylus gameplay.
 - Caching & Optional Cloud Integration:
   - Added persistent ROM header cache (`Cache/headers`), offline RetroAchievements patch caching and unlock queue sync (`Config/cheevos_cache`), and optional RomM server browsing/downloading (`Config/romm.txt`).
 

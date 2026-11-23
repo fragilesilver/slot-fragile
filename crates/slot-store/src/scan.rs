@@ -57,13 +57,30 @@ impl From<std::io::Error> for StoreError {
 }
 
 pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
+    scan_of(root, &Platform::ALL)
+}
+
+pub fn scan_platform(root: &Path, platform: Platform) -> Result<Vec<Cart>, StoreError> {
+    scan_of(root, &[platform])
+}
+
+/// Every cart on a platform's shelf, in shelf order (`PdGba | PdGb | PdGbc` share one shelf).
+pub fn scan_shelf(root: &Path, platform: Platform) -> Result<Vec<Cart>, StoreError> {
+    let members: Vec<Platform> = Platform::ALL
+        .into_iter()
+        .filter(|p| p.shelf() == platform.shelf())
+        .collect();
+    scan_of(root, &members)
+}
+
+fn scan_of(root: &Path, platforms: &[Platform]) -> Result<Vec<Cart>, StoreError> {
     let read = |file: &str| std::fs::read_to_string(root.join(file)).unwrap_or_default();
     let shells = crate::cart_shell::layered(
         &read(crate::CART_SHELL_FILE),
         &read(crate::LABELS_SHELL_FILE),
     );
     let mut carts = Vec::new();
-    for platform in Platform::ALL {
+    for platform in platforms.iter().copied() {
         let dir = root.join("Games").join(platform.dir_name());
         let entries = match std::fs::read_dir(&dir) {
             Ok(d) => d,
@@ -75,6 +92,12 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
         };
         let labels_dir = root.join("Labels").join(platform.dir_name());
         let labels_dir_lower = root.join("Labels").join(platform.dir_name().to_lowercase());
+        let hw_labels_dir = root.join("Labels").join(platform.hardware().dir_name());
+        let hw_labels = if platform.is_pokedaisy() {
+            listing(&hw_labels_dir)
+        } else {
+            HashMap::new()
+        };
         let cartart_media_dir = dir.join("media/cartart");
         let carts_media_dir = dir.join("media/carts");
         let cartart_dir = dir.join("cartart");
@@ -94,7 +117,9 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
         let covers_media = listing(&covers_media_dir);
 
         // Fragile: Game Art's label, where the player has none of their own.
-        let scraped_dir = root.join(crate::SCRAPED_LABELS).join(platform.dir_name());
+        let scraped_dir = root
+            .join(crate::SCRAPED_LABELS)
+            .join(platform.hardware().dir_name());
         let scraped = listing(&scraped_dir);
         let make = |rom: PathBuf| {
             let stem = rom.file_stem().and_then(|s| s.to_str())?.to_string();
@@ -109,6 +134,12 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
                         .get(&png)
                         .or_else(|| labels_lower.get(&jpg))
                         .map(|name| labels_dir_lower.join(name))
+                })
+                .or_else(|| {
+                    hw_labels
+                        .get(&png)
+                        .or_else(|| hw_labels.get(&jpg))
+                        .map(|name| hw_labels_dir.join(name))
                 })
                 .or_else(|| {
                     cartart_media
@@ -183,7 +214,16 @@ pub fn scan(root: &Path) -> Result<Vec<Cart>, StoreError> {
         crate::discs::settle(platform, &dir, &mut carts, &make);
     }
     carts.sort_by(|a, b| {
-        (a.platform as u8, sort_key(&a.stem)).cmp(&(b.platform as u8, sort_key(&b.stem)))
+        (
+            a.platform.shelf() as u8,
+            sort_key(&a.stem),
+            a.platform as u8,
+        )
+            .cmp(&(
+                b.platform.shelf() as u8,
+                sort_key(&b.stem),
+                b.platform as u8,
+            ))
     });
     Ok(carts)
 }

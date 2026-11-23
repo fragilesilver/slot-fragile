@@ -6,7 +6,8 @@ use std::thread;
 
 use slot_gfx::TexId;
 use slot_store::Cart;
-use slot_ui::{cart_face_with, cart_interior, shows_interior, CartFace};
+use slot_ui::shelf_life::{film_of, seed_of, Look, Money};
+use slot_ui::{cart_face_with, cart_face_with_look, cart_interior, shows_interior, CartFace};
 
 use crate::app::{App, FaceWant};
 use crate::label_cache::label_art;
@@ -19,9 +20,11 @@ type Key = (usize, usize);
 /// A cart's face and, for a clear GBA cart, the game-coloured inside it is drawn over.
 type Built = (Key, CartFace, Option<CartFace>);
 
+type Job = (Cart, Look);
+
 #[derive(Default)]
 struct Queue {
-    jobs: VecDeque<(Key, Cart)>,
+    jobs: VecDeque<(Key, Job)>,
     closed: bool,
 }
 
@@ -30,9 +33,9 @@ type Shared = Arc<(Mutex<Queue>, Condvar)>;
 pub struct CartFaces {
     queue: Shared,
     built: Receiver<Built>,
-    /// The rom each face being built is for. A shelf restocked meanwhile has another cart
-    /// at that key, and that face must not land on it.
-    pending: HashMap<Key, PathBuf>,
+    /// The rom and shelf-life look each face being built is for. A shelf restocked meanwhile has
+    /// another cart at that key, and that face must not land on it.
+    pending: HashMap<Key, (PathBuf, Look)>,
     asked: Vec<FaceWant>,
     free: Vec<TexId>,
 }
@@ -63,6 +66,16 @@ impl CartFaces {
         self.free.extend(app.shed_faces());
         while let Ok((key, face, interior)) = self.built.try_recv() {
             self.place(app, compositor, key, face, interior);
+        }
+        app.show_tears();
+        if let Some(cart) = app.tear_wants() {
+            let film = film_of(
+                &cart_face_with(cart, None),
+                seed_of(cart),
+                Money::of_cart(cart),
+            );
+            let tex = self.texture(compositor, &film);
+            app.set_tear_film(tex);
         }
         let wants = app.face_wants();
         if wants != self.asked {
@@ -96,18 +109,18 @@ impl CartFaces {
             let Some(cart) = app.face_cart(w.shelf, w.index) else {
                 continue;
             };
-            if self.pending.get(&key) == Some(&cart.rom) {
+            let look = app.face_look(cart);
+            if self.pending.get(&key) == Some(&(cart.rom.clone(), look)) {
                 continue;
             }
-            queue.jobs.push_back((key, cart.clone()));
-            self.pending.insert(key, cart.rom.clone());
+            queue.jobs.push_back((key, (cart.clone(), look)));
+            self.pending.insert(key, (cart.rom.clone(), look));
         }
         wake.notify_all();
     }
 
     /// Fragile: queues the carts Game Art has given a label since their face was built (ported
-    /// from cloudwithax/unslot@6339c18). Nothing waits on these: the old face is drawn until the
-    /// new one is placed over it.
+    /// from cloudwithax/unslot@6339c18), or whose shelf-life look changed.
     fn rebuild(&mut self, app: &mut App) {
         let relabelled = app.take_relabelled();
         if relabelled.is_empty() {
@@ -116,11 +129,11 @@ impl CartFaces {
         let (lock, wake) = &*self.queue;
         let mut queue = lock.lock().unwrap_or_else(|e| e.into_inner());
         for key in relabelled {
-            // Queued, maybe with the cart as it was: build it from the cart as it is.
             queue.jobs.retain(|(k, _)| *k != key);
             if let Some(cart) = app.face_cart(key.0, key.1) {
-                queue.jobs.push_back((key, cart.clone()));
-                self.pending.insert(key, cart.rom.clone());
+                let look = app.face_look(cart);
+                queue.jobs.push_back((key, (cart.clone(), look)));
+                self.pending.insert(key, (cart.rom.clone(), look));
             }
         }
         wake.notify_all();
@@ -147,7 +160,9 @@ impl CartFaces {
         // Ported from nickclyde/slot-plus@02c5890, crates/slot/src/cart_faces.rs.
         let asked_for = self.pending.remove(&key);
         self.asked.retain(|w| (w.shelf, w.index) != key);
-        if asked_for.is_some_and(|rom| app.face_cart(key.0, key.1).map(|c| &c.rom) != Some(&rom)) {
+        if asked_for
+            .is_some_and(|(rom, _)| app.face_cart(key.0, key.1).map(|c| &c.rom) != Some(&rom))
+        {
             return;
         }
         let tex = self.texture(compositor, &face);
@@ -170,7 +185,7 @@ impl Drop for CartFaces {
 fn work(queue: &Shared, outbox: &Sender<Built>, root: &Path) {
     let (lock, wake) = &**queue;
     loop {
-        let (key, cart) = {
+        let (key, (cart, mut look)) = {
             let mut q = lock.lock().unwrap_or_else(|e| e.into_inner());
             loop {
                 if q.closed {
@@ -182,7 +197,10 @@ fn work(queue: &Shared, outbox: &Sender<Built>, root: &Path) {
                 q = wake.wait(q).unwrap_or_else(|e| e.into_inner());
             }
         };
-        let face = cart_face_with(&cart, label_art(root, &cart));
+        if look.wrap && crate::persist::has_save(root, cart.platform, &cart.stem) {
+            look.wrap = false;
+        }
+        let face = cart_face_with_look(&cart, label_art(root, &cart), &look);
         let interior = shows_interior(&cart).then(|| cart_interior(&cart));
         if outbox.send((key, face, interior)).is_err() {
             return;
@@ -275,7 +293,7 @@ mod tests {
         let jobs = &faces.queue.0.lock().unwrap().jobs;
         assert_eq!(
             jobs.iter()
-                .map(|(_, c)| c.stem.as_str())
+                .map(|(_, c)| c.0.stem.as_str())
                 .collect::<Vec<_>>(),
             ["Beta"],
             "Beta's face was never asked for"

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use slot_input::{Btn, RawEvent};
+use slot_input::{Btn, RawEvent, StickAxis};
 
 pub const EVENT_BYTES: usize = 24;
 
@@ -14,8 +14,80 @@ pub const ABS_HAT0X: u16 = 0x10;
 pub const ABS_HAT0Y: u16 = 0x11;
 pub const ABS_LSX: u16 = 0x02;
 pub const ABS_LSY: u16 = 0x03;
+pub const ABS_RSX: u16 = 0x04;
+pub const ABS_RSY: u16 = 0x05;
 
 pub const STICK_DEADZONE: i32 = 2048;
+/// Resting center deadzone after normalization to `-32767..=32767` (~5%), suppressing idle
+/// ADC jitter so cores with auto-hiding reticles stay quiet when sticks are untouched.
+pub const STICK_NOISE_DEADZONE: i16 = 1600;
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct AbsRange {
+    pub min: i32,
+    pub max: i32,
+}
+
+impl Default for AbsRange {
+    fn default() -> Self {
+        AbsRange {
+            min: -4096,
+            max: 4096,
+        }
+    }
+}
+
+/// Scales a raw `EV_ABS` reading from `[range.min, range.max]` onto libretro's `-32767..=32767`.
+pub fn normalize_axis(value: i32, range: AbsRange) -> i16 {
+    if range.max <= range.min {
+        return 0;
+    }
+    let mid = (i64::from(range.min) + i64::from(range.max)) / 2;
+    let half = ((i64::from(range.max) - i64::from(range.min)) / 2).max(1);
+    let scaled = ((i64::from(value) - mid) * 32767) / half;
+    scaled.clamp(-32767, 32767) as i16
+}
+
+/// Maps raw `EV_ABS` stick readings (`ABS_LSX/LSY/RSX/RSY`) into normalized `RawEvent::Stick`
+/// updates without interfering with `Hat`'s digital D-Pad emulation.
+#[derive(Default)]
+pub struct StickMapper {
+    ranges: [AbsRange; 4],
+    last: [i16; 4],
+}
+
+impl StickMapper {
+    fn slot(code: u16) -> Option<(usize, StickAxis)> {
+        match code {
+            ABS_LSX => Some((0, StickAxis::LeftX)),
+            ABS_LSY => Some((1, StickAxis::LeftY)),
+            ABS_RSX => Some((2, StickAxis::RightX)),
+            ABS_RSY => Some((3, StickAxis::RightY)),
+            _ => None,
+        }
+    }
+
+    pub fn set_range(&mut self, code: u16, range: AbsRange) {
+        if let Some((i, _)) = Self::slot(code) {
+            if range.max > range.min {
+                self.ranges[i] = range;
+            }
+        }
+    }
+
+    pub fn feed(&mut self, ev: Ev) -> Option<RawEvent> {
+        let (i, axis) = Self::slot(ev.code)?;
+        let mut norm = normalize_axis(ev.value, self.ranges[i]);
+        if norm.abs() < STICK_NOISE_DEADZONE {
+            norm = 0;
+        }
+        if norm == self.last[i] {
+            return None;
+        }
+        self.last[i] = norm;
+        Some(RawEvent::Stick(axis, norm))
+    }
+}
 
 const LEFT_STICK_TARGETS: [&str; 6] = [
     "rg34xxsp",

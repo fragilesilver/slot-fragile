@@ -7,18 +7,18 @@ use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
 use slot_store::{
-    format_stamp, parse_stamp, read_slot_state, scan, write_slot_state, BezelPick, Cart, Core,
-    GbPalette, Platform, Recent, Shader, ShotDir, ShotEntry, SlotState, StateEntry, StateRing,
-    WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, CONTRAST_MAX, FF_SPEEDS,
-    RING_MAX, SATURATION_MAX, SUNLIGHT_MAX, VOLUME_MAX,
+    format_stamp, parse_stamp, read_play_log, read_slot_state, scan, write_play_log,
+    write_slot_state, BezelPick, Cart, Core, GbPalette, Platform, PlayLog, Recent, Shader, ShotDir,
+    ShotEntry, SlotState, StateEntry, StateRing, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX,
+    BRIGHTNESS_MAX, CONTRAST_MAX, FF_SPEEDS, RING_MAX, SATURATION_MAX, SUNLIGHT_MAX, VOLUME_MAX,
 };
 use slot_ui::{
-    board_from, board_zoom, draw_empty_slot, draw_footer_as, draw_ground, draw_slot_name, ease,
-    footer_ink, grown, lid_at, lid_from, lift_of, on_board, repeat_gap, shelf_cart_at, ClockPicker,
-    Draw, FfState, GbShell, Guide, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids,
-    PowerChoice, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, ShotMode,
-    ShotViewer, SlotChrome, TexId, Toast, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE,
-    HOP_LIFT, MOUTH_H, REPEAT_DELAY_MS, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W,
+    board_from, board_from_shaped, draw_empty_slot, draw_footer_as, draw_ground, draw_slot_name,
+    ease, footer_ink, gb_shell_of, grown, lid_at, lid_from, lid_from_shaped, lift_of, repeat_gap,
+    seats, shelf_cart_at, shelf_cart_shaped, shows_board_alone, ClockPicker, Draw, FfState,
+    GbShell, Guide, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice,
+    QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, ShotMode, ShotViewer,
+    SlotChrome, TexId, Toast, HINT_EDGE, HOP_LIFT, MOUTH_H, REPEAT_DELAY_MS, SHADOW_H, SHADOW_W,
     TURN_PAD,
 };
 
@@ -106,6 +106,25 @@ pub const UNDO_GRACE_MS: Millis = 30_000;
 pub const LINK_LOST_MS: Millis = 2000;
 
 const PLAY_HOLD_MS: Millis = 500;
+const WIPE_HOLD_MS: Millis = 500;
+const WIPE_SHINE_MS: Millis = 380;
+const TEAR_MS: Millis = 480;
+const TEAR_STRIPS: usize = 20;
+const CLEAN_ALL_HOLD_MS: Millis = 5_000;
+const CLEAN_ALL_TAP_MS: Millis = 250;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Wipe {
+    Holding(Millis),
+    Shining(Millis),
+}
+
+struct Tear {
+    at: Millis,
+    clean: bool,
+    cart: Cart,
+    film: Option<TexId>,
+}
 
 const SHUTDOWN_SHOW_MS: Millis = 250;
 
@@ -365,6 +384,26 @@ pub struct App {
     shelves: Vec<(Rack, Shelf)>,
     shelf_at: usize,
     orphaned: Vec<TexId>,
+    play_log: PlayLog,
+    play_log_dirty: bool,
+    play_frac: f32,
+    wipe: Option<Wipe>,
+    tear: Option<Tear>,
+    shows_tears: bool,
+    kid_frac: f32,
+    kid_warned: bool,
+    clean_all: Option<Option<Millis>>,
+    clean_all_faces: Vec<(TexId, u32, u32)>,
+    print_cues: Vec<crate::print_scene::Cue>,
+    set_print: Option<crate::set_print::SetPrint>,
+    core_has_set: bool,
+    core_gb_socket_faces: Vec<TexId>,
+    core_gb_chip_faces: Vec<TexId>,
+    core_gb_blank_chip_face: Option<TexId>,
+    core_print_legend_face: Option<(TexId, u32)>,
+    wallpaper_light: bool,
+    bespoke_slots: HashMap<Platform, [(TexId, TexId); 2]>,
+    printer_face: Option<TexId>,
     play_held: Option<Millis>,
     held_dir: Option<(Btn, Millis, usize)>,
     refusal: Option<Refusal>,
@@ -568,20 +607,34 @@ pub fn tell_libc_the_posix(tz: &str) {
 fn shelves_of(carts: Vec<Cart>) -> Vec<(Rack, Shelf)> {
     let mut rows: Vec<(Rack, Vec<Cart>)> = [Rack::Recents, Rack::Favorites]
         .into_iter()
-        .chain(Platform::ALL.iter().map(|p| Rack::Of(*p)))
+        .chain(
+            Platform::ALL
+                .iter()
+                .filter(|p| p.shelf() == **p)
+                .map(|p| Rack::Of(*p)),
+        )
         .map(|r| (r, Vec::new()))
         .collect();
     for cart in carts {
-        if let Some((_, row)) = rows.iter_mut().find(|(r, _)| *r == Rack::Of(cart.platform)) {
+        if let Some((_, row)) = rows
+            .iter_mut()
+            .find(|(r, _)| *r == Rack::Of(cart.platform.shelf()))
+        {
             row.push(cart);
         }
     }
     rows.into_iter()
-        .map(|(rack, carts)| (rack, Shelf::new(carts)))
+        .map(|(rack, carts)| {
+            let mut shelf = Shelf::new(carts);
+            if !matches!(rack, Rack::Of(_)) {
+                shelf.mark_daisies(true);
+            }
+            (rack, shelf)
+        })
         .collect()
 }
 
-fn shift_down(draws: &mut [Draw], dy: f32) {
+pub fn shift_down(draws: &mut [Draw], dy: f32) {
     if dy == 0.0 {
         return;
     }
@@ -591,6 +644,12 @@ fn shift_down(draws: &mut [Draw], dy: f32) {
             | Draw::Tex { y, .. }
             | Draw::Part { y, .. }
             | Draw::Turned { y, .. } => *y += dy,
+            Draw::Quad { corners, .. } => {
+                for corner in corners {
+                    corner[1] += dy;
+                }
+            }
+            Draw::Paper { pivot, .. } => pivot[1] += dy,
             Draw::Game | Draw::Shot { .. } | Draw::Capture => {}
         }
     }
@@ -633,6 +692,26 @@ impl App {
             shelves,
             shelf_at,
             orphaned: Vec::new(),
+            play_log: PlayLog::default(),
+            play_log_dirty: false,
+            play_frac: 0.0,
+            wipe: None,
+            tear: None,
+            shows_tears: false,
+            kid_frac: 0.0,
+            kid_warned: false,
+            clean_all: None,
+            clean_all_faces: Vec::new(),
+            print_cues: Vec::new(),
+            set_print: None,
+            core_has_set: false,
+            core_gb_socket_faces: Vec::new(),
+            core_gb_chip_faces: Vec::new(),
+            core_gb_blank_chip_face: None,
+            core_print_legend_face: None,
+            wallpaper_light: false,
+            bespoke_slots: HashMap::new(),
+            printer_face: None,
             play_held: None,
             held_dir: None,
             refusal: None,
@@ -810,6 +889,16 @@ impl App {
         app.start_ota(root);
         app.start_game_art(root);
         app.load_profiles(root);
+        app.play_log = read_play_log(root);
+        let now_secs = app.unix_now();
+        let games: Vec<(Platform, String)> =
+            app.carts().map(|c| (c.platform, c.stem.clone())).collect();
+        if app
+            .play_log
+            .see(games.iter().map(|(p, s)| (*p, s.as_str())), now_secs)
+        {
+            app.save_play_log();
+        }
         app.restock_recents();
         app.restock_favorites();
         shelves::stock(&mut app, root);
@@ -1152,6 +1241,7 @@ impl App {
 
     pub fn in_game_hidden(&self) -> Vec<QuickRow> {
         let no_bezel = !self.playing_platform().spec().overlays
+            || self.table_panel()
             || (!self.playing_platform().spec().bezels
                 && !self.framed_panel()
                 && self.bezel_files(self.playing_platform()).is_empty());
@@ -1389,6 +1479,12 @@ impl App {
                 KidMode::OneShelf => QuickValue::OneShelf,
                 KidMode::Shelves => QuickValue::Shelves,
             }),
+            QuickRow::KidAllowance => Some(QuickValue::allowance(self.state.kid_allowance)),
+            QuickRow::ShelfLife | QuickRow::CleanAllCarts => None,
+            QuickRow::ShrinkWrap => Some(QuickValue::flag(self.state.shrink_wrap)),
+            QuickRow::Dust => Some(QuickValue::flag(self.state.dust)),
+            QuickRow::Wear => Some(QuickValue::flag(self.state.wear)),
+            QuickRow::CleanResets => Some(QuickValue::clean_resets(self.state.clean_resets)),
             QuickRow::Turbo => Some(QuickValue::flag(self.state.turbo)),
             QuickRow::Rewind => Some(QuickValue::flag(self.state.rewind)),
             QuickRow::Recents => Some(if self.state.show_recents {
@@ -1986,6 +2082,58 @@ impl App {
         self.slot_faces = Some((back, front));
     }
 
+    pub fn set_bespoke_slots(
+        &mut self,
+        platform: Platform,
+        dark: (TexId, TexId),
+        light: (TexId, TexId),
+    ) {
+        self.bespoke_slots.insert(platform, [dark, light]);
+    }
+
+    pub fn set_printer_face(&mut self, face: TexId) {
+        self.printer_face = Some(face);
+    }
+
+    pub fn set_daisy_face(&mut self, tex: TexId, w: u32, h: u32) {
+        for (_, shelf) in &mut self.shelves {
+            shelf.set_daisy(tex, w, h);
+        }
+    }
+
+    pub fn set_wallpaper_light(&mut self, light: bool) {
+        self.wallpaper_light = light;
+    }
+
+    /// Light ink on the shelf name when the background under it is light (dynamic ink).
+    pub fn shelf_name_light(&self) -> bool {
+        if self.own_wallpaper_shown() {
+            self.wallpaper_light
+        } else {
+            self.light()
+        }
+    }
+
+    fn slot_faces_for_shelf(&self) -> Option<(TexId, TexId)> {
+        let shelf_plat = self
+            .shelves
+            .get(self.shelf_at)
+            .and_then(|(r, _)| r.platform());
+        let cart_plat = self.selected_cart().map(|c| c.platform.shelf());
+        let target = shelf_plat.or(cart_plat);
+        if let Some(p) = target {
+            if let Some(pair) = self.bespoke_slots.get(&p) {
+                return Some(pair[usize::from(self.light())]);
+            }
+        }
+        self.slot_faces
+    }
+
+    fn selected_cart(&self) -> Option<&Cart> {
+        let shelf = self.shelf();
+        shelf.carts.get(shelf.index)
+    }
+
     pub fn set_shelf_platform_face(&mut self, face: TexId, w: u32) {
         self.shelf_platform = slot_ui::Printed::new(face, w);
     }
@@ -2277,6 +2425,7 @@ impl App {
                     return self.bind(c.row, Binding::plain(first));
                 }
             }
+            RawEvent::Stick(..) => {}
         }
         self.capture = Some(c);
     }
@@ -2726,12 +2875,25 @@ impl App {
         self.left_stick = present;
     }
 
+    pub fn has_left_stick(&self) -> bool {
+        self.left_stick
+    }
+
     pub fn set_lid(&mut self, present: bool) {
         self.lid = present;
     }
 
     pub fn left_stick_dpad(&self) -> bool {
         self.left_stick && self.state.left_stick_dpad
+    }
+
+    /// True while playing an NDS game whose stylus is driven by the Left Analog stick directly,
+    /// so `Left Stick as D-Pad` temporarily pauses to avoid sending simultaneous D-Pad presses.
+    pub fn left_stick_is_stylus(&self) -> bool {
+        self.playing()
+            && self.playing_platform() == Platform::Nds
+            && self.in_game_menu().is_none()
+            && self.nds_stylus_core_value() == "Left Analog"
     }
 
     pub fn ff_speed(&self) -> u8 {
@@ -2771,6 +2933,7 @@ impl App {
     pub fn status_ink(&self) -> [u8; 3] {
         match self.phase {
             Phase::Playing { .. } | Phase::Polaroids { .. } => footer_ink(false),
+            Phase::Shelf => footer_ink(self.shelf_name_light()),
             _ => footer_ink(self.light()),
         }
     }
@@ -2962,6 +3125,9 @@ impl App {
 
     pub fn poweroff(&mut self) {
         self.settle_saves();
+        if self.play_log_dirty {
+            self.save_play_log();
+        }
         if let Some(root) = &self.root {
             if header_index::dirty() {
                 let _ = header_index::save(root);
@@ -3074,6 +3240,12 @@ impl App {
             }
             return;
         }
+        if self.clean_all.is_some() {
+            return self.clean_all_input(action);
+        }
+        if self.set_print.is_some() {
+            return self.set_print_input(action);
+        }
         if self.delete_prompt {
             match action {
                 Action::GbaDown(Btn::X) => {
@@ -3142,13 +3314,48 @@ impl App {
                     }
                 }
                 Action::QuickMenu if self.state.kid_mode == KidMode::Off => self.open_quick_menu(),
-                Action::GbaDown(Btn::A) => self.play_held = Some(now),
-                Action::GbaUp(Btn::A) => {
-                    if self.play_held.take().is_some() {
-                        self.insert(!self.state.auto_load.on_insert());
+                Action::GbaDown(Btn::B)
+                    if self.core_picker.is_none()
+                        && self.can_wipe()
+                        && matches!(self.wipe, None | Some(Wipe::Shining(_))) =>
+                {
+                    if self
+                        .selected_cart()
+                        .is_some_and(|c| self.face_look(c).cleanable())
+                    {
+                        self.wipe = Some(Wipe::Holding(now));
                     }
                 }
-                Action::Insert => self.insert(!self.state.auto_load.on_insert()),
+                Action::GbaUp(Btn::B) => {
+                    if matches!(self.wipe, Some(Wipe::Holding(_))) {
+                        self.wipe = None;
+                    }
+                }
+                Action::GbaDown(Btn::A) => {
+                    if !self.tearing() {
+                        self.play_held = Some(now);
+                    }
+                }
+                Action::GbaUp(Btn::A) => {
+                    if self.play_held.take().is_some() {
+                        let clean = !self.state.auto_load.on_insert();
+                        if self.kid_time_up() {
+                            self.hud.toast(Toast::KidTimeUp, now);
+                            self.refuse();
+                        } else if !self.start_tear(clean) {
+                            self.insert(clean);
+                        }
+                    }
+                }
+                Action::Insert => {
+                    let clean = !self.state.auto_load.on_insert();
+                    if self.kid_time_up() {
+                        self.hud.toast(Toast::KidTimeUp, now);
+                        self.refuse();
+                    } else if !self.start_tear(clean) {
+                        self.insert(clean);
+                    }
+                }
                 _ => {}
             },
             Phase::Inserting { .. } if action == Action::Eject => self.eject(),
@@ -3365,12 +3572,14 @@ impl App {
             | QuickRow::PlayNetwork
             | QuickRow::Controls
             | QuickRow::ControlsShelf
-            | QuickRow::ControlsInGame => {
+            | QuickRow::ControlsInGame
+            | QuickRow::ShelfLife => {
                 if let Some(row) = row.child() {
                     let row = row.shown(&self.hidden_rows())[0];
                     self.phase = Phase::QuickMenu { row };
                 }
             }
+            QuickRow::CleanAllCarts => self.clean_all = Some(None),
             QuickRow::Brightness
             | QuickRow::BlueLight
             | QuickRow::Saturation
@@ -3554,6 +3763,11 @@ impl App {
             | QuickRow::ResumeOnInsert
             | QuickRow::ResumeOnPowerOn
             | QuickRow::KidMode
+            | QuickRow::KidAllowance
+            | QuickRow::ShrinkWrap
+            | QuickRow::Dust
+            | QuickRow::Wear
+            | QuickRow::CleanResets
             | QuickRow::RommBrowse
             | QuickRow::WebDashboard => {}
         }
@@ -3709,6 +3923,32 @@ impl App {
                     AutoLoad::from_split(s.auto_load.on_insert(), !s.auto_load.at_power_on());
             }
             QuickRow::KidMode => s.kid_mode = s.kid_mode.step(right),
+            QuickRow::KidAllowance => {
+                const ALLOWANCE_MINS: [u16; 7] = [0, 15, 30, 45, 60, 90, 120];
+                let now = ALLOWANCE_MINS
+                    .iter()
+                    .position(|&m| m == s.kid_allowance)
+                    .unwrap_or(0);
+                let to = match right {
+                    true => (now + 1) % ALLOWANCE_MINS.len(),
+                    false => (now + ALLOWANCE_MINS.len() - 1) % ALLOWANCE_MINS.len(),
+                };
+                s.kid_allowance = ALLOWANCE_MINS[to];
+            }
+            QuickRow::ShrinkWrap => {
+                s.shrink_wrap = !s.shrink_wrap;
+                self.reface_all();
+            }
+            QuickRow::Dust => {
+                s.dust = !s.dust;
+                self.reface_all();
+            }
+            QuickRow::Wear => {
+                s.wear = !s.wear;
+                self.reface_all();
+            }
+            QuickRow::CleanResets => s.clean_resets = s.clean_resets.step(right),
+            QuickRow::ShelfLife | QuickRow::CleanAllCarts => return,
             QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
             QuickRow::GbPalettes => s.gb_palettes = !s.gb_palettes,
@@ -3972,9 +4212,13 @@ impl App {
                 Platform::Gb => QuickRow::GbColourCorrection,
                 Platform::Gbc => QuickRow::GbcColourCorrection,
                 // Fragile: these have no colour correction to turn.
-                Platform::Nes | Platform::Snes | Platform::PlayStation | Platform::Nds => {
-                    return true
-                }
+                Platform::Nes
+                | Platform::Snes
+                | Platform::PlayStation
+                | Platform::Nds
+                | Platform::PdGba
+                | Platform::PdGb
+                | Platform::PdGbc => return true,
             };
             self.change_setting(row, true);
             let said = match self.colour_correction() {
@@ -4245,6 +4489,10 @@ impl App {
         self.network_tick();
         self.bluetooth_tick();
         self.game_art_tick();
+        self.step_set_print();
+        self.clean_all_tick();
+        self.tear_step();
+        self.wipe_hold();
         if self.name_pending && self.shelf_platform.face.is_some() {
             self.name_pending = false;
             self.shelf_named = Some(self.now());
@@ -4488,6 +4736,11 @@ impl App {
 
     fn framed_panel(&self) -> bool {
         slot_gfx::framed(self.panel)
+    }
+
+    fn table_panel(&self) -> bool {
+        let c = self.canvas();
+        (c.w as u32, c.h as u32) != (OUT_W, OUT_H) && !self.framed_panel()
     }
 
     fn draw_powering(&self, out: &mut Vec<Draw>) {
@@ -4752,10 +5005,10 @@ impl App {
     }
 
     pub(super) fn restock_scanned(&mut self, carts: Vec<Cart>) {
-        for platform in Platform::ALL {
+        for platform in Platform::ALL.into_iter().filter(|p| p.shelf() == *p) {
             let group: Vec<Cart> = carts
                 .iter()
-                .filter(|c| c.platform == platform)
+                .filter(|c| c.platform.shelf() == platform)
                 .cloned()
                 .collect();
             if let Some(at) = self
@@ -4979,6 +5232,9 @@ impl App {
         if let Some(row) = self.reset_prompt {
             return self.draw_prompt(&self.reset_prompt_faces(row), out);
         }
+        if self.clean_all_prompt() {
+            return self.draw_clean_all(out);
+        }
         if self.delete_prompt {
             return match self.shot_viewer {
                 Some(_) => {
@@ -5095,6 +5351,13 @@ impl App {
                 );
             }
             Phase::Shelf => {
+                if let Some(print) = &self.set_print {
+                    if let Some((frame, tex)) = print.frame(self.now()) {
+                        crate::print_scene::print_draws(&frame, &tex, self.canvas(), out);
+                        return;
+                    }
+                }
+                let slot_faces = self.slot_faces_for_shelf();
                 self.draw_background(out);
                 match (self.core_picker_shown(), self.selected_stem()) {
                     (Some(picker), Some(stem)) => {
@@ -5108,11 +5371,13 @@ impl App {
                             dim,
                             out,
                         );
-                        draw_empty_slot(self.canvas(), self.slot_faces, out);
+                        draw_empty_slot(self.canvas(), slot_faces, out);
                     }
                     _ => {
                         self.shelf()
-                            .draw(self.canvas(), self.shelf_shake(), self.slot_faces, out);
+                            .draw(self.canvas(), self.shelf_shake(), slot_faces, out);
+                        self.draw_wipe(out);
+                        self.draw_tear(out);
                         draw_slot_name(
                             self.canvas(),
                             self.shelf_platform,
@@ -5617,6 +5882,24 @@ impl App {
         self.core_chip_shadow_face = Some(shadow);
     }
 
+    pub fn set_core_gb_part_faces(&mut self, sockets: Vec<TexId>, chips: Vec<TexId>, blank: TexId) {
+        self.core_gb_socket_faces = sockets;
+        self.core_gb_chip_faces = chips;
+        self.core_gb_blank_chip_face = Some(blank);
+    }
+
+    pub fn set_core_has_set(&mut self, has: bool) {
+        self.core_has_set = has;
+    }
+
+    pub fn set_core_print_legend_face(&mut self, face: (TexId, u32)) {
+        self.core_print_legend_face = Some(face);
+    }
+
+    pub fn set_clean_all_faces(&mut self, faces: Vec<(TexId, u32, u32)>) {
+        self.clean_all_faces = faces;
+    }
+
     pub fn set_core_legend_faces(&mut self, faces: Vec<(TexId, u32)>) {
         self.core_legend_faces = faces;
     }
@@ -5667,10 +5950,22 @@ impl App {
         let now = self.now();
         let progress = picker.openness(now);
         let lift = lift_of(progress);
+        let cart = self.selected_cart();
+        let platform = cart.map_or(Platform::Gba, |c| c.platform);
+        let gb_shell = cart.and_then(gb_shell_of);
+        let shaped = platform != Platform::Gba;
+        let size = slot_ui::cart_box(platform);
         let (rest, scale) = self.shelf().selected_at(self.canvas());
-        let shelf = shelf_cart_at(rest, scale);
-        let board = board_from(self.canvas(), shelf, progress);
-        let zoom = board_zoom(board);
+        let shelf = match shaped {
+            true => shelf_cart_shaped(self.canvas(), gb_shell, size, rest, scale),
+            false => shelf_cart_at(rest, scale),
+        };
+        let board = match shaped {
+            true => board_from_shaped(self.canvas(), gb_shell, size, shelf, progress),
+            false => board_from(self.canvas(), shelf, progress),
+        };
+        let s = seats(gb_shell);
+        let zoom = s.zoom(board);
         let ready = self.core_faces_ready();
 
         if ready {
@@ -5694,65 +5989,85 @@ impl App {
                     alpha: 1.0,
                 });
             }
-            let sockets = picker
-                .choices()
-                .map(|c| self.core_socket_faces.get(c.index()).copied());
-            for (i, tex) in sockets.into_iter().enumerate() {
-                let Some(tex) = tex else { continue };
-                let (x, y) = on_board(board, SOCKET_U[i], SOCKET_V);
-                out.push(Draw::Tex {
-                    x: x.round(),
-                    y: y.round(),
-                    w: SOCKET_W as f32 * zoom,
-                    h: SOCKET_H as f32 * zoom,
-                    tex,
-                    alpha: 1.0,
-                });
-            }
-
-            let chip = picker.chip(now);
-            let u = CHIP_U[0] + (CHIP_U[1] - CHIP_U[0]) * chip.across;
-            if chip.lift > 0.0 {
-                if let Some(tex) = self.core_chip_shadow_face {
-                    let (cx, cy) = on_board(board, u + 19.0, CHIP_V + 29.4);
-                    let (w, h) = (SHADOW_W as f32 * zoom, SHADOW_H as f32 * zoom);
+            if !picker.alone() {
+                let socket_list = if gb_shell.is_some() {
+                    &self.core_gb_socket_faces
+                } else {
+                    &self.core_socket_faces
+                };
+                let sockets = picker
+                    .choices()
+                    .map(|c| socket_list.get(c.index()).copied());
+                for (i, tex) in sockets.into_iter().enumerate() {
+                    let Some(tex) = tex else { continue };
+                    let (x, y) = s.at(board, s.socket_u[i], s.socket_v);
                     out.push(Draw::Tex {
-                        x: cx - w / 2.0,
-                        y: cy - h / 2.0,
-                        w,
-                        h,
+                        x: x.round(),
+                        y: y.round(),
+                        w: s.socket_size.0 * zoom,
+                        h: s.socket_size.1 * zoom,
                         tex,
-                        alpha: 0.6 * chip.lift * lift,
+                        alpha: 1.0,
+                    });
+                }
+
+                let chip = picker.chip(now);
+                let u = s.chip_u[0] + (s.chip_u[1] - s.chip_u[0]) * chip.across;
+                if chip.lift > 0.0 {
+                    if let Some(tex) = self.core_chip_shadow_face {
+                        let (cx, cy) = s.at(board, u + s.shadow_uv.0, s.chip_v + s.shadow_uv.1);
+                        let (w, h) = (SHADOW_W as f32 * zoom, SHADOW_H as f32 * zoom);
+                        out.push(Draw::Tex {
+                            x: cx - w / 2.0,
+                            y: cy - h / 2.0,
+                            w,
+                            h,
+                            tex,
+                            alpha: 0.6 * chip.lift * lift,
+                        });
+                    }
+                }
+                let chip_list = if gb_shell.is_some() {
+                    &self.core_gb_chip_faces
+                } else {
+                    &self.core_chip_faces
+                };
+                let blank_chip = if gb_shell.is_some() {
+                    self.core_gb_blank_chip_face
+                } else {
+                    self.core_blank_chip_face
+                };
+                let face = match chip.seated {
+                    Some(core) => chip_list.get(core.index()).copied(),
+                    None => blank_chip,
+                };
+                if let Some(tex) = face {
+                    let (x, y) = s.at(board, u, s.chip_v - HOP_LIFT * chip.lift);
+                    let body = Placed {
+                        x: x + chip.shake,
+                        y,
+                        w: s.chip_size.0 * zoom,
+                        h: s.chip_size.1 * zoom,
+                    };
+                    let at = grown(body, TURN_PAD as f32 * zoom);
+                    out.push(Draw::Turned {
+                        x: at.x.round(),
+                        y: at.y.round(),
+                        w: at.w,
+                        h: at.h,
+                        tex,
+                        alpha: 1.0,
+                        turn: chip.tip,
                     });
                 }
             }
-            let face = match chip.seated {
-                Some(core) => self.core_chip_faces.get(core.index()).copied(),
-                None => self.core_blank_chip_face,
-            };
-            if let Some(tex) = face {
-                let (x, y) = on_board(board, u, CHIP_V - HOP_LIFT * chip.lift);
-                let body = Placed {
-                    x: x + chip.shake,
-                    y,
-                    w: CHIP_W as f32 * zoom,
-                    h: CHIP_H as f32 * zoom,
-                };
-                let at = grown(body, TURN_PAD as f32 * zoom);
-                out.push(Draw::Turned {
-                    x: at.x.round(),
-                    y: at.y.round(),
-                    w: at.w,
-                    h: at.h,
-                    tex,
-                    alpha: 1.0,
-                    turn: chip.tip,
-                });
-            }
         }
 
+        let (lid, turn) = match shaped {
+            true => lid_from_shaped(self.canvas(), gb_shell, size, shelf, progress),
+            false => lid_from(self.canvas(), shelf, progress),
+        };
         if let Some(tex) = self.core_chip_shadow_face {
-            let (lid, _) = lid_from(self.canvas(), shelf, progress);
             let k = lid.w / lid_at(self.canvas(), 1.0).0.w;
             let (w, h) = (LID_SHADOW_W * k, LID_SHADOW_H * k);
             out.push(Draw::Tex {
@@ -5767,8 +6082,8 @@ impl App {
 
         if ready {
             if let Some(tex) = self.core_lid_face {
-                let (lid, turn) = lid_from(self.canvas(), shelf, progress);
-                let at = grown(lid, TURN_PAD as f32 * lid.w / CART_W as f32);
+                let cart_w = slot_ui::cart_box(platform).0 as f32;
+                let at = grown(lid, TURN_PAD as f32 * lid.w / cart_w.max(1.0));
                 out.push(Draw::Turned {
                     x: at.x,
                     y: at.y,
@@ -5783,7 +6098,6 @@ impl App {
             .selected_stem()
             .and_then(|stem| self.shelf().find(stem))
         {
-            let (lid, turn) = lid_from(self.canvas(), shelf, progress);
             out.push(Draw::Turned {
                 x: lid.x,
                 y: lid.y,
@@ -5795,26 +6109,63 @@ impl App {
             });
         }
 
-        if let [cancel, swap, choose] = self.core_legend_faces.as_slice() {
-            let seen = |w: u32| w.saturating_sub(HINT_EDGE) as f32;
-            let swap_x = self.canvas().centred(seen(swap.1));
-            for (tex, w, x) in [
-                (
-                    cancel.0,
-                    cancel.1,
-                    swap_x - CORE_LEGEND_GAP - seen(cancel.1),
-                ),
-                (swap.0, swap.1, swap_x),
-                (choose.0, choose.1, swap_x + seen(swap.1) + CORE_LEGEND_GAP),
-            ] {
-                out.push(Draw::Tex {
-                    x: x.round(),
-                    y: CORE_LEGEND_Y,
-                    w: w as f32,
-                    h: MOUTH_H,
-                    tex,
-                    alpha: lift,
-                });
+        let print = self.core_print_legend_face.filter(|_| self.can_print_set());
+        let seen = |w: u32| w.saturating_sub(HINT_EDGE) as f32;
+        if picker.alone() {
+            if let Some(&cancel) = self.core_legend_faces.first() {
+                let items: Vec<(TexId, u32)> = std::iter::once(cancel).chain(print).collect();
+                let total: f32 = items.iter().map(|i| seen(i.1)).sum::<f32>()
+                    + CORE_LEGEND_GAP * items.len().saturating_sub(1) as f32;
+                let mut x = self.canvas().centred(total);
+                for (tex, w) in items {
+                    out.push(Draw::Tex {
+                        x: x.round(),
+                        y: CORE_LEGEND_Y,
+                        w: w as f32,
+                        h: MOUTH_H,
+                        tex,
+                        alpha: lift,
+                    });
+                    x += seen(w) + CORE_LEGEND_GAP;
+                }
+            }
+        } else if let [cancel, swap, choose] = self.core_legend_faces.as_slice() {
+            if let Some(p) = print {
+                let items = [*cancel, *swap, *choose, p];
+                let total: f32 = items.iter().map(|i| seen(i.1)).sum::<f32>()
+                    + CORE_LEGEND_GAP * (items.len() - 1) as f32;
+                let mut x = self.canvas().centred(total);
+                for (tex, w) in items {
+                    out.push(Draw::Tex {
+                        x: x.round(),
+                        y: CORE_LEGEND_Y,
+                        w: w as f32,
+                        h: MOUTH_H,
+                        tex,
+                        alpha: lift,
+                    });
+                    x += seen(w) + CORE_LEGEND_GAP;
+                }
+            } else {
+                let swap_x = self.canvas().centred(seen(swap.1));
+                for (tex, w, x) in [
+                    (
+                        cancel.0,
+                        cancel.1,
+                        swap_x - CORE_LEGEND_GAP - seen(cancel.1),
+                    ),
+                    (swap.0, swap.1, swap_x),
+                    (choose.0, choose.1, swap_x + seen(swap.1) + CORE_LEGEND_GAP),
+                ] {
+                    out.push(Draw::Tex {
+                        x: x.round(),
+                        y: CORE_LEGEND_Y,
+                        w: w as f32,
+                        h: MOUTH_H,
+                        tex,
+                        alpha: lift,
+                    });
+                }
             }
         }
     }
@@ -5966,6 +6317,7 @@ impl App {
         }) else {
             return;
         };
+        self.note_inserted(platform, &cart);
         self.set_platform(platform);
         self.cut_blend = true;
         eprintln!(
@@ -6003,7 +6355,13 @@ impl App {
             return;
         }
         if self.now().saturating_sub(at) >= PLAY_HOLD_MS {
-            self.insert(true);
+            if self.kid_time_up() {
+                self.play_held = None;
+                self.hud.toast(Toast::KidTimeUp, self.now());
+                self.refuse();
+            } else if !self.start_tear(true) {
+                self.insert(true);
+            }
         }
     }
 
@@ -6025,6 +6383,7 @@ impl App {
         self.close_game_menu();
         self.shut_guide();
         self.flush_eject(&cart);
+        self.save_play_log();
         if let Some(root) = &self.root {
             self.controls = read_controls(root);
         }
@@ -6301,12 +6660,17 @@ impl App {
             return;
         };
         let cores = cart.platform.spec().cores;
-        if cores.len() < 2 {
+        if cores.len() < 2 && !shows_board_alone(cart.platform) {
             return;
         }
         let seat = slot_store::core_for_platform(&root, &cart.stem, cart.platform);
+        let pair = if cores.len() >= 2 {
+            [cores[0], cores[1]]
+        } else {
+            [seat, seat]
+        };
         let now = self.now();
-        let mut picker = CorePicker::open_among(seat, [cores[0], cores[1]], now);
+        let mut picker = CorePicker::open_among(seat, pair, now);
         if self.core_faces_ready() {
             picker.start(now);
         }
@@ -6322,6 +6686,9 @@ impl App {
     }
 
     fn core_picker_input(&mut self, action: Action) {
+        if matches!(action, Action::GbaDown(Btn::Select)) {
+            return self.print_set();
+        }
         let press = match action {
             Action::GbaDown(Btn::Left) | Action::ShelfLeft => Press::Left,
             Action::GbaDown(Btn::Right) | Action::ShelfRight => Press::Right,
@@ -7452,6 +7819,524 @@ fn trusted_sav(snapshot: &dyn Snapshot, verb: &str) -> Option<Vec<u8>> {
             );
         }
         None
+    }
+}
+
+impl App {
+    pub fn wallpaper_tint_alpha(&self) -> f32 {
+        tint_alpha(self.state.wallpaper_tint)
+    }
+
+    fn unix_now(&self) -> u64 {
+        self.utc_secs().max(0) as u64
+    }
+
+    fn save_play_log(&mut self) {
+        if let Some(root) = &self.root {
+            if let Err(e) = write_play_log(root, &self.play_log) {
+                eprintln!("slot: play_log.txt: {e}");
+            } else {
+                self.play_log_dirty = false;
+            }
+        }
+    }
+
+    pub fn played_secs(&self, platform: Platform, stem: &str) -> Option<u64> {
+        self.play_log
+            .get(platform, stem)
+            .map(|r| r.seconds)
+            .filter(|&s| s > 0)
+    }
+
+    pub fn face_look(&self, cart: &Cart) -> slot_ui::shelf_life::Look {
+        use slot_ui::shelf_life::{dust_level, wear_level, Look};
+        let record = self.play_log.get(cart.platform, &cart.stem);
+        let recent = self
+            .state
+            .recents
+            .iter()
+            .any(|r| r.platform == cart.platform && r.stem == cart.stem);
+        let played = recent || record.is_some_and(|r| r.unwrapped());
+        let saved = self
+            .root
+            .as_deref()
+            .is_some_and(|root| crate::persist::has_save(root, cart.platform, &cart.stem));
+        let now = self.unix_now();
+        let dust = if self.state.dust {
+            record
+                .and_then(|r| r.idle_since())
+                .map_or(0, |t| dust_level(now.saturating_sub(t)))
+        } else {
+            0
+        };
+        let wear = if self.state.wear {
+            record.map_or(0, |r| wear_level(r.worn_seconds()))
+        } else {
+            0
+        };
+        Look {
+            wrap: self.state.shrink_wrap && !played && !saved,
+            dust,
+            wear,
+        }
+    }
+
+    fn reface(&mut self, stem: &str) {
+        for (at, (_, shelf)) in self.shelves.iter().enumerate() {
+            for (i, cart) in shelf.carts.iter().enumerate() {
+                if cart.stem == stem {
+                    self.overlay.game_art.relabelled.push((at, i));
+                }
+            }
+        }
+    }
+
+    fn reface_if(
+        &mut self,
+        platform: Platform,
+        stem: &str,
+        before: Option<slot_ui::shelf_life::Look>,
+    ) {
+        let changed = self
+            .carts()
+            .find(|c| c.platform == platform && c.stem == stem)
+            .cloned()
+            .is_some_and(|c| before != Some(self.face_look(&c)));
+        if changed {
+            self.reface(stem);
+        }
+    }
+
+    pub fn reface_all(&mut self) {
+        for (at, (_, shelf)) in self.shelves.iter().enumerate() {
+            for i in 0..shelf.carts.len() {
+                self.overlay.game_art.relabelled.push((at, i));
+            }
+        }
+    }
+
+    fn note_inserted(&mut self, platform: Platform, stem: &str) {
+        let before = self
+            .carts()
+            .find(|c| c.platform == platform && c.stem == stem)
+            .map(|c| self.face_look(c));
+        let now = self.unix_now();
+        self.play_log.add_play(platform, stem, 0, now);
+        self.play_log_dirty = true;
+        self.reface_if(platform, stem, before);
+    }
+
+    pub fn tick_play_time(&mut self, dt: f32) {
+        let (Some(stem), platform) = (self.seated().map(str::to_owned), self.playing_platform())
+        else {
+            return;
+        };
+        self.play_frac += dt.clamp(0.0, 0.5);
+        let whole = self.play_frac.floor();
+        if whole <= 0.0 {
+            return;
+        }
+        self.play_frac -= whole;
+        let now = self.unix_now();
+        self.play_log.add_play(platform, &stem, whole as u64, now);
+        self.play_log_dirty = true;
+    }
+
+    fn kid_locked(&self) -> bool {
+        self.state.kid_mode != KidMode::Off
+    }
+
+    fn kid_limit(&self) -> Option<u32> {
+        (self.kid_locked() && self.state.kid_allowance > 0)
+            .then(|| u32::from(self.state.kid_allowance) * 60)
+    }
+
+    fn kid_roll_day(&mut self) {
+        let today = self.wall_secs().div_euclid(86_400);
+        if self.state.kid_day != today {
+            self.state.kid_day = today;
+            self.state.kid_used = 0;
+            self.kid_frac = 0.0;
+            self.kid_warned = false;
+            self.persist_soon();
+        }
+    }
+
+    pub fn kid_time_up(&mut self) -> bool {
+        let Some(limit) = self.kid_limit() else {
+            return false;
+        };
+        self.kid_roll_day();
+        self.state.kid_used >= limit
+    }
+
+    pub fn kid_tick(&mut self, dt: f32) {
+        let Some(limit) = self.kid_limit() else {
+            return;
+        };
+        self.kid_roll_day();
+        self.kid_frac += dt.clamp(0.0, 0.5);
+        let whole = self.kid_frac.floor();
+        self.kid_frac -= whole;
+        self.state.kid_used = self.state.kid_used.saturating_add(whole as u32);
+        let left = limit.saturating_sub(self.state.kid_used);
+        if left == 0 {
+            if matches!(self.phase, Phase::Playing { .. }) {
+                self.hud.toast(Toast::KidTimeUp, self.now());
+                self.persist_soon();
+                self.eject();
+            }
+        } else if left <= 300 && !self.kid_warned {
+            self.kid_warned = true;
+            self.hud.toast(Toast::KidWarning, self.now());
+        }
+    }
+
+    fn start_tear(&mut self, clean: bool) -> bool {
+        if self.tear.is_some() || !self.shows_tears || !self.state.clock_set {
+            return false;
+        }
+        let Some(cart) = self.selected_cart().cloned() else {
+            return false;
+        };
+        let saved = self
+            .root
+            .as_deref()
+            .is_some_and(|root| crate::persist::has_save(root, cart.platform, &cart.stem));
+        if saved || !self.face_look(&cart).wrap {
+            return false;
+        }
+        self.note_inserted(cart.platform, &cart.stem);
+        self.play_held = None;
+        self.sfx = Some(Sfx::WrapTear);
+        self.tear = Some(Tear {
+            at: self.now(),
+            clean,
+            cart,
+            film: None,
+        });
+        true
+    }
+
+    fn tear_step(&mut self) {
+        let Some(tear) = &self.tear else {
+            return;
+        };
+        let done = self.now().saturating_sub(tear.at) >= TEAR_MS;
+        if !done && self.on_shelf() {
+            return;
+        }
+        if let Some(tear) = self.tear.take() {
+            self.orphaned.extend(tear.film);
+            if self.on_shelf() {
+                self.insert(tear.clean);
+            }
+        }
+    }
+
+    pub fn show_tears(&mut self) {
+        self.shows_tears = true;
+    }
+
+    pub fn tearing(&self) -> bool {
+        self.tear.is_some()
+    }
+
+    pub fn tear_wants(&self) -> Option<&Cart> {
+        self.tear
+            .as_ref()
+            .filter(|t| t.film.is_none())
+            .map(|t| &t.cart)
+    }
+
+    pub fn set_tear_film(&mut self, tex: TexId) {
+        match &mut self.tear {
+            Some(tear) if tear.film.is_none() => tear.film = Some(tex),
+            _ => self.orphaned.push(tex),
+        }
+    }
+
+    fn draw_tear(&self, out: &mut Vec<Draw>) {
+        let Some(Tear {
+            at,
+            cart,
+            film: Some(tex),
+            ..
+        }) = &self.tear
+        else {
+            return;
+        };
+        let t = (self.now().saturating_sub(*at) as f32 / TEAR_MS as f32).clamp(0.0, 1.0);
+        let canvas = self.canvas();
+        let (x, scale) = self.shelf().selected_at(canvas);
+        let (cw, ch) = slot_ui::cart_box(cart.platform);
+        let (w, h) = (cw as f32 * scale, ch as f32 * scale);
+        let top = slot_ui::foot_y(ch as f32) - h;
+        let seed = slot_ui::shelf_life::seed_of(cart);
+        let jag = |i: usize| {
+            let n = seed.rotate_left(i as u32 * 7) ^ (i as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15);
+            0.5 + ((n >> 20) % 1000) as f32 / 1000.0 * 0.10 - 0.05
+        };
+        let open = ease((t / 0.75).min(1.0));
+        let away = ease(((t - 0.2) / 0.8).clamp(0.0, 1.0));
+        let alpha = (1.0 - ((t - 0.45) / 0.55).clamp(0.0, 1.0).powi(2)).clamp(0.0, 1.0);
+        for side in [-1.0f32, 1.0] {
+            let pivot = [if side < 0.0 { x } else { x + w }, top + h];
+            let (sin, cos) = (side * open * 0.62).sin_cos();
+            let (dx, dy) = (side * away * w * 0.22, away * away * h * 0.10);
+            let place = |px: f32, py: f32| {
+                let (rx, ry) = (px - pivot[0], py - pivot[1]);
+                [
+                    pivot[0] + rx * cos - ry * sin + dx,
+                    pivot[1] + rx * sin + ry * cos + dy,
+                ]
+            };
+            for i in 0..TEAR_STRIPS {
+                let (v0, v1) = (
+                    i as f32 / TEAR_STRIPS as f32,
+                    (i + 1) as f32 / TEAR_STRIPS as f32,
+                );
+                let (u0, u1) = if side < 0.0 {
+                    (0.0, jag(i))
+                } else {
+                    (jag(i), 1.0)
+                };
+                let (xa, xb) = (x + w * u0, x + w * u1);
+                let (ya, yb) = (top + h * v0, top + h * v1);
+                out.push(Draw::Quad {
+                    corners: [place(xa, ya), place(xb, ya), place(xb, yb), place(xa, yb)],
+                    tex: *tex,
+                    uv: [u0, v0, u1, v1],
+                    alpha,
+                });
+            }
+        }
+    }
+
+    fn can_wipe(&self) -> bool {
+        let r = self.state.clean_resets;
+        (r.dust() && self.state.dust) || (r.wear() && self.state.wear)
+    }
+
+    fn clean_selected(&mut self) -> bool {
+        let Some(cart) = self.selected_cart().cloned() else {
+            return false;
+        };
+        let before = self.face_look(&cart);
+        let r = self.state.clean_resets;
+        if !before.cleanable() || (!r.dust() && !r.wear()) {
+            return false;
+        }
+        let now = self.unix_now();
+        self.play_log
+            .clean_only(cart.platform, &cart.stem, now, r.dust(), r.wear());
+        self.save_play_log();
+        self.reface_if(cart.platform, &cart.stem, Some(before));
+        true
+    }
+
+    fn wipe_hold(&mut self) {
+        let now = self.now();
+        if !matches!(self.phase, Phase::Shelf) || self.core_picker.is_some() {
+            self.wipe = None;
+            return;
+        }
+        match self.wipe {
+            Some(Wipe::Holding(at)) if now.saturating_sub(at) >= WIPE_HOLD_MS => {
+                self.wipe = self.clean_selected().then_some(Wipe::Shining(now));
+            }
+            Some(Wipe::Shining(at)) if now.saturating_sub(at) >= WIPE_SHINE_MS => {
+                self.wipe = None;
+            }
+            _ => {}
+        }
+    }
+
+    fn draw_wipe(&self, out: &mut Vec<Draw>) {
+        let Some(Wipe::Shining(at)) = self.wipe else {
+            return;
+        };
+        let Some(cart) = self.selected_cart() else {
+            return;
+        };
+        let t = (self.now().saturating_sub(at) as f32 / WIPE_SHINE_MS as f32).clamp(0.0, 1.0);
+        let canvas = self.canvas();
+        let (x, scale) = self.shelf().selected_at(canvas);
+        let (cw, ch) = slot_ui::cart_box(cart.platform);
+        let (w, h) = (cw as f32 * scale, ch as f32 * scale);
+        let top = slot_ui::foot_y(ch as f32) - h;
+        let band = w * 0.16;
+        let inset = h * 0.06;
+        let centre = x - band + (w + 2.0 * band) * ease(t);
+        let fade = (1.0 - t).min(t * 4.0).clamp(0.0, 1.0);
+        for (k, alpha) in [(-1.0, 0.10), (0.0, 0.28), (1.0, 0.10)] {
+            let left = (centre + k * band / 3.0 - band / 6.0).max(x + inset);
+            let right = (centre + k * band / 3.0 + band / 6.0).min(x + w - inset);
+            if right <= left {
+                continue;
+            }
+            out.push(Draw::Rect {
+                x: left,
+                y: top + inset,
+                w: right - left,
+                h: h - 2.0 * inset,
+                colour: [1.0, 1.0, 1.0, alpha * fade],
+            });
+        }
+    }
+
+    pub fn clean_all_prompt(&self) -> bool {
+        self.clean_all.is_some()
+    }
+
+    pub fn clean_all_countdown(&self) -> Option<u64> {
+        let since = self.clean_all.flatten()?;
+        let left = CLEAN_ALL_HOLD_MS.saturating_sub(self.now().saturating_sub(since));
+        Some(left.div_ceil(1000).max(1))
+    }
+
+    fn clean_all_input(&mut self, action: Action) {
+        let now = self.now();
+        match action {
+            Action::GbaDown(Btn::B) => self.clean_all = Some(Some(now)),
+            Action::GbaUp(Btn::B) => match self.clean_all.flatten() {
+                Some(at) if now.saturating_sub(at) < CLEAN_ALL_TAP_MS => self.clean_all = None,
+                _ => self.clean_all = Some(None),
+            },
+            Action::GbaDown(Btn::A) => self.clean_all = None,
+            _ => {}
+        }
+    }
+
+    fn clean_all_tick(&mut self) {
+        let Some(Some(at)) = self.clean_all else {
+            return;
+        };
+        if self.now().saturating_sub(at) >= CLEAN_ALL_HOLD_MS {
+            self.clean_all = None;
+            self.clean_all_carts();
+        }
+    }
+
+    pub fn clean_all_carts(&mut self) {
+        let now = self.unix_now();
+        let games: Vec<(Platform, String)> =
+            self.carts().map(|c| (c.platform, c.stem.clone())).collect();
+        self.play_log
+            .clean_all(games.iter().map(|(p, s)| (*p, s.as_str())), now);
+        self.save_play_log();
+        self.reface_all();
+        self.hud.toast(Toast::CartsCleaned, self.now());
+    }
+
+    fn draw_clean_all(&self, out: &mut Vec<Draw>) {
+        out.push(Draw::Rect {
+            x: 0.0,
+            y: 0.0,
+            w: self.canvas().w,
+            h: OUT_H as f32,
+            colour: [0.0, 0.0, 0.0, 1.0],
+        });
+        let faces = &self.clean_all_faces;
+        if faces.len() < 6 {
+            return;
+        }
+        let top = 140.0;
+        for (i, &(tex, w, h)) in faces[..4].iter().enumerate() {
+            out.push(Draw::Tex {
+                x: self.canvas().centred(w as f32).floor(),
+                y: top + i as f32 * 34.0,
+                w: w as f32,
+                h: h as f32,
+                tex,
+                alpha: 1.0,
+            });
+        }
+        if let Some(secs) = self.clean_all_countdown() {
+            if let Some(&(tex, w, h)) = faces.get(6) {
+                out.push(Draw::Tex {
+                    x: self.canvas().centred(w as f32).floor(),
+                    y: 310.0,
+                    w: w as f32,
+                    h: h as f32,
+                    tex,
+                    alpha: 1.0,
+                });
+            }
+            let digit_idx = 6 + (6usize.saturating_sub(secs.clamp(1, 5) as usize));
+            if let Some(&(tex, w, h)) = faces.get(digit_idx) {
+                out.push(Draw::Tex {
+                    x: self.canvas().centred(w as f32).floor(),
+                    y: 344.0,
+                    w: w as f32,
+                    h: h as f32,
+                    tex,
+                    alpha: 1.0,
+                });
+            }
+        }
+        self.draw_side_legend((faces[5].0, faces[5].1), false, LINK_LEGEND_Y, out);
+        self.draw_side_legend((faces[4].0, faces[4].1), true, LINK_LEGEND_Y, out);
+    }
+
+    fn can_print_set(&self) -> bool {
+        self.core_has_set
+            && self.core_faces_ready()
+            && self.root.is_some()
+            && self.set_print.is_none()
+    }
+
+    fn print_set(&mut self) {
+        if !self.can_print_set() {
+            return;
+        }
+        let (Some(root), Some(cart)) = (self.root.clone(), self.selected_cart().cloned()) else {
+            return;
+        };
+        let now = self.now();
+        let zone = self.extras.zone().unwrap_or_else(|| {
+            slot_store::Zone::for_offset(i64::from(self.state.utc_offset_min), self.utc_secs())
+        });
+        self.set_print = Some(crate::set_print::SetPrint::open(root, cart, zone, now));
+    }
+
+    fn set_print_input(&mut self, action: Action) {
+        let now = self.now();
+        let Some(print) = &mut self.set_print else {
+            return;
+        };
+        match action {
+            Action::GbaDown(Btn::B) => print.stop(now),
+            Action::GbaDown(Btn::A) => print.skip(now),
+            Action::GbaDown(Btn::Up) => print.hold(Some(-1.0), now),
+            Action::GbaDown(Btn::Down) => print.hold(Some(1.0), now),
+            Action::GbaUp(Btn::Up | Btn::Down) => print.hold(None, now),
+            _ => {}
+        }
+    }
+
+    fn step_set_print(&mut self) {
+        let now = self.now();
+        let Some(print) = &mut self.set_print else {
+            return;
+        };
+        print.poll(now);
+        self.print_cues.extend(print.take_cues());
+        if print.finished(now) {
+            self.set_print = None;
+        }
+    }
+
+    pub fn take_print_cues(&mut self) -> Vec<crate::print_scene::Cue> {
+        std::mem::take(&mut self.print_cues)
+    }
+
+    pub fn set_print(&self) -> Option<&crate::set_print::SetPrint> {
+        self.set_print.as_ref()
+    }
+
+    pub fn set_print_mut(&mut self) -> Option<&mut crate::set_print::SetPrint> {
+        self.set_print.as_mut()
     }
 }
 

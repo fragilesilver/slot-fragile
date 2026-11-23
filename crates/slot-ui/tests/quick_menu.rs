@@ -104,6 +104,18 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Collections",
             "Start Shelf",
             "Kid Mode",
+            "Kid Play Time",
+            "Shelf Life",
+        ]
+    );
+    assert_eq!(
+        QuickRow::SHELF_LIFE.map(QuickRow::label),
+        [
+            "Shrink Wrap",
+            "Dust",
+            "Wear",
+            "Hold B Wipes",
+            "Clean All Carts",
         ]
     );
     assert_eq!(
@@ -305,6 +317,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::PlayShelf,
             QuickRow::PlaySystem,
             QuickRow::Update,
+            QuickRow::ShelfLife,
+            QuickRow::CleanAllCarts,
         ]
     );
     for page in [
@@ -333,7 +347,7 @@ fn a_hidden_row_is_stepped_over_and_takes_no_place() {
     let hidden = [QuickRow::WallpaperTint];
     assert_eq!(QuickRow::Wallpaper.down(&hidden), QuickRow::Recents);
     assert_eq!(QuickRow::Recents.up(&hidden), QuickRow::Wallpaper);
-    assert_eq!(QuickRow::Theme.up(&hidden), QuickRow::KidMode);
+    assert_eq!(QuickRow::Theme.up(&hidden), QuickRow::ShelfLife);
     assert_eq!(QuickRow::Recents.position(&hidden), 2);
     assert_eq!(QuickRow::Wallpaper.down(&[]), QuickRow::WallpaperTint);
     assert_eq!(QuickRow::Recents.position(&[]), 3);
@@ -417,6 +431,16 @@ fn the_values_read_as_the_menu_prints_them() {
             "Both",
             "Shelf",
             "Separate",
+            "Dust & Wear",
+            "Wear Only",
+            "Dust Only",
+            "Nothing",
+            "Hold B",
+            "No Limit",
+            "45 min",
+            "1 hr",
+            "1.5 hr",
+            "2 hr",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);
@@ -793,6 +817,7 @@ fn long_value_is_clipped_and_marquee_scrolled() {
             .map(|_| [(id(10), 200, 30), (id(11), 200, 30)])
             .collect(),
         pointer: (id(20), 10, 10),
+        new_dot: None,
         values: vec![[(id(30), 50, 30), (id(31), 50, 30)]],
         carets: [(id(40), 12, 20), (id(41), 12, 20)],
         scroll: [(id(50), 10, 10), (id(51), 10, 10)],
@@ -897,6 +922,7 @@ fn quick_menu_update_row_overflow_scrolls_marquee() {
             .map(|_| [(id(10), 200, 30), (id(11), 200, 30)])
             .collect(),
         pointer: (id(20), 10, 10),
+        new_dot: None,
         values: vec![[(id(30), 50, 30), (id(31), 50, 30)]],
         carets: [(id(40), 12, 20), (id(41), 12, 20)],
         scroll: [(id(50), 10, 10), (id(51), 10, 10)],

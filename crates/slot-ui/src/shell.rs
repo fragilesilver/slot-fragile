@@ -18,6 +18,12 @@ pub struct Shell {
     pub finish: Finish,
 }
 
+impl Shell {
+    pub fn back_colour(&self) -> [u8; 3] {
+        self.colour
+    }
+}
+
 pub const DEFAULT_SHELL: Shell = Shell {
     colour: [0x35, 0x35, 0x3a],
     finish: Finish::Solid,
@@ -87,7 +93,7 @@ pub fn shell_for(cart: &Cart) -> Shell {
         };
         return shell(choice.colour, finish);
     }
-    match cart.platform {
+    match cart.platform.hardware() {
         Platform::Gba => gba_shell_for(&gba_code(cart)),
         Platform::Gb | Platform::Gbc => gb_shell_for(&cart.rom),
         // Fragile: a NES or SNES cart or a disc comes in its own neutral plastic.

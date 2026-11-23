@@ -57,6 +57,10 @@ pub fn write_sav(root: &Path, platform: Platform, stem: &str, sav: &[u8]) -> std
         if old == sav {
             return Ok(false);
         }
+        // Keep the save being replaced so a bad write or bad day can be recovered.
+        if let Err(e) = back_up(root, platform, stem, &old, unix_now()) {
+            eprintln!("slot: save backup for {stem}: {e}");
+        }
     }
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
@@ -69,7 +73,7 @@ pub fn write_sav(root: &Path, platform: Platform, stem: &str, sav: &[u8]) -> std
 /// there but fails to read is an error, never "no save", so it is not replaced by a blank one.
 pub fn read_sav(root: &Path, platform: Platform, stem: &str) -> std::io::Result<Option<Vec<u8>>> {
     let srm = crate::root::saves_dir(root)
-        .join(platform.dir_name())
+        .join(platform.save_dir_name())
         .join(format!("{stem}.srm"));
     for path in [sav_path(root, platform, stem), srm] {
         match std::fs::read(&path) {
@@ -115,8 +119,98 @@ pub fn read_resume(
         .map(|opt| opt.filter(|s| !s.is_empty()))
 }
 
-fn sav_path(root: &Path, platform: Platform, stem: &str) -> PathBuf {
+/// Whether the card holds a battery save for this game (`.sav` or RetroArch `.srm`).
+pub fn has_save(root: &Path, platform: Platform, stem: &str) -> bool {
+    let dir = crate::root::saves_dir(root).join(platform.save_dir_name());
+    ["sav", "srm"]
+        .iter()
+        .any(|ext| dir.join(format!("{stem}.{ext}")).exists())
+}
+
+/// A flush writes the resume and the save within moments of each other, so a save has to be
+/// this much newer before it counts as written by a later session on another core.
+const SAVED_SINCE: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Moves `core`'s resume aside when the battery save was written after it (`pvaibhav/slot@d8a52ec`).
+pub fn retire_resume_older_than_sav(
+    root: &Path,
+    platform: Platform,
+    core: Core,
+    stem: &str,
+    stamp: &str,
+) -> std::io::Result<Option<PathBuf>> {
+    let ring = StateRing::new(root, platform, core, stem);
+    let saved = std::fs::metadata(sav_path(root, platform, stem)).and_then(|m| m.modified());
+    match (ring.resume_modified(), saved) {
+        (Some(resume), Ok(sav)) if sav > resume + SAVED_SINCE => ring.retire_resume(stamp),
+        _ => Ok(None),
+    }
+}
+
+pub fn sav_path(root: &Path, platform: Platform, stem: &str) -> PathBuf {
     crate::root::saves_dir(root)
-        .join(platform.dir_name())
+        .join(platform.save_dir_name())
         .join(format!("{stem}.sav"))
+}
+
+pub const BACKUPS_DIR: &str = "Backups";
+pub const BACKUPS_KEPT: usize = 3;
+pub const BACKUP_EVERY_SECS: u64 = 60 * 60;
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+pub fn backups_dir(root: &Path, platform: Platform) -> PathBuf {
+    crate::root::saves_dir(root)
+        .join(BACKUPS_DIR)
+        .join(platform.save_dir_name())
+}
+
+pub fn backups(root: &Path, platform: Platform, stem: &str) -> Vec<(u64, PathBuf)> {
+    let dir = backups_dir(root, platform);
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let prefix = format!("{stem}.");
+    let mut found: Vec<(u64, PathBuf)> = entries
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().into_string().ok()?;
+            let stamp = name.strip_prefix(&prefix)?.strip_suffix(".sav")?;
+            if stamp.is_empty() || !stamp.bytes().all(|b| b.is_ascii_digit()) {
+                return None;
+            }
+            Some((stamp.parse().ok()?, e.path()))
+        })
+        .collect();
+    found.sort_by_key(|b| std::cmp::Reverse(b.0));
+    found
+}
+
+pub fn back_up(
+    root: &Path,
+    platform: Platform,
+    stem: &str,
+    old: &[u8],
+    now: u64,
+) -> std::io::Result<bool> {
+    let kept = backups(root, platform, stem);
+    if let Some((newest, path)) = kept.first() {
+        let recent = now >= *newest && now - newest < BACKUP_EVERY_SECS;
+        let same = std::fs::read(path).is_ok_and(|b| b == old);
+        if recent || same {
+            return Ok(false);
+        }
+    }
+    let dir = backups_dir(root, platform);
+    std::fs::create_dir_all(&dir)?;
+    atomic_write(&dir.join(format!("{stem}.{now}.sav")), old)?;
+    for (_, path) in backups(root, platform, stem).into_iter().skip(BACKUPS_KEPT) {
+        let _ = std::fs::remove_file(path);
+    }
+    Ok(true)
 }

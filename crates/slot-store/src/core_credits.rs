@@ -74,5 +74,19 @@ pub fn credit(core: Core) -> CoreCredit {
             file: "dsperate-GPL-3.0.txt",
             source: "https://github.com/beebono/DSperate",
         },
+        Core::PokedaisyGba => CoreCredit {
+            name: core.text(),
+            by: "lidor30 and the armGBA contributors",
+            license: "GPL-3.0",
+            file: "pokedaisy-GPL-3.0.txt",
+            source: "https://github.com/lidor30/pokedaisy",
+        },
+        Core::PokedaisyGbc => CoreCredit {
+            name: core.text(),
+            by: "lidor30 and the mGBA contributors",
+            license: "GPL-3.0",
+            file: "pokedaisy-GPL-3.0.txt",
+            source: "https://github.com/lidor30/pokedaisy",
+        },
     }
 }

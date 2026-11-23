@@ -53,6 +53,18 @@ pub struct AvInfo {
     pub sample_rate: f64,
 }
 
+/// How the frontend is driving the core, for cores that ask (`GET_THROTTLE_STATE`).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum Throttle {
+    #[default]
+    Normal,
+    FastForward {
+        rate: f32,
+    },
+    Rewinding,
+    Paused,
+}
+
 #[derive(Debug)]
 pub enum CoreError {
     Io(std::io::Error),
@@ -87,6 +99,10 @@ pub trait RetroCore: Send {
     fn run_frame_linked(&mut self, p1: ButtonMask, _p2: ButtonMask) {
         self.run_frame(p1);
     }
+    /// Sets normalized analog stick axes `[lx, ly, rx, ry]` (`-32767..=32767`) for port 0.
+    /// When `active` is true, Left Analog (`index 0`) reports `(lx, ly)` directly instead of
+    /// falling back to the digital D-Pad.
+    fn set_analog(&mut self, _axes: [i16; 4], _active: bool) {}
     fn set_option(&mut self, _key: &str, _value: &str) {}
     fn set_frame_skip(&mut self, _skip: bool) {}
     fn video_xrgb8888(&self) -> &[u8];
@@ -127,6 +143,8 @@ pub trait RetroCore: Send {
     fn open_tray(&mut self) -> bool {
         false
     }
+    /// How the frontend is running the core right now (`GET_THROTTLE_STATE` / `GET_FASTFORWARDING`).
+    fn set_throttle(&mut self, _throttle: Throttle) {}
     fn take_audio(&mut self) -> Vec<i16>;
     fn serialize(&mut self) -> Result<Vec<u8>, CoreError>;
     fn unserialize(&mut self, data: &[u8]) -> Result<(), CoreError>;

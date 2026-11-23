@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use slot_input::{Action, Btn, Chord, Contexts, Entry, Gestures, Millis, Mod, RawEvent};
 use slot_retro::Rumble;
@@ -18,6 +18,7 @@ use crate::frames::FrameRef;
 use crate::input::Pad;
 use crate::persist;
 use crate::prefetch::Prefetch;
+use crate::print_scene::Cue;
 
 pub struct Session {
     root: PathBuf,
@@ -38,6 +39,7 @@ pub struct Session {
     reloading: bool,
     driven: bool,
     sunlight_sent: Option<u8>,
+    buzz_ends: Option<Instant>,
 }
 
 impl Session {
@@ -65,6 +67,7 @@ impl Session {
             reloading: false,
             driven: false,
             sunlight_sent: None,
+            buzz_ends: None,
         };
         // A game left running comes straight back. Its core loads on its own thread, so start it
         // now and let the card read overlap the rest of the boot. Waiting for the first update
@@ -84,6 +87,26 @@ impl Session {
         let mut samples = sfx.render(rate);
         crate::audio::volume::apply(&mut samples, self.app.output_volume());
         ring.mix(&samples);
+    }
+
+    fn play_print_cue(&mut self, cue: Cue) {
+        match cue {
+            Cue::Buzz => {
+                self.play_sfx(Sfx::PrintBuzz);
+                let left = Duration::from_secs_f32(Sfx::PrintBuzz.tail());
+                self.buzz_ends = Some(Instant::now() + left);
+            }
+            Cue::Tear => self.play_sfx(Sfx::Tear),
+            Cue::BuzzOff => {
+                if self
+                    .buzz_ends
+                    .take()
+                    .is_some_and(|end| Instant::now() < end)
+                {
+                    self.sink.ring().hush();
+                }
+            }
+        }
     }
 
     pub fn audio_queued(&self) -> usize {
@@ -209,6 +232,7 @@ impl Session {
                 match ev {
                     RawEvent::Down(b) => self.captured.push(b),
                     RawEvent::Up(b) => self.captured.retain(|x| *x != b),
+                    RawEvent::Stick(..) => continue,
                 }
                 self.gestures.observe(ev);
                 self.app.capture_input(ev);
@@ -248,6 +272,12 @@ impl Session {
             }
             self.sent = mask.0;
             emu.set_input(mask);
+            let analog = if self.overlaid() {
+                [0; 4]
+            } else {
+                self.pad.analog()
+            };
+            emu.set_analog(analog, self.app.has_left_stick() || self.pad.analog_seen());
         }
     }
 
@@ -402,6 +432,13 @@ impl Session {
         if let Some(sfx) = self.app.take_sfx() {
             self.play_sfx(sfx);
         }
+        for cue in self.app.take_print_cues() {
+            self.play_print_cue(cue);
+        }
+        if self.playing() && !self.actually_rewinding() {
+            self.app.tick_play_time(dt);
+            self.app.kid_tick(dt);
+        }
         self.sync_core();
         self.sync_reload();
         if !self.has_core() {
@@ -506,7 +543,7 @@ impl Session {
             || self.app.screensaver_active()
     }
 
-    fn dozing(&self) -> bool {
+    pub fn dozing(&self) -> bool {
         matches!(self.app.phase(), Phase::Doze { .. })
     }
 
@@ -617,17 +654,25 @@ impl Session {
         let stem = stem.to_owned();
         let clean = self.app.starting_clean() || switched;
         let player = self.app.link_player();
-        let chosen = self.app.gb_palette();
+        let chosen_pal = self.app.gb_palette();
         let colour = self.app.colour_correction_for(platform);
+        let stamp = slot_store::format_stamp(self.app.wall_secs());
         let join = std::thread::Builder::new()
             .name("slot-open".into())
             .spawn(move || {
                 let resume = match clean {
                     true => Ok(None),
-                    false => persist::read_resume(&root, platform, core, &stem),
+                    false => {
+                        if let Ok(Some(moved)) = persist::retire_resume_older_than_sav(
+                            &root, platform, core, &stem, &stamp,
+                        ) {
+                            eprintln!("slot: retired stale resume -> {}", moved.display());
+                        }
+                        persist::read_resume(&root, platform, core, &stem)
+                    }
                 };
                 launch("resume state read");
-                let palette = crate::core::palette_for(chosen, platform, &rom, player);
+                let palette = crate::core::palette_for(chosen_pal, platform, &rom, player);
                 let palette_live = crate::core::takes_palette(platform, &rom, player);
                 let opened = open_core(&root, core, platform, serial, colour, palette, player);
                 launch("core opened");

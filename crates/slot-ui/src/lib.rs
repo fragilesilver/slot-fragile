@@ -2,8 +2,9 @@ mod art;
 pub use art::{cover, cover_bytes};
 mod bitmaps;
 pub use bitmaps::{
-    link_port, link_port_light, slot_back, slot_back_light, slot_front, slot_front_light,
-    slot_plugged, slot_plugged_light, Mould, SLOT_H, SLOT_W,
+    bespoke_slot, link_port, link_port_light, slot_back, slot_back_light, slot_front,
+    slot_front_light, slot_plugged, slot_plugged_light, Mould, GB_CHIP_H, GB_CHIP_W, SLOT_H,
+    SLOT_W,
 };
 mod backdrop;
 mod barcode;
@@ -23,6 +24,9 @@ mod list_page;
 mod media;
 mod plate;
 mod polaroids;
+pub mod printout;
+pub mod receipt;
+pub mod shelf_life;
 mod shot_viewer;
 // Fragile: Game Art's labels (Phase 13).
 mod scraped;
@@ -45,24 +49,28 @@ mod toast;
 pub use art::decode as decode_png;
 pub use backdrop::{
     bezel_face, blur_background, default_background, default_game_bezel_face, draw_backdrop,
-    draw_ground, game_bezel_face, wallpaper_face,
+    draw_ground, game_bezel_face, wallpaper_face, wallpaper_is_light,
 };
 pub use barcode::{code39, CODE39_NARROW, CODE39_WIDE};
 pub use battery::{
     draw_battery, draw_gauge, gauge_width, gauge_width_for, BOLT_PX, GAUGE_H, GAUGE_W, WALL,
 };
 pub use board::{
-    board_at, board_face, board_from, board_in, board_x, board_zoom, chip_face, chip_shadow_face,
-    grown, lid_at, lid_from, lift_of, on_board, padded, rom_marking, rom_marking_face, shelf_cart,
-    shelf_cart_at, slide_of, socket_face, Placed, BOARD_H, BOARD_W, BOARD_Y, CHIP_H, CHIP_TIP,
-    CHIP_U, CHIP_V, CHIP_W, HOP_LIFT, LID_TURN, ROM_H, ROM_W, ROM_X, ROM_Y, SHADOW_H, SHADOW_W,
-    SLIDE_SHARE, SLIDE_UP, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
+    bare_board_face, board_at, board_face, board_face_with_stickers, board_from, board_from_shaped,
+    board_in, board_x, board_zoom, chip_face, chip_shadow_face, gb_chip_face, gb_socket_face,
+    grown, interior_face, lid_at, lid_from, lid_from_shaped, lift_of, on_board, padded,
+    rom_marking, rom_marking_face, seats, shelf_cart, shelf_cart_at, shelf_cart_shaped,
+    shows_board_alone, slide_of, socket_face, Placed, Seats, BOARD_H, BOARD_W, BOARD_Y, CHIP_H,
+    CHIP_TIP, CHIP_U, CHIP_V, CHIP_W, GBA_SEATS, GB_SEATS, HOP_LIFT, LID_TURN, ROM_H, ROM_W, ROM_X,
+    ROM_Y, SHADOW_H, SHADOW_W, SLIDE_SHARE, SLIDE_UP, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W,
+    TURN_PAD,
 };
 pub use cart::{
-    bare_face, cart_backing, cart_box, cart_face, cart_face_with, cart_interior, cart_shadow,
-    clean_label, gb_cart_shadow, gb_label_panel, gb_shell_of, is_clear, label_colour, label_panel,
-    label_size, label_size_for, label_tags, label_text, media_shadow, neutral_shell, seated_box,
-    shows_interior, writes_by_hand, CartFace, CART_H, CART_W, GBC_LABEL_H, GBC_LABEL_W,
+    bare_face, cart_back_shell, cart_backing, cart_box, cart_face, cart_face_looked,
+    cart_face_with, cart_face_with_look, cart_interior, cart_shadow, clean_label, gb_backing,
+    gb_cart_shadow, gb_label_panel, gb_shell_of, is_clear, label_colour, label_panel, label_size,
+    label_size_for, label_tags, label_text, media_shadow, neutral_shell, pokedaisy_sticker_face,
+    seated_box, shows_interior, writes_by_hand, CartFace, CART_H, CART_W, GBC_LABEL_H, GBC_LABEL_W,
     GBC_LABEL_X, GBC_LABEL_Y, GB_CART_H, GB_CART_W, GB_LABEL_H, GB_LABEL_W, GB_LABEL_X, GB_LABEL_Y,
     LABEL_H, LABEL_W, LABEL_WELL, LABEL_X, LABEL_Y,
 };
@@ -100,22 +108,24 @@ pub use media::Media;
 pub use plate::{
     arrows_hint_coloured, arrows_hint_face, arrows_hint_width, cap_width, centred_hints,
     hint_coloured, hint_face, hint_quad, hint_row, hint_width, pad_hint_face, pad_hint_width,
-    tick_cap_face, title_face, title_line_face, word_face, word_ink, word_width, Hint, UndoFace,
-    ARROW_GAP, CAP, CAP_GAP, HINT_EDGE, HINT_GAP, HINT_H, LEGEND_GAP, TITLE_H, TITLE_LINE_H,
-    TITLE_W,
+    tick_cap_face, title_face, title_line_face, title_line_face_ink, word_face, word_ink,
+    word_width, Hint, UndoFace, ARROW_GAP, CAP, CAP_GAP, HINT_EDGE, HINT_GAP, HINT_H, LEGEND_GAP,
+    TITLE_H, TITLE_LINE_H, TITLE_W,
 };
 pub use polaroids::{
     draw_album_chrome, photo_face, AlbumChrome, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W,
 };
 pub use power_menu::{menu_detail_face, menu_face, PowerChoice, MENU_PAD};
 pub use quick_menu::{
-    core_button_legends, delete_legends, draw_menu_ground, link_button_legends, prompt_legends,
-    quick_caret_face, quick_description_face, quick_label_face, quick_legend_faces,
+    core_button_legends, core_print_legend, delete_legends, draw_menu_ground, link_button_legends,
+    print_list_legends, print_stop_legend, prompt_legends, quick_caret_face,
+    quick_description_face, quick_label_face, quick_legend_faces, quick_new_dot_face,
     quick_pointer_face, quick_row_top, quick_row_top_at, quick_scroll_face, quick_value_face,
     quick_warning_value_face, quick_window, repair_legends, FacePair, QuickMenu, QuickMenuFaces,
     QuickRow, QuickValue, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH, QUICK_VISIBLE,
 };
 pub use rebuild::{rebuild_count_face, rebuild_title_face, RebuildScreen};
+pub use receipt::{receipt_blank, receipt_face, ReceiptText};
 pub use refusal::Refusal;
 pub use shelf::{foot_y, repeat_gap, rest_y, Shelf, REPEAT_DELAY_MS, STAR_INK, STAR_SCALE};
 pub use shell::{

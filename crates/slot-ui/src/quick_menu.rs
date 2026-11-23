@@ -227,10 +227,17 @@ pub enum QuickRow {
     ResumeOnInsert,
     ResumeOnPowerOn,
     KidMode,
+    KidAllowance,
+    ShelfLife,
+    ShrinkWrap,
+    Dust,
+    Wear,
+    CleanResets,
+    CleanAllCarts,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 207] = [
+    pub const ALL: [QuickRow; 214] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -445,6 +452,13 @@ impl QuickRow {
         QuickRow::ResumeOnInsert,
         QuickRow::ResumeOnPowerOn,
         QuickRow::KidMode,
+        QuickRow::KidAllowance,
+        QuickRow::ShelfLife,
+        QuickRow::ShrinkWrap,
+        QuickRow::Dust,
+        QuickRow::Wear,
+        QuickRow::CleanResets,
+        QuickRow::CleanAllCarts,
     ];
 
     pub const MAIN: [QuickRow; 7] = [
@@ -458,7 +472,7 @@ impl QuickRow {
         QuickRow::System,
     ];
 
-    pub const SHELF_SETTINGS: [QuickRow; 9] = [
+    pub const SHELF_SETTINGS: [QuickRow; 11] = [
         QuickRow::Theme,
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
@@ -468,6 +482,16 @@ impl QuickRow {
         QuickRow::CollectionsShelf,
         QuickRow::StartShelf,
         QuickRow::KidMode,
+        QuickRow::KidAllowance,
+        QuickRow::ShelfLife,
+    ];
+
+    pub const SHELF_LIFE: [QuickRow; 5] = [
+        QuickRow::ShrinkWrap,
+        QuickRow::Dust,
+        QuickRow::Wear,
+        QuickRow::CleanResets,
+        QuickRow::CleanAllCarts,
     ];
 
     pub const SYSTEM: [QuickRow; 15] = [
@@ -779,7 +803,14 @@ impl QuickRow {
             | QuickRow::ShowFavorites
             | QuickRow::CollectionsShelf
             | QuickRow::StartShelf
-            | QuickRow::KidMode => &QuickRow::SHELF_SETTINGS,
+            | QuickRow::KidMode
+            | QuickRow::KidAllowance
+            | QuickRow::ShelfLife => &QuickRow::SHELF_SETTINGS,
+            QuickRow::ShrinkWrap
+            | QuickRow::Dust
+            | QuickRow::Wear
+            | QuickRow::CleanResets
+            | QuickRow::CleanAllCarts => &QuickRow::SHELF_LIFE,
             QuickRow::BatteryDisplay
             | QuickRow::ClockFormat
             | QuickRow::DateTime
@@ -918,6 +949,9 @@ impl QuickRow {
         if p == QuickRow::SHELF_SETTINGS {
             return Some(QuickRow::ShelfSettings);
         }
+        if p == QuickRow::SHELF_LIFE {
+            return Some(QuickRow::ShelfLife);
+        }
         if p == QuickRow::SYSTEM {
             return Some(QuickRow::System);
         }
@@ -969,6 +1003,7 @@ impl QuickRow {
             QuickRow::PlayThisGame => Some(QuickRow::THIS_GAME[0]),
             QuickRow::Shortcuts => Some(QuickRow::SHORTCUTS[0]),
             QuickRow::ShelfSettings => Some(QuickRow::SHELF_SETTINGS[0]),
+            QuickRow::ShelfLife => Some(QuickRow::SHELF_LIFE[0]),
             QuickRow::System => Some(QuickRow::SYSTEM[0]),
             QuickRow::CheevosPage => Some(QuickRow::CHEEVOS[0]),
             QuickRow::Controls => Some(QuickRow::CONTROL_PAGES[0]),
@@ -1003,6 +1038,28 @@ impl QuickRow {
             .iter()
             .position(|r| *r == self)
             .unwrap_or(0)
+    }
+
+    /// Rows added in v1.9.9, marked with a subtle blue indicator dot (propagating to parent menus).
+    pub const NEW: [QuickRow; 7] = [
+        QuickRow::KidAllowance,
+        QuickRow::ShelfLife,
+        QuickRow::ShrinkWrap,
+        QuickRow::Dust,
+        QuickRow::Wear,
+        QuickRow::CleanResets,
+        QuickRow::CleanAllCarts,
+    ];
+
+    /// Whether this row wears the What's New blue dot (itself new, or leading to one not hidden).
+    pub fn marked_new(self, hidden: &[QuickRow]) -> bool {
+        if hidden.contains(&self) {
+            return false;
+        }
+        QuickRow::NEW.contains(&self)
+            || self
+                .child()
+                .is_some_and(|c| c.page().iter().any(|r| r.marked_new(hidden)))
     }
 
     pub fn label(self) -> &'static str {
@@ -1044,6 +1101,13 @@ impl QuickRow {
             QuickRow::ResumeOnInsert => "Resume on Insert",
             QuickRow::ResumeOnPowerOn => "Resume on Power On",
             QuickRow::KidMode => "Kid Mode",
+            QuickRow::KidAllowance => "Kid Play Time",
+            QuickRow::ShelfLife => "Shelf Life",
+            QuickRow::ShrinkWrap => "Shrink Wrap",
+            QuickRow::Dust => "Dust",
+            QuickRow::Wear => "Wear",
+            QuickRow::CleanResets => "Hold B Wipes",
+            QuickRow::CleanAllCarts => "Clean All Carts",
             QuickRow::CollectionsShelf => "Collections",
             QuickRow::Turbo => "Turbo Buttons",
             QuickRow::Rewind => "Rewind",
@@ -1244,6 +1308,13 @@ impl QuickRow {
             QuickRow::ResumeOnInsert => "Load the last auto save when inserting a cartridge.",
             QuickRow::ResumeOnPowerOn => "Reopen the running game automatically after boot.",
             QuickRow::KidMode => "Lock down shelves and settings for kids.",
+            QuickRow::KidAllowance => "Daily play limit when Kid Mode is locked.",
+            QuickRow::ShelfLife => "Shrink wrap, shelf dust and play wear on carts.",
+            QuickRow::ShrinkWrap => "Unplayed carts wear shrink wrap and a price tag.",
+            QuickRow::Dust => "Carts left untouched gather dust over time.",
+            QuickRow::Wear => "Played carts gradually show scuffs and edge wear.",
+            QuickRow::CleanResets => "What holding B wipes off a dusty or worn cart.",
+            QuickRow::CleanAllCarts => "Wipe and unwrap every cart after holding B.",
             QuickRow::CollectionsShelf => "Show custom lists as their own shelf or grouped.",
             QuickRow::Theme => "Dark or light look for the whole frontend.",
             QuickRow::Wallpaper => "Picture behind the shelf.",
@@ -1424,6 +1495,8 @@ impl QuickRow {
                 | QuickRow::ScreenSnes
                 | QuickRow::ScreenPs
                 | QuickRow::ScreenNds
+                | QuickRow::ShelfLife
+                | QuickRow::CleanAllCarts
         )
     }
 
@@ -1574,10 +1647,20 @@ pub enum QuickValue {
     BatteryBoth,
     CollectionsInline,
     CollectionsSeparate,
+    CleanBoth,
+    CleanWear,
+    CleanDust,
+    CleanOff,
+    HoldB,
+    Unlimited,
+    Min45,
+    Min60,
+    Min90,
+    Min120,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 68] = [
+    pub const ALL: [QuickValue; 78] = [
         QuickValue::Speed1_5,
         QuickValue::Speed2,
         QuickValue::Speed3,
@@ -1646,6 +1729,16 @@ impl QuickValue {
         QuickValue::BatteryBoth,
         QuickValue::CollectionsInline,
         QuickValue::CollectionsSeparate,
+        QuickValue::CleanBoth,
+        QuickValue::CleanWear,
+        QuickValue::CleanDust,
+        QuickValue::CleanOff,
+        QuickValue::HoldB,
+        QuickValue::Unlimited,
+        QuickValue::Min45,
+        QuickValue::Min60,
+        QuickValue::Min90,
+        QuickValue::Min120,
     ];
 
     pub const LEVELS: [QuickValue; 10] = [
@@ -1744,6 +1837,37 @@ impl QuickValue {
             QuickValue::BatteryBoth => "Both",
             QuickValue::CollectionsInline => "Shelf",
             QuickValue::CollectionsSeparate => "Separate",
+            QuickValue::CleanBoth => "Dust & Wear",
+            QuickValue::CleanWear => "Wear Only",
+            QuickValue::CleanDust => "Dust Only",
+            QuickValue::CleanOff => "Nothing",
+            QuickValue::HoldB => "Hold B",
+            QuickValue::Unlimited => "No Limit",
+            QuickValue::Min45 => "45 min",
+            QuickValue::Min60 => "1 hr",
+            QuickValue::Min90 => "1.5 hr",
+            QuickValue::Min120 => "2 hr",
+        }
+    }
+
+    pub fn allowance(minutes: u16) -> QuickValue {
+        match minutes {
+            15 => QuickValue::Min15,
+            30 => QuickValue::Min30,
+            45 => QuickValue::Min45,
+            60 => QuickValue::Min60,
+            90 => QuickValue::Min90,
+            120 => QuickValue::Min120,
+            _ => QuickValue::Unlimited,
+        }
+    }
+
+    pub fn clean_resets(c: slot_store::CleanResets) -> QuickValue {
+        match c {
+            slot_store::CleanResets::Both => QuickValue::CleanBoth,
+            slot_store::CleanResets::Wear => QuickValue::CleanWear,
+            slot_store::CleanResets::Dust => QuickValue::CleanDust,
+            slot_store::CleanResets::Disabled => QuickValue::CleanOff,
         }
     }
 
@@ -1800,6 +1924,9 @@ pub const QUICK_PITCH: f32 = 52.0;
 pub const QUICK_EDGE: f32 = 32.0;
 pub const QUICK_LABEL_X: f32 = 64.0;
 pub(crate) const POINTER_GAP: f32 = 14.0;
+pub const NEW_DOT_GAP: f32 = 3.5;
+const NEW_DOT_D: f32 = 8.0;
+pub const NEW_DOT_INK: [u8; 3] = [0x2f, 0x8c, 0xff];
 const POINTER_SCALE: usize = 4;
 const POINTER: [&str; 11] = [
     "X.......", "XX......", "XoX.....", "XooX....", "XoooX...", "XooooX..", "XoooX...", "XooX....",
@@ -1830,6 +1957,34 @@ fn cap_centre(label: &fontdue::Font, h: u32) -> f32 {
                 - label.metrics('H', MENU_PX).height as f32 / 2.0
         }
         None => h as f32 / 2.0,
+    }
+}
+
+/// A small blue dot marking What's New rows and menus leading to them.
+pub fn quick_new_dot_face() -> UndoFace {
+    let h = (MENU_H + 2 * POINTER_BLEED) as usize;
+    let w = NEW_DOT_D.ceil() as usize + 2;
+    let cy = match text::label_font() {
+        Some(label) => cap_centre(label, MENU_H),
+        None => MENU_H as f32 / 2.0,
+    } + POINTER_BLEED as f32;
+    let (cx, r) = (w as f32 / 2.0, NEW_DOT_D / 2.0);
+    let mut rgba = vec![0u8; w * h * 4];
+    for y in 0..h {
+        for x in 0..w {
+            let d = (x as f32 + 0.5 - cx).hypot(y as f32 + 0.5 - cy);
+            let cover = (r + 0.5 - d).clamp(0.0, 1.0);
+            if cover > 0.0 {
+                let at = (y * w + x) * 4;
+                rgba[at..at + 3].copy_from_slice(&NEW_DOT_INK);
+                rgba[at + 3] = (cover * 255.0).round() as u8;
+            }
+        }
+    }
+    UndoFace {
+        rgba,
+        w: w as u32,
+        h: h as u32,
     }
 }
 
@@ -2054,6 +2209,10 @@ pub fn core_button_legends() -> Vec<UndoFace> {
     ]
 }
 
+pub fn core_print_legend() -> UndoFace {
+    with_hint(button_face(ButtonLegend::Select), "Print", None, false)
+}
+
 /// Cancel, Mode, Swap, Link, OK, Back, End Link.
 pub fn link_button_legends(ink: [u8; 3]) -> Vec<UndoFace> {
     let hint = Some(ink);
@@ -2090,6 +2249,35 @@ pub fn prompt_legends(ink: [u8; 3], no: &str, yes: &str) -> [UndoFace; 2] {
     [
         with_hint(button_face(ButtonLegend::B), no, hint, true),
         with_hint(button_face(ButtonLegend::A), yes, hint, false),
+    ]
+}
+
+const PRINT_STOP_BUTTON: u32 = 24;
+
+fn small_button(which: ButtonLegend) -> UndoFace {
+    let (src, w, h) = button_legend(which);
+    let side = PRINT_STOP_BUTTON;
+    let rgba = crate::art::cover_rgba(src, w, h, side, side).unwrap_or_default();
+    UndoFace {
+        rgba,
+        w: side,
+        h: side,
+    }
+}
+
+pub fn print_stop_legend(ink: [u8; 3]) -> UndoFace {
+    with_hint(small_button(ButtonLegend::B), "Stop", Some(ink), true)
+}
+
+pub fn print_list_legends(ink: [u8; 3]) -> [UndoFace; 2] {
+    let pair = up_down_pair();
+    let h = PRINT_STOP_BUTTON;
+    let w = (pair.w as f32 * h as f32 / pair.h as f32).round() as u32;
+    let rgba = crate::art::cover_rgba(&pair.rgba, pair.w, pair.h, w, h).unwrap_or_default();
+    let small = UndoFace { rgba, w, h };
+    [
+        with_hint(small, "Scroll", Some(ink), true),
+        with_hint(small_button(ButtonLegend::B), "Done", Some(ink), true),
     ]
 }
 
@@ -2225,6 +2413,7 @@ pub type FacePair = [(TexId, u32, u32); 2];
 pub struct QuickMenuFaces {
     pub labels: Vec<[(TexId, u32, u32); 2]>,
     pub pointer: (TexId, u32, u32),
+    pub new_dot: Option<(TexId, u32, u32)>,
     pub values: Vec<[(TexId, u32, u32); 2]>,
     pub carets: [(TexId, u32, u32); 2],
     /// More above, more below, on the pages that scroll.
@@ -2349,6 +2538,12 @@ impl QuickMenu<'_> {
             if let Some(&(tex, w, h)) = label_face {
                 push(out, tex, label_x, y, w, h);
                 label_end = label_x + w as f32;
+                if row.marked_new(self.hidden) {
+                    if let Some((dtex, dw, dh)) = faces.new_dot {
+                        let dx = label_x + pad - NEW_DOT_GAP - dw as f32;
+                        push(out, dtex, dx, y - POINTER_BLEED as f32, dw, dh);
+                    }
+                }
                 if lit {
                     let (tex, pw, ph) = faces.pointer;
                     let px = label_x + pad - POINTER_GAP - pw as f32;

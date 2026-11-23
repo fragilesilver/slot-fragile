@@ -59,3 +59,42 @@ fn the_stick_is_turned_off_from_gameplay_and_saved() {
         "the choice was not saved"
     );
 }
+
+#[test]
+fn nds_left_stick_stylus_pauses_dpad_emulation_while_playing() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    std::fs::create_dir_all(d.path().join("Games/NDS")).expect("NDS dir");
+    std::fs::write(d.path().join("Games/NDS/Canvas.nds"), vec![0u8; 0x200]).expect("write nds");
+    write_slot_state(
+        d.path(),
+        &SlotState {
+            clock_set: true,
+            cart: Some("Canvas".into()),
+            cart_platform: Some(slot_store::Platform::Nds),
+            ..SlotState::default()
+        },
+    )
+    .expect("write slot.state");
+    let mut a = App::boot(d.path());
+    a.set_left_stick(true);
+    a.set_platform(slot_store::Platform::Nds);
+    a.on_core_ready();
+    for _ in 0..120 {
+        a.update(1.0 / 60.0);
+    }
+    assert!(a.left_stick_dpad());
+    assert!(!a.left_stick_is_stylus());
+
+    // Step NDS Stylus from default "Hold L2" -> "Right Stick" -> "Left Stick".
+    a.step_nds_stylus(false, true);
+    assert_eq!(a.nds_stylus_core_value(), "Right Analog");
+    assert!(!a.left_stick_is_stylus());
+
+    a.step_nds_stylus(false, true);
+    assert_eq!(a.nds_stylus_core_value(), "Left Analog");
+    assert!(a.left_stick_is_stylus());
+
+    // Opening the in-game pause menu re-enables Left Stick navigation for menus.
+    a.apply(Action::QuickMenu);
+    assert!(!a.left_stick_is_stylus());
+}

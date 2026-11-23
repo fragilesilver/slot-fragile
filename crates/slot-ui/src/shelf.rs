@@ -38,6 +38,7 @@ pub const REPEAT_DELAY_MS: Millis = 400;
 pub const STAR_SCALE: u32 = 2;
 pub const STAR_INK: [u8; 3] = [0xf6, 0xc3, 0x2c];
 const STAR_INSET: f32 = 5.0;
+const DAISY_INSET: f32 = 5.0;
 const REPEAT_MS: [Millis; 4] = [110, 85, 65, 50];
 
 pub fn repeat_gap(fired: usize) -> Millis {
@@ -62,6 +63,8 @@ pub struct Shelf {
     clears: Vec<OnceLock<bool>>,
     starred: Vec<bool>,
     star: Option<(TexId, f32, f32)>,
+    daisy: Option<(TexId, f32, f32)>,
+    mark_daisies: bool,
     ride: f32,
     vel: f32,
     held: Option<(i32, Millis, usize)>,
@@ -76,6 +79,8 @@ impl Shelf {
             interiors: vec![None; carts.len()],
             starred: vec![false; carts.len()],
             star: None,
+            daisy: None,
+            mark_daisies: false,
             carts,
             index: 0,
             scroll: 0.0,
@@ -574,7 +579,30 @@ impl Shelf {
                     alpha: alpha * dim,
                 });
             }
+            if let (true, true, Some((tex, sw, sh))) =
+                (self.mark_daisies, cart.platform.is_pokedaisy(), self.daisy)
+            {
+                let (lx, ly, _, _) = label_rect(self.shell(i));
+                out.push(Draw::Tex {
+                    x: (x + lx * w + DAISY_INSET).round(),
+                    y: (y + ly * h + DAISY_INSET).round(),
+                    w: sw,
+                    h: sh,
+                    tex,
+                    alpha: alpha * dim,
+                });
+            }
         }
+    }
+}
+
+impl Shelf {
+    pub fn set_daisy(&mut self, tex: TexId, w: u32, h: u32) {
+        self.daisy = Some((tex, w as f32, h as f32));
+    }
+
+    pub fn mark_daisies(&mut self, on: bool) {
+        self.mark_daisies = on;
     }
 }
 

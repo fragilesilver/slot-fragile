@@ -54,10 +54,10 @@ const ART: [Art; Media::COUNT] = [
     },
     Art {
         png: include_bytes!("../../../assets/nds_neutral.png"),
-        w: 300,
-        h: 318,
-        label: (30, 20, 244, 261),
-        sticker: Some((30, 20, 244, 261)),
+        w: 288,
+        h: 304,
+        label: (29, 14, 230, 250),
+        sticker: Some((29, 14, 230, 250)),
         colour: [0x32, 0x32, 0x36],
     },
 ];
@@ -77,7 +77,12 @@ impl Media {
     /// What a platform's games come on, or None for the Game Boy family's own moulds.
     pub fn of(platform: Platform) -> Option<Media> {
         Some(match platform {
-            Platform::Gba | Platform::Gb | Platform::Gbc => return None,
+            Platform::Gba
+            | Platform::Gb
+            | Platform::Gbc
+            | Platform::PdGba
+            | Platform::PdGb
+            | Platform::PdGbc => return None,
             Platform::Nes => Media::Nes,
             Platform::Snes => Media::Snes,
             Platform::PlayStation => Media::Disc,
@@ -279,7 +284,7 @@ mod tests {
     #[test]
     fn every_platform_past_the_game_boy_has_media() {
         for p in Platform::ALL {
-            let game_boy = matches!(p, Platform::Gba | Platform::Gb | Platform::Gbc);
+            let game_boy = matches!(p.hardware(), Platform::Gba | Platform::Gb | Platform::Gbc);
             assert_eq!(Media::of(p).is_none(), game_boy, "{p:?}");
         }
     }

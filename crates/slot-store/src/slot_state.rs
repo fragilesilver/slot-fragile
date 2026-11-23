@@ -110,6 +110,65 @@ impl WallpaperTint {
     }
 }
 
+/// Shelf Life: what holding B to wipe a cart takes off it.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum CleanResets {
+    /// The dust and the wear.
+    #[default]
+    Both,
+    /// Only the wear; the dust stays.
+    Wear,
+    /// Only the dust; the wear stays.
+    Dust,
+    /// Nothing: holding B doesn't wipe.
+    Disabled,
+}
+
+impl CleanResets {
+    pub const ALL: [CleanResets; 4] = [
+        CleanResets::Wear,
+        CleanResets::Dust,
+        CleanResets::Both,
+        CleanResets::Disabled,
+    ];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            CleanResets::Both => "both",
+            CleanResets::Wear => "wear",
+            CleanResets::Dust => "dust",
+            CleanResets::Disabled => "off",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<CleanResets> {
+        CleanResets::ALL.into_iter().find(|c| c.key() == value)
+    }
+
+    /// Whether a wipe takes off the dust.
+    pub fn dust(self) -> bool {
+        matches!(self, CleanResets::Both | CleanResets::Dust)
+    }
+
+    /// Whether a wipe takes off the wear.
+    pub fn wear(self) -> bool {
+        matches!(self, CleanResets::Both | CleanResets::Wear)
+    }
+
+    pub fn step(self, right: bool) -> CleanResets {
+        let n = CleanResets::ALL.len();
+        let at = CleanResets::ALL
+            .iter()
+            .position(|c| *c == self)
+            .unwrap_or(0);
+        CleanResets::ALL[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub enum WallpaperPick {
     None,
@@ -531,6 +590,19 @@ pub struct SlotState {
     pub shelf_cart: Option<Recent>,
     pub kid_mode: KidMode,
     pub kid_shelf: String,
+    /// Minutes of play a locked Kid Mode allows each day; 0 is unlimited.
+    pub kid_allowance: u16,
+    /// Local day (days since Unix epoch) `kid_used` tracks, and seconds used on it.
+    pub kid_day: i64,
+    pub kid_used: u32,
+    /// Shelf Life (default On): unplayed carts come shrink-wrapped.
+    pub shrink_wrap: bool,
+    /// Shelf Life (default On): idle carts gather dust.
+    pub dust: bool,
+    /// Shelf Life (default On): played carts show wear.
+    pub wear: bool,
+    /// Shelf Life: what holding B to clean wipes off a cart.
+    pub clean_resets: CleanResets,
 }
 
 impl SlotState {
@@ -684,6 +756,13 @@ impl Default for SlotState {
             shelf_cart: None,
             kid_mode: KidMode::Off,
             kid_shelf: KID_SHELF_ALL.to_string(),
+            kid_allowance: 0,
+            kid_day: 0,
+            kid_used: 0,
+            shrink_wrap: true,
+            dust: true,
+            wear: true,
+            clean_resets: CleanResets::Both,
         }
     }
 }
@@ -782,6 +861,13 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("auto_load={}\n", s.auto_load.key()));
     text.push_str(&format!("kid_mode={}\n", s.kid_mode.key()));
     text.push_str(&format!("kid_shelf={}\n", s.kid_shelf));
+    text.push_str(&format!("kid_allowance={}\n", s.kid_allowance));
+    text.push_str(&format!("kid_day={}\n", s.kid_day));
+    text.push_str(&format!("kid_used={}\n", s.kid_used));
+    text.push_str(&format!("shrink_wrap={}\n", s.shrink_wrap as u8));
+    text.push_str(&format!("dust={}\n", s.dust as u8));
+    text.push_str(&format!("wear={}\n", s.wear as u8));
+    text.push_str(&format!("clean_resets={}\n", s.clean_resets.key()));
     text.push_str(&format!("shelf={}\n", s.shelf.as_deref().unwrap_or("")));
     text.push_str(&format!(
         "shelf_cart={}\n",
@@ -839,6 +925,13 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut shelf_cart = None;
     let mut kid_mode = None;
     let mut kid_shelf = None;
+    let mut kid_allowance = None;
+    let mut kid_day = None;
+    let mut kid_used = None;
+    let mut shrink_wrap = None;
+    let mut dust = None;
+    let mut wear = None;
+    let mut clean_resets = None;
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
             continue;
@@ -884,6 +977,13 @@ fn parse(text: &str) -> Option<SlotState> {
             "shelf_cart" => shelf_cart = recent_value(value),
             "kid_mode" => kid_mode = KidMode::parse(value),
             "kid_shelf" => kid_shelf = Some(value.to_string()).filter(|v| !v.is_empty()),
+            "kid_allowance" => kid_allowance = value.parse().ok(),
+            "kid_day" => kid_day = value.parse().ok(),
+            "kid_used" => kid_used = value.parse().ok(),
+            "shrink_wrap" => shrink_wrap = flag(value),
+            "dust" => dust = flag(value),
+            "wear" => wear = flag(value),
+            "clean_resets" => clean_resets = CleanResets::parse(value),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             "shader_gbc" => shader_gbc = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             _ => {}
@@ -942,11 +1042,18 @@ fn parse(text: &str) -> Option<SlotState> {
         shelf_cart,
         kid_mode: kid_mode.unwrap_or(fallback.kid_mode),
         kid_shelf: kid_shelf.unwrap_or_else(|| fallback.kid_shelf.clone()),
+        kid_allowance: kid_allowance.unwrap_or(fallback.kid_allowance),
+        kid_day: kid_day.unwrap_or(fallback.kid_day),
+        kid_used: kid_used.unwrap_or(fallback.kid_used),
+        shrink_wrap: shrink_wrap.unwrap_or(fallback.shrink_wrap),
+        dust: dust.unwrap_or(fallback.dust),
+        wear: wear.unwrap_or(fallback.wear),
+        clean_resets: clean_resets.unwrap_or(fallback.clean_resets),
     })
 }
 
 fn platform_key(platform: Platform) -> String {
-    platform.dir_name().to_ascii_lowercase()
+    platform.key()
 }
 
 fn recent_value(value: &str) -> Option<Recent> {
@@ -959,9 +1066,7 @@ fn recent_value(value: &str) -> Option<Recent> {
 }
 
 fn platform_value(value: &str) -> Option<Platform> {
-    Platform::ALL
-        .into_iter()
-        .find(|p| value.eq_ignore_ascii_case(p.dir_name()))
+    Platform::from_key(value)
 }
 
 fn offset(value: &str) -> Option<i16> {

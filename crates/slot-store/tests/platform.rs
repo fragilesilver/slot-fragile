@@ -3,12 +3,26 @@ use slot_store::Platform;
 #[test]
 fn every_platform_has_a_directory() {
     let names: Vec<&str> = Platform::ALL.iter().map(|p| p.dir_name()).collect();
-    assert_eq!(names, vec!["GBA", "GB", "GBC", "NES", "SNES", "PS", "NDS"]);
+    assert_eq!(
+        names,
+        vec![
+            "GBA",
+            "GB",
+            "GBC",
+            "NES",
+            "SNES",
+            "PS",
+            "NDS",
+            "PokeDaisy",
+            "PokeDaisy",
+            "PokeDaisy",
+        ]
+    );
 }
 
 #[test]
-fn every_platform_is_a_shelf_of_its_own() {
-    // Fragile: the NES, SNES, PlayStation and Nintendo DS after the Game Boy family.
+fn every_platform_is_in_the_ring_once() {
+    // Fragile: the 7 core systems plus PokeDaisy's 3 hardware variants.
     assert_eq!(
         Platform::ALL,
         [
@@ -19,14 +33,30 @@ fn every_platform_is_a_shelf_of_its_own() {
             Platform::Snes,
             Platform::PlayStation,
             Platform::Nds,
+            Platform::PdGba,
+            Platform::PdGb,
+            Platform::PdGbc,
         ]
     );
     for (i, p) in Platform::ALL.iter().enumerate() {
         assert!(
             !Platform::ALL[..i].contains(p),
-            "{p:?} is named twice in the ring, so two shelves would hold one platform"
+            "{p:?} is named twice in the ring"
         );
     }
+}
+
+#[test]
+fn pokedaisy_maps_to_underlying_hardware_and_shared_saves() {
+    assert_eq!(Platform::PdGba.hardware(), Platform::Gba);
+    assert_eq!(Platform::PdGb.hardware(), Platform::Gb);
+    assert_eq!(Platform::PdGbc.hardware(), Platform::Gbc);
+    assert_eq!(Platform::PdGba.save_dir_name(), "GBA");
+    assert_eq!(Platform::PdGb.save_dir_name(), "GB");
+    assert_eq!(Platform::PdGbc.save_dir_name(), "GBC");
+    assert_eq!(Platform::PdGbc.shelf(), Platform::PdGba);
+    assert!(Platform::PdGba.is_pokedaisy());
+    assert!(!Platform::Gba.is_pokedaisy());
 }
 
 #[test]

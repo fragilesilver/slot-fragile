@@ -68,7 +68,9 @@ pub fn palette_options(which: Core, palette: GbPalette) -> Vec<(&'static str, St
         | Core::Snes9x
         | Core::Supafaust
         | Core::PcsxRearmed
-        | Core::Dsperate => Vec::new(),
+        | Core::Dsperate
+        | Core::PokedaisyGba
+        | Core::PokedaisyGbc => Vec::new(),
     }
 }
 

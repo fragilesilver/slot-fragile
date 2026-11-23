@@ -1,4 +1,4 @@
-use crate::{Btn, Millis, RawEvent};
+use crate::{Btn, Millis, RawEvent, StickAxis};
 
 pub const SELECT_CHORD_MS: Millis = 600;
 
@@ -65,6 +65,7 @@ pub enum Action {
     Search,
     AddToList,
     UnlockKidMode,
+    Stick(StickAxis, i16),
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
@@ -244,6 +245,7 @@ impl Gestures {
                     self.kid_unlock_fired = false;
                 }
             }
+            RawEvent::Stick(..) => {}
         }
     }
 
@@ -328,6 +330,10 @@ impl Gestures {
                 }
                 self.up(b, now)
             }
+            RawEvent::Stick(axis, value) => match self.context {
+                Context::Game => vec![Action::Stick(axis, value)],
+                Context::Shelf | Context::Menu => Vec::new(),
+            },
         }
     }
 

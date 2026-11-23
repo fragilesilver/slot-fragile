@@ -16,6 +16,30 @@ pub fn wallpaper_face(path: &Path, w: u32, h: u32) -> Option<Vec<u8>> {
     art::cover(path, w, h)
 }
 
+/// Whether `rgba` is light in the footer & shelf-name bands after applying dark tint `tint_alpha`,
+/// so shelf names and footer chrome switch cleanly between white and black ink (`roygravy/slot`).
+pub fn wallpaper_is_light(rgba: &[u8], w: u32, h: u32, tint_alpha: f32) -> bool {
+    if rgba.len() < (w * h * 4) as usize || w == 0 || h == 0 {
+        return false;
+    }
+    let bottom = h.saturating_sub(64);
+    let mut sum = 0.0f64;
+    let mut count = 0u64;
+    for y in (0..44.min(h)).chain(bottom..h) {
+        for x in (0..w).step_by(4) {
+            let at = ((y * w + x) * 4) as usize;
+            let luma = (0.2126 * rgba[at] as f64
+                + 0.7152 * rgba[at + 1] as f64
+                + 0.0722 * rgba[at + 2] as f64)
+                / 255.0;
+            sum += luma;
+            count += 1;
+        }
+    }
+    let avg = sum / count.max(1) as f64;
+    avg * (1.0 - tint_alpha.clamp(0.0, 1.0) as f64) > 0.56
+}
+
 pub fn bezel_face(path: &Path, w: u32, h: u32) -> Option<Vec<u8>> {
     art::cover(path, w, h)
 }

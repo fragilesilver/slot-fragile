@@ -81,7 +81,7 @@ enum Shape {
 }
 
 pub fn gb_shell_of(cart: &Cart) -> Option<GbShell> {
-    match cart.platform {
+    match cart.platform.hardware() {
         Platform::Gba | Platform::Nes | Platform::Snes | Platform::PlayStation | Platform::Nds => {
             None
         }
@@ -93,6 +93,7 @@ pub fn gb_shell_of(cart: &Cart) -> Option<GbShell> {
                 Class::Original | Class::DualMode => GbShell::Notched,
             },
         }),
+        _ => None,
     }
 }
 
@@ -152,7 +153,7 @@ const SEATED_H: u32 = 141;
 const GB_SEATED_H: u32 = 259;
 
 pub fn seated_box(platform: Platform) -> (u32, u32) {
-    match platform {
+    match platform.hardware() {
         Platform::Gba => (SEATED_W, SEATED_H),
         Platform::Gb | Platform::Gbc => (SEATED_W, GB_SEATED_H),
         other => media_of(other).seated(SEATED_W),
@@ -160,7 +161,7 @@ pub fn seated_box(platform: Platform) -> (u32, u32) {
 }
 
 pub fn cart_box(platform: Platform) -> (u32, u32) {
-    let s = spec(match platform {
+    let s = spec(match platform.hardware() {
         Platform::Gba => Shape::Gba,
         Platform::Gb | Platform::Gbc => Shape::Gb(GbShell::Notched),
         other => return media_of(other).size(),
@@ -188,6 +189,105 @@ pub fn cart_face(cart: &Cart) -> CartFace {
     let (lw, lh) = label_size(cart);
     let art = cart.label.as_deref().and_then(|p| art::cover(p, lw, lh));
     cart_face_with(cart, art)
+}
+
+pub fn cart_face_looked(cart: &Cart, look: &crate::shelf_life::Look) -> CartFace {
+    let (lw, lh) = label_size(cart);
+    let art = cart.label.as_deref().and_then(|p| art::cover(p, lw, lh));
+    cart_face_with_look(cart, art, look)
+}
+
+pub fn cart_face_with_look(
+    cart: &Cart,
+    art: Option<Vec<u8>>,
+    look: &crate::shelf_life::Look,
+) -> CartFace {
+    let mut face = cart_face_with(cart, art);
+    let label = Media::of(cart.platform).map_or_else(
+        || {
+            let (x, y, w, h) = spec(shape_of(cart)).label;
+            [x, y, w, h]
+        },
+        |m| {
+            let (x, y, w, h) = m.label();
+            [x, y, w, h]
+        },
+    );
+    crate::shelf_life::apply_look_labelled(
+        &mut face,
+        look,
+        crate::shelf_life::seed_of(cart),
+        Some(label),
+        crate::shelf_life::Money::of_cart(cart),
+    );
+    face
+}
+
+pub fn pokedaisy_sticker_face() -> CartFace {
+    CartFace {
+        rgba: bitmaps::pokedaisy_sticker().to_vec(),
+        w: bitmaps::POKEDAISY_STICKER_W,
+        h: bitmaps::POKEDAISY_STICKER_H,
+    }
+}
+
+/// The interior back shell of any cart, tinted in its colour and mirrored for open-cart animation.
+pub fn cart_back_shell(cart: &Cart) -> CartFace {
+    let shell = shell_for(cart);
+    let back = Shell {
+        colour: shell.back_colour(),
+        ..shell
+    };
+    let (front, mask): (CartFace, &'static [u8]) = match Media::of(cart.platform) {
+        Some(m) => {
+            let (w, h) = m.size();
+            let mut rgba = m.neutral().to_vec();
+            let clear = shell.finish != Finish::Solid && m != Media::Disc;
+            for px in rgba.chunks_exact_mut(4) {
+                for c in 0..3 {
+                    px[c] = overlay(px[c], back.colour[c]);
+                }
+                if clear {
+                    px[3] = ((u32::from(px[3]) * u32::from(CLEAR_ALPHA) + 127) / 255) as u8;
+                }
+            }
+            (CartFace { rgba, w, h }, m.mask())
+        }
+        None => {
+            let s = spec(shape_of(cart));
+            (shell_face_of(&s, &back, true), s.mask)
+        }
+    };
+    let (w, h) = (front.w as usize, front.h as usize);
+    let mut rgba = vec![0u8; front.rgba.len()];
+    for y in 0..h {
+        for x in 0..w {
+            let from = (y * w + (w - 1 - x)) * 4;
+            let to = (y * w + x) * 4;
+            rgba[to..to + 4].copy_from_slice(&front.rgba[from..from + 4]);
+            let cover = mask[y * w + (w - 1 - x)] as u32;
+            rgba[to + 3] = ((rgba[to + 3] as u32 * cover + 127) / 255) as u8;
+        }
+    }
+    CartFace {
+        rgba,
+        w: front.w,
+        h: front.h,
+    }
+}
+
+/// A Game Boy PCB bitmap cut to the pak's notched or rounded outline.
+pub fn gb_backing(board: &[u8], shell: GbShell) -> CartFace {
+    let s = spec(Shape::Gb(shell));
+    let mut rgba = board.to_vec();
+    for (px, cover) in rgba.chunks_exact_mut(4).zip(s.mask) {
+        px[3] = ((px[3] as u32 * *cover as u32 + 127) / 255) as u8;
+    }
+    CartFace {
+        rgba,
+        w: s.w,
+        h: s.h,
+    }
 }
 
 pub fn is_clear(cart: &Cart) -> bool {
@@ -268,7 +368,7 @@ pub fn label_size_for(platform: Platform) -> (u32, u32) {
         let (_, _, lw, lh) = m.label();
         return (lw, lh);
     }
-    match platform {
+    match platform.hardware() {
         Platform::Gba => (LABEL_W, LABEL_H),
         Platform::Gb => (GB_LABEL_W, GB_LABEL_H),
         Platform::Gbc => (GBC_LABEL_W, GBC_LABEL_H),

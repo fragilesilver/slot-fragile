@@ -30,7 +30,8 @@ fn collect(builder: &FaceBuilder, want: usize) -> Vec<BuiltFaces> {
 
 #[test]
 fn a_request_comes_back_as_the_open_carts_faces() {
-    let builder = FaceBuilder::spawn();
+    let dir = tempfile::tempdir().unwrap();
+    let builder = FaceBuilder::spawn(dir.path().to_path_buf());
     builder.request(cart("Metroid Fusion"));
     let got = collect(&builder, 1);
     assert_eq!(got.len(), 1, "the worker never answered");
@@ -44,7 +45,8 @@ fn a_request_comes_back_as_the_open_carts_faces() {
 
 #[test]
 fn the_newest_request_of_a_burst_is_the_last_built() {
-    let builder = FaceBuilder::spawn();
+    let dir = tempfile::tempdir().unwrap();
+    let builder = FaceBuilder::spawn(dir.path().to_path_buf());
     for stem in ["Advance Wars", "Drill Dozer", "Metroid Fusion"] {
         builder.request(cart(stem));
     }

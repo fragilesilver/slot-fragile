@@ -6,6 +6,7 @@ fn pages() -> Vec<&'static [QuickRow]> {
     vec![
         &QuickRow::MAIN,
         &QuickRow::SHELF_SETTINGS,
+        &QuickRow::SHELF_LIFE,
         &QuickRow::SYSTEM,
         &QuickRow::CHEEVOS,
         &QuickRow::CONTROL_PAGES,

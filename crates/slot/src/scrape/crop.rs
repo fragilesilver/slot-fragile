@@ -17,6 +17,7 @@ pub fn label_dimensions(platform: Platform) -> (u32, u32) {
         Platform::Snes => (223, 99),
         Platform::PlayStation => (337, 337),
         Platform::Nds => (272, 296),
+        Platform::PdGba | Platform::PdGb | Platform::PdGbc => (0, 0),
     }
 }
 
@@ -41,7 +42,7 @@ pub fn encode_png(image: &RgbImage) -> Option<Vec<u8>> {
 /// Prepares a cartridge label from raw image bytes (JPEG or PNG): if it's a full cartridge photo,
 /// the plastic casing is cropped away; if it's already a sticker, it is fitted cleanly.
 pub fn prepare_cart_label(bytes: &[u8], platform: Platform, target_scale: u32) -> Option<Vec<u8>> {
-    if platform.spec().discs {
+    if platform.spec().discs || platform.is_pokedaisy() {
         return None;
     }
     let image = decode(bytes)?;

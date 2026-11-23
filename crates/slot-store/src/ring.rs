@@ -118,6 +118,13 @@ impl StateRing {
         Ok(Some(to))
     }
 
+    /// When the auto-resume file was last modified (pvaibhav/slot@d8a52ec).
+    pub fn resume_modified(&self) -> Option<std::time::SystemTime> {
+        std::fs::metadata(self.path(RESUME, STATE_EXT))
+            .and_then(|m| m.modified())
+            .ok()
+    }
+
     // --- extras ---
 
     /// Turns the resume into a saved state stamped `stamp`, so it can still be loaded from the

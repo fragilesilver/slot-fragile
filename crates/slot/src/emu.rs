@@ -45,6 +45,22 @@ const MAX_LINK_PACKETS_PER_PRESENT: u32 = 256;
 const ANSWER_WAIT: Duration = Duration::from_secs(2);
 const STOP_WAIT: Duration = Duration::from_secs(10);
 
+fn pack_analog(axes: [i16; 4]) -> u64 {
+    u64::from(axes[0] as u16)
+        | (u64::from(axes[1] as u16) << 16)
+        | (u64::from(axes[2] as u16) << 32)
+        | (u64::from(axes[3] as u16) << 48)
+}
+
+fn unpack_analog(packed: u64) -> [i16; 4] {
+    [
+        (packed & 0xffff) as u16 as i16,
+        ((packed >> 16) & 0xffff) as u16 as i16,
+        ((packed >> 32) & 0xffff) as u16 as i16,
+        ((packed >> 48) & 0xffff) as u16 as i16,
+    ]
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Speed {
     Paused,
@@ -97,6 +113,8 @@ enum Cmd {
 
 struct Shared {
     input: AtomicU16,
+    analog: AtomicU64,
+    analog_active: AtomicBool,
     speed: AtomicU8,
     observed: AtomicU8,
     state: AtomicU8,
@@ -179,6 +197,8 @@ impl EmuHandle {
         let frames = Frames::new((GBA_W * GBA_H * 4) as usize);
         let shared = Arc::new(Shared {
             input: AtomicU16::new(0),
+            analog: AtomicU64::new(0),
+            analog_active: AtomicBool::new(false),
             speed: AtomicU8::new(Speed::Paused as u8),
             observed: AtomicU8::new(Speed::Paused as u8),
             state: AtomicU8::new(CoreState::Loading as u8),
@@ -339,6 +359,13 @@ impl EmuHandle {
     pub fn set_input(&self, mask: ButtonMask) {
         let before = self.shared.input.swap(mask.0, Ordering::Relaxed);
         crate::latency::applied(before, mask.0);
+    }
+
+    pub fn set_analog(&self, axes: [i16; 4], active: bool) {
+        self.shared
+            .analog
+            .store(pack_analog(axes), Ordering::Relaxed);
+        self.shared.analog_active.store(active, Ordering::Relaxed);
     }
 
     pub fn input(&self) -> ButtonMask {
@@ -621,6 +648,7 @@ impl Worker {
             rom.display(),
             crate::boot_time::ms()
         );
+        let rom = crate::rom_patch::prepare(&rom);
         if let Err(e) = core.load(&rom) {
             eprintln!("slot: {e}");
             self.shared
@@ -776,6 +804,14 @@ impl Worker {
                 rate.restart(deadline, self.current_tick());
                 self.shared.clocked.notify_all();
             }
+            core.set_throttle(match speed {
+                _ if rewinding => slot_retro::Throttle::Rewinding,
+                Speed::Paused => slot_retro::Throttle::Paused,
+                Speed::Normal => slot_retro::Throttle::Normal,
+                Speed::Fast => slot_retro::Throttle::FastForward {
+                    rate: self.shared.fast_quarters.load(Ordering::Relaxed) as f32 / 4.0,
+                },
+            });
             let input = ButtonMask(self.shared.input.load(Ordering::Relaxed));
             crate::latency::emu_frame(input.0);
             let mut span = 1u32;
@@ -825,6 +861,10 @@ impl Worker {
                         false => input.without_turbo(),
                     };
                     turbo_frame = turbo_frame.wrapping_add(1);
+                    core.set_analog(
+                        unpack_analog(self.shared.analog.load(Ordering::Relaxed)),
+                        self.shared.analog_active.load(Ordering::Relaxed),
+                    );
                     core.set_frame_skip(!last);
                     let frame_began = Instant::now();
                     match cable.as_mut() {

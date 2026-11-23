@@ -24,9 +24,18 @@ pub enum Btn {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum StickAxis {
+    LeftX,
+    LeftY,
+    RightX,
+    RightY,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum RawEvent {
     Down(Btn),
     Up(Btn),
+    Stick(StickAxis, i16),
 }
 
 pub type Millis = u64;
