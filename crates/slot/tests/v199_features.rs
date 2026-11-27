@@ -194,3 +194,70 @@ fn rolling_sav_backups_and_stale_resume_retirement() {
     assert!(moved.is_some(), "stale resume should be moved aside");
     assert!(ring.read_resume().unwrap().is_none());
 }
+
+#[test]
+fn retiring_refused_resume_re_enables_save_and_load_state_in_same_session() {
+    use slot::audio::{AudioSink, StubSink};
+    use slot::emu::{CoreState, EmuHandle};
+    use slot::persist::{self, Snapshot};
+    use slot_retro::MockCore;
+    use slot_store::{write_slot_state, SlotState};
+
+    let d = setup_multi_system_root();
+    let stem = "PokeDaisy FireRed";
+    let platform = Platform::PdGba;
+    let core = Core::PokedaisyGba;
+    let ring = StateRing::new(d.path(), platform, core, stem);
+    ring.write_resume(&[0xABu8; 256]).unwrap();
+
+    // MockCore refuses the 256-byte resume, leaving resume_refused = true.
+    let resume = persist::read_resume(d.path(), platform, core, stem).unwrap();
+    let emu = EmuHandle::spawn(
+        Box::new(MockCore::new()),
+        d.path().join(format!("Games/PokeDaisy/{stem}.gba")),
+        StubSink::new().ring(),
+        None,
+        resume,
+    );
+    while emu.state() == CoreState::Loading {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(!emu.snapshot().resume_trusted());
+
+    write_slot_state(
+        d.path(),
+        &SlotState {
+            cart: Some(stem.to_string()),
+            cart_platform: Some(platform),
+            clock_set: true,
+            utc_offset_min: 0,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    let mut app = slot::app::App::boot(d.path());
+    app.set_core(core);
+    app.set_platform(platform);
+    app.set_snapshot(Box::new(emu.snapshot()));
+    app.set_named_core(true);
+    app.on_core_ready();
+    for _ in 0..120 {
+        app.update(1.0 / 60.0);
+    }
+
+    assert!(
+        emu.snapshot().resume_trusted(),
+        "retiring the refused resume on a real core should trust the fresh session"
+    );
+    app.apply(Action::SaveState);
+    assert!(
+        !ring.list().unwrap().is_empty(),
+        "manual SaveState should succeed immediately after retiring a refused resume"
+    );
+    app.apply(Action::LoadState);
+    assert!(
+        !app.refusal_active(app.now()),
+        "LoadState should succeed once a state has been saved"
+    );
+}

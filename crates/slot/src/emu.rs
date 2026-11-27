@@ -518,6 +518,10 @@ impl Snapshot for EmuSnapshot {
         !self.shared.resume_refused.load(Ordering::Acquire)
     }
 
+    fn trust_resume(&self) {
+        self.shared.resume_refused.store(false, Ordering::Release);
+    }
+
     fn save_ram_trusted(&self) -> bool {
         !self.shared.sav_refused.load(Ordering::Acquire)
     }
@@ -724,6 +728,7 @@ impl Worker {
         let mut cable_wait = Duration::ZERO;
         let mut ff = (0u32, 0u32, Duration::ZERO, Instant::now());
         let mut owed = 0u32;
+        let mut cpu_boosted = false;
         while !self.shared.stop.load(Ordering::Relaxed) {
             for cmd in self.cmds.try_iter() {
                 self.apply(cmd, core.as_mut(), &mut transport, &mut cable, &link);
@@ -775,6 +780,15 @@ impl Worker {
 
             let speed = self.speed();
             self.shared.observed.store(speed as u8, Ordering::Release);
+            let want_boost = speed == Speed::Fast;
+            if want_boost != cpu_boosted {
+                set_cpu_governor(if want_boost {
+                    "performance"
+                } else {
+                    "schedutil"
+                });
+                cpu_boosted = want_boost;
+            }
             let ff_sound = self.shared.ff_sound.load(Ordering::Relaxed);
             let rewinding = speed != Speed::Paused && self.shared.rewind.load(Ordering::Relaxed);
             let pitch_on = speed == Speed::Fast
@@ -994,7 +1008,13 @@ impl Worker {
                             / PRESENT.as_nanos() as f64;
                     }
                     let base = if lock { scale } else { 1.0 };
-                    let squeeze = f64::from(span) / f64::from(ran);
+                    let squeeze = if unthrottled {
+                        let actual = (core_time + post_cost).as_secs_f64();
+                        let game = f64::from(ran) * PRESENT.as_secs_f64();
+                        (actual / game).clamp(0.1, 1.0)
+                    } else {
+                        f64::from(span) / f64::from(ran)
+                    };
                     // Kept pitch stretches the fast audio back to real time first, so the
                     // resampler has nothing to squeeze.
                     let (source, squeeze) = match pitch_on {
@@ -1010,7 +1030,11 @@ impl Worker {
                         &mut out,
                         self.shared.volume.load(Ordering::Relaxed),
                     );
-                    ring.push_blocking(&out);
+                    if unthrottled {
+                        ring.push(&out);
+                    } else {
+                        ring.push_blocking(&out);
+                    }
                     paced += 1;
                     if crate::session::trace() && paced.is_multiple_of(TRACE_EVERY) {
                         let (dropped, starved) = (ring.overruns(), ring.underruns());
@@ -1067,6 +1091,9 @@ impl Worker {
         }
         for cmd in self.cmds.try_iter() {
             self.apply(cmd, core.as_mut(), &mut transport, &mut cable, &link);
+        }
+        if cpu_boosted {
+            set_cpu_governor("schedutil");
         }
         ring.set_muted(false);
         ring.set_idle(false);
@@ -1251,6 +1278,21 @@ impl Worker {
     }
 }
 
+#[cfg(feature = "device")]
+fn set_cpu_governor(governor: &str) {
+    let Ok(entries) = std::fs::read_dir("/sys/devices/system/cpu/cpufreq") else {
+        return;
+    };
+    let payload = format!("{governor}\n");
+    for entry in entries.flatten() {
+        let path = entry.path().join("scaling_governor");
+        let _ = std::fs::write(path, &payload);
+    }
+}
+
+#[cfg(not(feature = "device"))]
+fn set_cpu_governor(_governor: &str) {}
+
 fn flush_outbound(transport: &mut Option<Box<dyn LinkChannel>>, link: &Link) {
     let Some(t) = transport.as_deref_mut() else {
         return;
@@ -1300,8 +1342,22 @@ impl FrameCost {
         if self.seeded || self.frames(budget, ceiling) >= ceiling {
             return 1;
         }
-        // Fast cores (or cores fitting multiple frames in 2 refreshes) stay at 2 refreshes so FF
-        // still presents smoothly; only expand past 2 refreshes when 2 refreshes fit just 1 frame.
+        // Cores whose frameskip saves real rendering time (e.g. mGBA, DSperate, gpSP) gain
+        // substantial speed from skipping more frames per drawn frame (up to 4 refreshes, ~15 Hz
+        // visual cadence) when 1-2 refreshes cannot reach the fast-forward target.
+        let skips_well = self.skip.saturating_mul(4) < self.draw.saturating_mul(3);
+        if skips_well {
+            for s in 2..=4.min(FAST_STEPS_MAX) {
+                if self.frames(budget + PRESENT * (s - 1), ceiling * s) >= ceiling * s {
+                    return s;
+                }
+            }
+            if self.frames(budget + PRESENT * 3, ceiling * 4) >= 2 {
+                return 4.min(FAST_STEPS_MAX);
+            }
+        }
+        // Cores without significant frameskip savings stay at 2 refreshes when 2 refreshes fit >= 2
+        // frames, and only expand further when 2 refreshes fit just 1 frame.
         if self.frames(budget + PRESENT, ceiling * 2) >= 2 {
             return 2;
         }
@@ -1586,5 +1642,22 @@ mod tests {
         assert_eq!(link.take_inbound().as_deref(), Some(&b"one"[..]));
         assert_eq!(link.take_inbound().as_deref(), Some(&b"two"[..]));
         assert_eq!(link.take_inbound(), None);
+    }
+
+    #[test]
+    fn frame_cost_expands_span_for_frameskipping_cores() {
+        let mut cost = FrameCost::seed();
+        cost.measured(Some(Duration::from_millis(7)), Duration::from_millis(14));
+        let budget = Duration::from_millis(13);
+        let span = cost.span(budget, 4);
+        assert_eq!(
+            span, 4,
+            "a frameskipping core should span 4 refreshes (~15Hz) to maximize skip ratio"
+        );
+        let ran = cost.frames(budget + PRESENT * (span - 1), 4 * span);
+        assert!(
+            ran >= 6,
+            "expected >= 6 frames per 4-refresh burst (got {ran})"
+        );
     }
 }

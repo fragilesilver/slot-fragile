@@ -1946,6 +1946,11 @@ fn sync_core_picker(
     tex: &mut CoreTextures,
     built: &mut Option<String>,
 ) {
+    if !matches!(app.phase(), Phase::Shelf) {
+        *asked = None;
+        *built = None;
+        return;
+    }
     let highlighted = app.selected_stem().map(str::to_string);
     if highlighted.is_some() && *asked != highlighted {
         if let Some(cart) = app

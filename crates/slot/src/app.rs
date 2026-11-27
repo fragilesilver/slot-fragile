@@ -5151,11 +5151,18 @@ impl App {
         }
         let ring = StateRing::new(root, self.platform, self.core, stem);
         match ring.retire_resume(&format_stamp(self.wall_secs())) {
-            Ok(Some(to)) => eprintln!(
-                "slot: resume: {} refused this state, moved it to {}",
-                self.core.as_str(),
-                to.display()
-            ),
+            Ok(Some(to)) => {
+                eprintln!(
+                    "slot: resume: {} refused this state, moved it to {}",
+                    self.core.as_str(),
+                    to.display()
+                );
+                // The refused resume is safely filed aside, so this session can save states
+                // and write a fresh resume without risking the old file.
+                if let Some(snapshot) = &self.snapshot {
+                    snapshot.trust_resume();
+                }
+            }
             Ok(None) => {}
             Err(e) => eprintln!("slot: resume: could not move the refused state aside: {e}"),
         }

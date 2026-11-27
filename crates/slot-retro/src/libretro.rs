@@ -892,7 +892,10 @@ impl RetroCore for LibretroCore {
     }
 
     fn serialize(&mut self) -> Result<Vec<u8>, CoreError> {
-        let chip = unsafe { (self.api.get_memory_size)(MEMORY_SAVE_RAM) };
+        let chip = {
+            let _a = Active::bind(&mut self.host);
+            unsafe { (self.api.get_memory_size)(MEMORY_SAVE_RAM) }
+        };
         if let Some(buf) = self
             .state_size
             .filter(|&(_, at)| at == chip)
@@ -900,7 +903,10 @@ impl RetroCore for LibretroCore {
         {
             return Ok(buf);
         }
-        let size = unsafe { (self.api.serialize_size)() };
+        let size = {
+            let _a = Active::bind(&mut self.host);
+            unsafe { (self.api.serialize_size)() }
+        };
         self.state_size = (size > 0).then_some((size, chip));
         if size == 0 {
             return Err(CoreError::State("core reports no state".into()));

@@ -14,6 +14,8 @@ pub trait Snapshot {
         true
     }
 
+    fn trust_resume(&self) {}
+
     fn save_ram_trusted(&self) -> bool {
         true
     }

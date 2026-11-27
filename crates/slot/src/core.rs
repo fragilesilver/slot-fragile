@@ -299,6 +299,7 @@ pub fn apply_core_options(
         core.set_option(&key, value);
     }
     if which == Core::Mgba {
+        core.set_option("mgba_idle_optimization", "Detect and Remove");
         core.set_option("mgba_sgb_borders", "OFF");
         core.set_option("mgba_force_gbp", "ON");
         match palette {
@@ -318,6 +319,7 @@ pub fn apply_core_options(
         }
     }
     if which == Core::Gpsp {
+        core.set_option("gpsp_drc", "enabled");
         core.set_option("gpsp_serial", serial);
         core.set_option("gpsp_rtc_time_source", "system");
         if bios {

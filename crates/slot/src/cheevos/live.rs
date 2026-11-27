@@ -280,7 +280,7 @@ impl Transport for OfflineTransport {
             if let Some(hash) = req_param(req, "m") {
                 return cached_send(&self.root, &format!("id_{hash}"), resp);
             }
-        } else if op == "patch" {
+        } else if op == "patch" || op == "achievementsets" {
             if let Some(key) = req_param(req, "m").or_else(|| req_param(req, "g")) {
                 return cached_send(&self.root, key, resp);
             }
@@ -376,8 +376,65 @@ fn resolve_patch_blob(root: &Path, hash: &str) -> Option<Vec<u8>> {
     }
     let id_blob = read_game_blob(root, &format!("id_{hash}"))?;
     let parsed: serde_json::Value = serde_json::from_slice(&id_blob).ok()?;
-    let gid = parsed.get("GameID").and_then(|v| v.as_u64())?;
+    let gid = parsed
+        .get("GameID")
+        .or_else(|| parsed.get("GameId"))
+        .and_then(|v| v.as_u64())?;
     (gid > 0).then(|| read_game_blob(root, &gid.to_string()))?
+}
+
+fn parse_set_blob<'a>(
+    parsed: &'a serde_json::Value,
+    rom: &Path,
+) -> Option<(u32, String, Vec<&'a serde_json::Value>)> {
+    let fallback_title = || {
+        rom.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Achievements")
+            .to_string()
+    };
+    if let Some(patch) = parsed.get("PatchData") {
+        let gid = patch.get("ID").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+        let title = patch
+            .get("Title")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(fallback_title);
+        let achs: Vec<&serde_json::Value> = patch.get("Achievements")?.as_array()?.iter().collect();
+        return Some((gid, title, achs));
+    }
+    let sets = parsed.get("Sets")?.as_array()?;
+    let gid = parsed
+        .get("GameId")
+        .or_else(|| parsed.get("GameID"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as u32;
+    let title = parsed
+        .get("Title")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(fallback_title);
+    let has_core = sets.iter().any(|s| {
+        s.get("Type")
+            .and_then(|v| v.as_str())
+            .is_some_and(|t| t.eq_ignore_ascii_case("core"))
+    });
+    let mut achs = Vec::new();
+    for set in sets {
+        let is_core = set
+            .get("Type")
+            .and_then(|v| v.as_str())
+            .is_some_and(|t| t.eq_ignore_ascii_case("core"));
+        if has_core && !is_core {
+            continue;
+        }
+        if let Some(arr) = set.get("Achievements").and_then(|v| v.as_array()) {
+            achs.extend(arr.iter());
+        }
+    }
+    Some((gid, title, achs))
 }
 
 pub fn set_list(root: &Path, rom: &Path) -> Option<super::CachedSet> {
@@ -395,19 +452,7 @@ pub fn set_list(root: &Path, rom: &Path) -> Option<super::CachedSet> {
     })?;
     let blob = resolve_patch_blob(root, &hash)?;
     let parsed: serde_json::Value = serde_json::from_slice(&blob).ok()?;
-    let patch = parsed.get("PatchData")?;
-    let gid = patch.get("ID").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-    let game_title = patch
-        .get("Title")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-        .unwrap_or_else(|| {
-            rom.file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("Achievements")
-                .to_string()
-        });
+    let (gid, game_title, achs) = parse_set_blob(&parsed, rom)?;
     let mut unlocked = std::collections::HashMap::<u32, u64>::new();
     if let Some(unlock_blob) = read_game_blob(root, &format!("g{gid}_unlocks"))
         .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
@@ -441,9 +486,8 @@ pub fn set_list(root: &Path, rom: &Path) -> Option<super::CachedSet> {
                 .or_insert(p.earned_utc.max(0) as u64);
         }
     }
-    let achs = patch.get("Achievements")?.as_array()?;
     let entries: Vec<super::SetEntry> = achs
-        .iter()
+        .into_iter()
         .filter(|a| a.get("Flags").and_then(|v| v.as_u64()).unwrap_or(3) == 3)
         .filter_map(|a| {
             let aid = a.get("ID")?.as_u64()? as u32;
@@ -791,5 +835,66 @@ mod tests {
         );
         assert_eq!(offline.status, 200);
         assert_eq!(offline.body, body);
+    }
+
+    #[test]
+    fn set_list_parses_achievementsets_format_via_gameid_cache() {
+        let d = tempfile::tempdir().unwrap();
+        let rom_dir = d.path().join("Games/GBA");
+        std::fs::create_dir_all(&rom_dir).unwrap();
+        let rom = rom_dir.join("Emerald.gba");
+        std::fs::write(&rom, vec![0x42u8; 2048]).unwrap();
+        let hash = game::hash_file(game::GBA, &rom).unwrap();
+
+        cache_game_blob(
+            d.path(),
+            &format!("id_{hash}"),
+            br#"{"Success":true,"GameID":777}"#,
+        )
+        .unwrap();
+        cache_game_blob(
+            d.path(),
+            "777",
+            br#"{
+                "Success": true,
+                "GameId": 777,
+                "Title": "Pokemon Emerald",
+                "Sets": [
+                    {
+                        "AchievementSetId": 1,
+                        "GameId": 777,
+                        "Title": "Pokemon Emerald",
+                        "Type": "core",
+                        "Achievements": [
+                            {"ID": 101, "Title": "First Badge", "Description": "Win at Rustboro", "Points": 5, "BadgeName": "10101", "Flags": 3},
+                            {"ID": 102, "Title": "Unofficial", "Description": "Skip", "Points": 1, "BadgeName": "10102", "Flags": 5}
+                        ]
+                    },
+                    {
+                        "AchievementSetId": 2,
+                        "GameId": 777,
+                        "Title": "Bonus",
+                        "Type": "bonus",
+                        "Achievements": [
+                            {"ID": 201, "Title": "Bonus One", "Description": "Bonus", "Points": 10, "BadgeName": "20101", "Flags": 3}
+                        ]
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+        cache_game_blob(
+            d.path(),
+            "g777_unlocks",
+            br#"{"Success":true,"Unlocks":[{"ID":101,"When":1700000000}]}"#,
+        )
+        .unwrap();
+
+        let set = set_list(d.path(), &rom).expect("achievementsets format should parse");
+        assert_eq!(set.game, "Pokemon Emerald");
+        assert_eq!(set.entries.len(), 1);
+        assert_eq!(set.entries[0].title, "First Badge");
+        assert!(set.entries[0].earned);
+        assert_eq!(set.entries[0].badge.as_deref(), Some("10101.png"));
     }
 }
