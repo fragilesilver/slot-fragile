@@ -815,6 +815,7 @@ impl Worker {
             let input = ButtonMask(self.shared.input.load(Ordering::Relaxed));
             crate::latency::emu_frame(input.0);
             let mut span = 1u32;
+            let mut unthrottled = false;
             let ceiling = match speed {
                 Speed::Paused => 0,
                 Speed::Normal if lock && !ticked => 0,
@@ -919,6 +920,7 @@ impl Worker {
                     }
                 }
                 let core_time = began.elapsed();
+                unthrottled = speed == Speed::Fast && ran < ceiling;
                 cost.measured(skipped, drawn);
                 if cable.is_some() {
                     cable_presents += 1;
@@ -1052,11 +1054,15 @@ impl Worker {
                 continue;
             }
             ticked = false;
-            deadline += PRESENT * span;
             let now = Instant::now();
-            match deadline.checked_duration_since(now) {
-                Some(wait) => std::thread::sleep(wait),
-                None => deadline = now,
+            if unthrottled {
+                deadline = now;
+            } else {
+                deadline += PRESENT * span;
+                match deadline.checked_duration_since(now) {
+                    Some(wait) => std::thread::sleep(wait),
+                    None => deadline = now,
+                }
             }
         }
         for cmd in self.cmds.try_iter() {
@@ -1291,14 +1297,20 @@ impl FrameCost {
     }
 
     fn span(&self, budget: Duration, ceiling: u32) -> u32 {
-        if self.seeded {
+        if self.seeded || self.frames(budget, ceiling) >= ceiling {
             return 1;
         }
-        if self.frames(budget, ceiling) < ceiling {
-            2
-        } else {
-            1
+        // Fast cores (or cores fitting multiple frames in 2 refreshes) stay at 2 refreshes so FF
+        // still presents smoothly; only expand past 2 refreshes when 2 refreshes fit just 1 frame.
+        if self.frames(budget + PRESENT, ceiling * 2) >= 2 {
+            return 2;
         }
+        for s in 3..=FAST_STEPS_MAX {
+            if self.frames(budget + PRESENT * (s - 1), ceiling * s) >= 2 {
+                return s;
+            }
+        }
+        FAST_STEPS_MAX
     }
 
     fn measured(&mut self, skip: Option<Duration>, draw: Duration) {
@@ -1387,6 +1399,22 @@ mod tests {
         };
         assert_eq!(cost.span(ms(11.9), 6), 2);
         assert!(frames_in(&cost, ms(11.9) + PRESENT, 12) >= 5);
+    }
+
+    #[test]
+    fn a_heavier_core_expands_span_past_two_to_fit_multiple_frames() {
+        let cost = FrameCost {
+            skip: ms(15.0),
+            draw: ms(16.0),
+            seeded: false,
+        };
+        let span = cost.span(ms(11.9), 6);
+        assert!(span > 2 && span <= FAST_STEPS_MAX, "got span {span}");
+        let frames = frames_in(&cost, ms(11.9) + PRESENT * (span - 1), 6 * span);
+        assert!(
+            frames >= 2,
+            "frames {frames} did not fit >=2 frames in span {span}"
+        );
     }
 
     #[test]

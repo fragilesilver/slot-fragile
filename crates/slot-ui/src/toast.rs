@@ -40,6 +40,7 @@ pub enum Toast {
     /// A disc system's game started on its core's own BIOS, there being none on the card.
     BuiltInBios,
     CartsCleaned,
+    CartsRewrapped,
     KidWarning,
     KidTimeUp,
 }
@@ -72,12 +73,13 @@ impl Toast {
     ];
 
     /// Fragile's banners, after upstream's every one so none of theirs moves place.
-    const EXTRAS: [Toast; 7] = [
+    const EXTRAS: [Toast; 8] = [
         Toast::BatteryLow15,
         Toast::BatteryLow10,
         Toast::ShaderFailed,
         Toast::BuiltInBios,
         Toast::CartsCleaned,
+        Toast::CartsRewrapped,
         Toast::KidWarning,
         Toast::KidTimeUp,
     ];
@@ -104,6 +106,7 @@ impl Toast {
             | Toast::ShaderFailed
             | Toast::BuiltInBios
             | Toast::CartsCleaned
+            | Toast::CartsRewrapped
             | Toast::KidWarning
             | Toast::KidTimeUp) => {
                 Self::FIXED.len()
@@ -191,6 +194,7 @@ impl Toast {
             Toast::ShaderFailed => "Card shader failed to load",
             Toast::BuiltInBios => "Built-in BIOS: add scph5501.bin",
             Toast::CartsCleaned => "All carts cleaned",
+            Toast::CartsRewrapped => "Carts re-wrapped",
             Toast::KidWarning => "5 minutes left today",
             Toast::KidTimeUp => "Time's up for today",
             Toast::Palette(p) => p.label(),

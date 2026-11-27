@@ -141,6 +141,13 @@ impl PlayLog {
         }
     }
 
+    /// Put shrink wrap back on unplayed carts that were opened by Clean All Carts.
+    pub fn rewrap_unplayed(&mut self) {
+        for r in self.games.values_mut() {
+            r.opened = None;
+        }
+    }
+
     pub fn parse(text: &str) -> PlayLog {
         let mut games = HashMap::new();
         for line in text.lines() {
@@ -290,5 +297,19 @@ mod tests {
         assert_eq!(play_time_text(20), "Under a minute");
         assert_eq!(play_time_text(45 * 60), "45 m");
         assert_eq!(play_time_text(12 * 3600 + 5 * 60), "12 h 05 m");
+    }
+
+    #[test]
+    fn rewrap_unplayed_only_rewraps_clean_all_opened_carts() {
+        let mut log = PlayLog::default();
+        log.add_play(Platform::Gba, "Played", 120, 50);
+        log.clean_all(
+            [(Platform::Gba, "Played"), (Platform::Gba, "Unplayed")],
+            100,
+        );
+        assert!(log.record(Platform::Gba, "Unplayed").unwrapped());
+        log.rewrap_unplayed();
+        assert!(!log.record(Platform::Gba, "Unplayed").unwrapped());
+        assert!(log.record(Platform::Gba, "Played").unwrapped());
     }
 }

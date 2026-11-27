@@ -116,6 +116,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Wear",
             "Hold B Wipes",
             "Clean All Carts",
+            "Re-wrap Unplayed",
         ]
     );
     assert_eq!(
@@ -319,6 +320,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::Update,
             QuickRow::ShelfLife,
             QuickRow::CleanAllCarts,
+            QuickRow::RewrapCarts,
         ]
     );
     for page in [

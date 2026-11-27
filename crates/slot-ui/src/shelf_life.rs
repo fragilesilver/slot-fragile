@@ -1522,11 +1522,7 @@ fn sticker(
     // slotPlus: the writing keeps clear of the little icon in the top right corner.
     let room = sw - ICON_ROOM;
     if let Some(hand) = crate::hand::hand_font() {
-        let lines = [text.to_string()];
-        let mut px = 17.0;
-        while px > 9.0 && hand.line_width(text, px) > (room - 6) as f32 {
-            px -= 1.0;
-        }
+        let (lines, px) = sticker_layout(hand, text, (room - 6) as f32, (sh - 2) as f32);
         for (i, a) in hand.coverage(room, sh, &lines, px).into_iter().enumerate() {
             let at = ((i as u32 / room * sw + i as u32 % room) * 4) as usize;
             if a == 0 || paper[at + 3] == 0 {
@@ -1541,6 +1537,54 @@ fn sticker(
     };
     draw_icon(&mut paper, sw, icon, ink);
     paste(back, &paper, sw, sh, (x0, y0), tilt);
+}
+
+/// Wrap long sticker labels (e.g. "Under a minute") onto two balanced word lines if a single
+/// line at readable size exceeds `max_w`, fitting both width and sticker height.
+fn sticker_layout(
+    hand: &crate::hand::Hand,
+    text: &str,
+    max_w: f32,
+    max_h: f32,
+) -> (Vec<String>, f32) {
+    let mut px = 17.0;
+    while px >= 11.0 {
+        if hand.line_width(text, px) <= max_w && hand.line_height(px) <= max_h {
+            return (vec![text.to_string()], px);
+        }
+        px -= 1.0;
+    }
+
+    let words: Vec<&str> = text.split_whitespace().collect();
+    if words.len() >= 2 {
+        let mut best = (
+            vec![words[0].to_string(), words[1..].join(" ")],
+            f32::INFINITY,
+        );
+        for split in 1..words.len() {
+            let a = words[..split].join(" ");
+            let b = words[split..].join(" ");
+            let w = hand.line_width(&a, 12.0).max(hand.line_width(&b, 12.0));
+            if w < best.1 {
+                best = (vec![a, b], w);
+            }
+        }
+        let lines = best.0;
+        let mut px = 13.0;
+        while px > 8.0
+            && (lines.iter().any(|l| hand.line_width(l, px) > max_w)
+                || hand.line_height(px) * 2.0 > max_h)
+        {
+            px -= 1.0;
+        }
+        return (lines, px);
+    }
+
+    let mut px = 10.0;
+    while px > 8.0 && hand.line_width(text, px) > max_w {
+        px -= 1.0;
+    }
+    (vec![text.to_string()], px)
 }
 
 /// slotPlus: how much of a sticker's width, at the right, is kept for its icon.
@@ -1919,5 +1963,20 @@ mod tests {
         price_sticker(&mut a, 5, Money::Dollar);
         price_sticker(&mut b, 5, Money::Yen);
         assert_ne!(a.rgba, b.rgba);
+    }
+
+    #[test]
+    fn long_sticker_text_wraps_onto_two_lines_inside_sticker() {
+        let hand = crate::hand::hand_font().expect("handwriting font missing");
+        let max_w = (STICKER_W - ICON_ROOM - 6) as f32;
+        let max_h = (STICKER_H - 2) as f32;
+
+        let (short_lines, short_px) = sticker_layout(hand, "45 m", max_w, max_h);
+        assert_eq!(short_lines, vec!["45 m"]);
+        assert!(hand.line_width(&short_lines[0], short_px) <= max_w);
+
+        let (lines, px) = sticker_layout(hand, "Under a minute", max_w, max_h);
+        assert_eq!(lines, vec!["Under a", "minute"]);
+        assert!(lines.iter().all(|l| hand.line_width(l, px) <= max_w));
     }
 }

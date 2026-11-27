@@ -234,10 +234,11 @@ pub enum QuickRow {
     Wear,
     CleanResets,
     CleanAllCarts,
+    RewrapCarts,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 214] = [
+    pub const ALL: [QuickRow; 215] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -459,6 +460,7 @@ impl QuickRow {
         QuickRow::Wear,
         QuickRow::CleanResets,
         QuickRow::CleanAllCarts,
+        QuickRow::RewrapCarts,
     ];
 
     pub const MAIN: [QuickRow; 7] = [
@@ -486,12 +488,13 @@ impl QuickRow {
         QuickRow::ShelfLife,
     ];
 
-    pub const SHELF_LIFE: [QuickRow; 5] = [
+    pub const SHELF_LIFE: [QuickRow; 6] = [
         QuickRow::ShrinkWrap,
         QuickRow::Dust,
         QuickRow::Wear,
         QuickRow::CleanResets,
         QuickRow::CleanAllCarts,
+        QuickRow::RewrapCarts,
     ];
 
     pub const SYSTEM: [QuickRow; 15] = [
@@ -810,7 +813,8 @@ impl QuickRow {
             | QuickRow::Dust
             | QuickRow::Wear
             | QuickRow::CleanResets
-            | QuickRow::CleanAllCarts => &QuickRow::SHELF_LIFE,
+            | QuickRow::CleanAllCarts
+            | QuickRow::RewrapCarts => &QuickRow::SHELF_LIFE,
             QuickRow::BatteryDisplay
             | QuickRow::ClockFormat
             | QuickRow::DateTime
@@ -1041,7 +1045,7 @@ impl QuickRow {
     }
 
     /// Rows added in v1.9.9, marked with a subtle blue indicator dot (propagating to parent menus).
-    pub const NEW: [QuickRow; 7] = [
+    pub const NEW: [QuickRow; 8] = [
         QuickRow::KidAllowance,
         QuickRow::ShelfLife,
         QuickRow::ShrinkWrap,
@@ -1049,6 +1053,7 @@ impl QuickRow {
         QuickRow::Wear,
         QuickRow::CleanResets,
         QuickRow::CleanAllCarts,
+        QuickRow::RewrapCarts,
     ];
 
     /// Whether this row wears the What's New blue dot (itself new, or leading to one not hidden).
@@ -1108,6 +1113,7 @@ impl QuickRow {
             QuickRow::Wear => "Wear",
             QuickRow::CleanResets => "Hold B Wipes",
             QuickRow::CleanAllCarts => "Clean All Carts",
+            QuickRow::RewrapCarts => "Re-wrap Unplayed",
             QuickRow::CollectionsShelf => "Collections",
             QuickRow::Turbo => "Turbo Buttons",
             QuickRow::Rewind => "Rewind",
@@ -1315,6 +1321,7 @@ impl QuickRow {
             QuickRow::Wear => "Played carts gradually show scuffs and edge wear.",
             QuickRow::CleanResets => "What holding B wipes off a dusty or worn cart.",
             QuickRow::CleanAllCarts => "Wipe and unwrap every cart after holding B.",
+            QuickRow::RewrapCarts => "Put shrink wrap back on unplayed carts.",
             QuickRow::CollectionsShelf => "Show custom lists as their own shelf or grouped.",
             QuickRow::Theme => "Dark or light look for the whole frontend.",
             QuickRow::Wallpaper => "Picture behind the shelf.",
@@ -1497,6 +1504,7 @@ impl QuickRow {
                 | QuickRow::ScreenNds
                 | QuickRow::ShelfLife
                 | QuickRow::CleanAllCarts
+                | QuickRow::RewrapCarts
         )
     }
 

@@ -59,11 +59,11 @@ pub use board::{
     bare_board_face, board_at, board_face, board_face_with_stickers, board_from, board_from_shaped,
     board_in, board_x, board_zoom, chip_face, chip_shadow_face, gb_chip_face, gb_socket_face,
     grown, interior_face, lid_at, lid_from, lid_from_shaped, lift_of, on_board, padded,
-    rom_marking, rom_marking_face, seats, shelf_cart, shelf_cart_at, shelf_cart_shaped,
+    rom_marking, rom_marking_face, seats, seats_for, shelf_cart, shelf_cart_at, shelf_cart_shaped,
     shows_board_alone, slide_of, socket_face, Placed, Seats, BOARD_H, BOARD_W, BOARD_Y, CHIP_H,
     CHIP_TIP, CHIP_U, CHIP_V, CHIP_W, GBA_SEATS, GB_SEATS, HOP_LIFT, LID_TURN, ROM_H, ROM_W, ROM_X,
-    ROM_Y, SHADOW_H, SHADOW_W, SLIDE_SHARE, SLIDE_UP, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W,
-    TURN_PAD,
+    ROM_Y, SHADOW_H, SHADOW_W, SLIDE_SHARE, SLIDE_UP, SNES_SEATS, SOCKET_H, SOCKET_U, SOCKET_V,
+    SOCKET_W, TURN_PAD,
 };
 pub use cart::{
     bare_face, cart_back_shell, cart_backing, cart_box, cart_face, cart_face_looked,

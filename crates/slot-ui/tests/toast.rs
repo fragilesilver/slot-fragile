@@ -92,6 +92,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         Toast::ShaderFailed,
         Toast::BuiltInBios,
         Toast::CartsCleaned,
+        Toast::CartsRewrapped,
         Toast::KidWarning,
         Toast::KidTimeUp,
     ];

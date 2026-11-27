@@ -94,7 +94,9 @@ build() {
                 cmake -S "$src/libretro" -B "$work/gbc" -DCMAKE_BUILD_TYPE=Release
         cmake --build "$work/gbc" --target pokedaisy_gbc_libretro -j"$jobs"
         CFLAGS="$device_cflags" CXXFLAGS="$device_cflags" \
-                cmake -S "$src/libretro/armgba" -B "$work/gba" -DCMAKE_BUILD_TYPE=Release
+                cmake -S "$src/libretro/armgba" -B "$work/gba" \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=TRUE
         cmake --build "$work/gba" --target pokedaisy_gba_libretro -j"$jobs"
         cp "$work/gbc/pokedaisy_gbc_libretro.so" "$work/gba/pokedaisy_gba_libretro.so" "$out/"
         stamp "$1" >"$out/pokedaisy_libretro.meta"

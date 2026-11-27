@@ -15,7 +15,7 @@ use slot_store::{
 use slot_ui::{
     board_from, board_from_shaped, draw_empty_slot, draw_footer_as, draw_ground, draw_slot_name,
     ease, footer_ink, gb_shell_of, grown, lid_at, lid_from, lid_from_shaped, lift_of, repeat_gap,
-    seats, shelf_cart_at, shelf_cart_shaped, shows_board_alone, ClockPicker, Draw, FfState,
+    seats_for, shelf_cart_at, shelf_cart_shaped, shows_board_alone, ClockPicker, Draw, FfState,
     GbShell, Guide, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice,
     QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, ShotMode, ShotViewer,
     SlotChrome, TexId, Toast, HINT_EDGE, HOP_LIFT, MOUTH_H, REPEAT_DELAY_MS, SHADOW_H, SHADOW_W,
@@ -1480,7 +1480,7 @@ impl App {
                 KidMode::Shelves => QuickValue::Shelves,
             }),
             QuickRow::KidAllowance => Some(QuickValue::allowance(self.state.kid_allowance)),
-            QuickRow::ShelfLife | QuickRow::CleanAllCarts => None,
+            QuickRow::ShelfLife | QuickRow::CleanAllCarts | QuickRow::RewrapCarts => None,
             QuickRow::ShrinkWrap => Some(QuickValue::flag(self.state.shrink_wrap)),
             QuickRow::Dust => Some(QuickValue::flag(self.state.dust)),
             QuickRow::Wear => Some(QuickValue::flag(self.state.wear)),
@@ -3580,6 +3580,7 @@ impl App {
                 }
             }
             QuickRow::CleanAllCarts => self.clean_all = Some(None),
+            QuickRow::RewrapCarts => self.rewrap_unplayed_carts(),
             QuickRow::Brightness
             | QuickRow::BlueLight
             | QuickRow::Saturation
@@ -3948,7 +3949,7 @@ impl App {
                 self.reface_all();
             }
             QuickRow::CleanResets => s.clean_resets = s.clean_resets.step(right),
-            QuickRow::ShelfLife | QuickRow::CleanAllCarts => return,
+            QuickRow::ShelfLife | QuickRow::CleanAllCarts | QuickRow::RewrapCarts => return,
             QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
             QuickRow::GbPalettes => s.gb_palettes = !s.gb_palettes,
@@ -5964,7 +5965,7 @@ impl App {
             true => board_from_shaped(self.canvas(), gb_shell, size, shelf, progress),
             false => board_from(self.canvas(), shelf, progress),
         };
-        let s = seats(gb_shell);
+        let s = seats_for(platform, gb_shell);
         let zoom = s.zoom(board);
         let ready = self.core_faces_ready();
 
@@ -8227,6 +8228,13 @@ impl App {
         self.save_play_log();
         self.reface_all();
         self.hud.toast(Toast::CartsCleaned, self.now());
+    }
+
+    pub fn rewrap_unplayed_carts(&mut self) {
+        self.play_log.rewrap_unplayed();
+        self.save_play_log();
+        self.reface_all();
+        self.hud.toast(Toast::CartsRewrapped, self.now());
     }
 
     fn draw_clean_all(&self, out: &mut Vec<Draw>) {

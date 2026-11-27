@@ -46,7 +46,6 @@ pub fn shows_board_alone(platform: Platform) -> bool {
     matches!(
         platform,
         Platform::Nes
-            | Platform::Snes
             | Platform::PlayStation
             | Platform::Nds
             | Platform::PdGba
@@ -348,7 +347,7 @@ pub fn lid_from(canvas: Canvas, shelf: Placed, progress: f32) -> (Placed, f32) {
 
 fn opens_wide((cw, ch): (u32, u32)) -> bool {
     let wide = CART_W as f32 / CART_H as f32;
-    (cw as f32 / ch as f32) > wide * 0.9
+    (cw as f32 / ch as f32) > wide * 0.96
 }
 
 pub fn shelf_cart_shaped(
@@ -487,10 +486,30 @@ pub const GB_SEATS: Seats = Seats {
     bitmap_w: GB_CART_W as f32,
 };
 
+pub const SNES_SEATS: Seats = Seats {
+    socket_u: [80.0, 154.0],
+    socket_v: 134.0,
+    chip_u: [82.5, 156.5],
+    chip_v: 136.5,
+    socket_size: (SOCKET_W as f32, SOCKET_H as f32),
+    chip_size: (CHIP_W as f32, CHIP_H as f32),
+    shadow_uv: (CHIP_W as f32 / 2.0, CHIP_H as f32 + 3.0),
+    units_w: SNES_CART_W as f32,
+    units_h: SNES_CART_H as f32,
+    bitmap_w: SNES_CART_W as f32,
+};
+
 pub fn seats(shell: Option<GbShell>) -> Seats {
     match shell {
         None => GBA_SEATS,
         Some(_) => GB_SEATS,
+    }
+}
+
+pub fn seats_for(platform: Platform, shell: Option<GbShell>) -> Seats {
+    match platform.hardware() {
+        Platform::Snes => SNES_SEATS,
+        _ => seats(shell),
     }
 }
 

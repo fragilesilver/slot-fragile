@@ -63,7 +63,7 @@ fn shelf_life_defaults_on_and_unplayed_unsaved_cart_is_wrapped() {
 }
 
 #[test]
-fn clean_all_carts_unwraps_every_sealed_cart() {
+fn clean_all_carts_unwraps_every_sealed_cart_and_rewrap_restores_unplayed() {
     let d = common::tmp_root_with_carts(&["Emerald", "Sapphire"]);
     let mut a = common::boot(d.path());
     assert!(a.carts().all(|c| a.face_look(c).wrap));
@@ -72,6 +72,8 @@ fn clean_all_carts_unwraps_every_sealed_cart() {
     let log = read_play_log(d.path());
     assert!(log.get(Platform::Gba, "Emerald").unwrap().unwrapped());
     assert!(log.get(Platform::Gba, "Sapphire").unwrap().unwrapped());
+    a.rewrap_unplayed_carts();
+    assert!(a.carts().all(|c| a.face_look(c).wrap));
 }
 
 #[test]

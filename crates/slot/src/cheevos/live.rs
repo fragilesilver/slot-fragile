@@ -258,36 +258,35 @@ fn req_param<'a>(req: &'a Request, key: &str) -> Option<&'a str> {
         .or_else(|| req.url.split_once('?').and_then(|(_, q)| param(q, key)))
 }
 
+fn cached_send(root: &Path, key: &str, resp: Response) -> Response {
+    if resp.status == 200 && !resp.body.is_empty() {
+        let _ = cache_game_blob(root, key, &resp.body);
+    } else if resp.status < 0 {
+        if let Some(cached) = read_game_blob(root, key) {
+            return Response {
+                status: 200,
+                body: cached,
+            };
+        }
+    }
+    resp
+}
+
 impl Transport for OfflineTransport {
     fn send(&self, req: &Request) -> Response {
         let op = req_param(req, "r").unwrap_or("");
         let resp = self.http.send(req);
-        if op == "patch" {
+        if op == "gameid" {
+            if let Some(hash) = req_param(req, "m") {
+                return cached_send(&self.root, &format!("id_{hash}"), resp);
+            }
+        } else if op == "patch" {
             if let Some(key) = req_param(req, "m").or_else(|| req_param(req, "g")) {
-                if resp.status == 200 && !resp.body.is_empty() {
-                    let _ = cache_game_blob(&self.root, key, &resp.body);
-                } else if resp.status < 0 {
-                    if let Some(cached) = read_game_blob(&self.root, key) {
-                        return Response {
-                            status: 200,
-                            body: cached,
-                        };
-                    }
-                }
+                return cached_send(&self.root, key, resp);
             }
         } else if op == "startsession" {
             if let Some(gid) = req_param(req, "g") {
-                let key = format!("g{gid}_unlocks");
-                if resp.status == 200 && !resp.body.is_empty() {
-                    let _ = cache_game_blob(&self.root, &key, &resp.body);
-                } else if resp.status < 0 {
-                    if let Some(cached) = read_game_blob(&self.root, &key) {
-                        return Response {
-                            status: 200,
-                            body: cached,
-                        };
-                    }
-                }
+                return cached_send(&self.root, &format!("g{gid}_unlocks"), resp);
             }
         } else if op == "awardachievement" {
             if let Some(aid) = req_param(req, "a").and_then(|s| s.parse::<u32>().ok()) {
@@ -371,6 +370,16 @@ fn record_unlock_in_cache(root: &Path, gid: u32, aid: u32, earned_utc: i64) {
     let _ = cache_game_blob(root, &key, text.as_bytes());
 }
 
+fn resolve_patch_blob(root: &Path, hash: &str) -> Option<Vec<u8>> {
+    if let Some(blob) = read_game_blob(root, hash) {
+        return Some(blob);
+    }
+    let id_blob = read_game_blob(root, &format!("id_{hash}"))?;
+    let parsed: serde_json::Value = serde_json::from_slice(&id_blob).ok()?;
+    let gid = parsed.get("GameID").and_then(|v| v.as_u64())?;
+    (gid > 0).then(|| read_game_blob(root, &gid.to_string()))?
+}
+
 pub fn set_list(root: &Path, rom: &Path) -> Option<super::CachedSet> {
     let mut header = [0u8; 512];
     let header_len = std::fs::File::open(rom)
@@ -384,7 +393,7 @@ pub fn set_list(root: &Path, rom: &Path) -> Option<super::CachedSet> {
             .and_then(|_| std::fs::read(rom).ok())
             .and_then(|b| game::hash(console, &b))
     })?;
-    let blob = read_game_blob(root, &hash)?;
+    let blob = resolve_patch_blob(root, &hash)?;
     let parsed: serde_json::Value = serde_json::from_slice(&blob).ok()?;
     let patch = parsed.get("PatchData")?;
     let gid = patch.get("ID").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
@@ -733,5 +742,54 @@ fn show(compositor: &mut Compositor, shown: &mut Shown, face: &Face) {
     match shown.tex {
         Some(id) => compositor.update_texture(id, w, h, &face.rgba),
         None => shown.tex = Some(compositor.create_texture(w, h, &face.rgba)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_patch_blob_falls_back_from_hash_to_cached_gameid() {
+        let d = tempfile::tempdir().unwrap();
+        let hash = "deadbeef00112233";
+        assert!(resolve_patch_blob(d.path(), hash).is_none());
+
+        cache_game_blob(
+            d.path(),
+            "id_deadbeef00112233",
+            br#"{"Success":true,"GameID":515}"#,
+        )
+        .unwrap();
+        let patch_body = br#"{"Success":true,"PatchData":{"ID":515,"Title":"Pokemon"}}"#;
+        cache_game_blob(d.path(), "515", patch_body).unwrap();
+
+        let got = resolve_patch_blob(d.path(), hash).unwrap();
+        assert_eq!(got, patch_body);
+    }
+
+    #[test]
+    fn cached_send_caches_gameid_and_serves_offline() {
+        let d = tempfile::tempdir().unwrap();
+        let body = br#"{"Success":true,"GameID":900}"#.to_vec();
+        let online = cached_send(
+            d.path(),
+            "id_abc",
+            Response {
+                status: 200,
+                body: body.clone(),
+            },
+        );
+        assert_eq!(online.status, 200);
+        let offline = cached_send(
+            d.path(),
+            "id_abc",
+            Response {
+                status: -1,
+                body: Vec::new(),
+            },
+        );
+        assert_eq!(offline.status, 200);
+        assert_eq!(offline.body, body);
     }
 }

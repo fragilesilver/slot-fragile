@@ -316,15 +316,14 @@ def draw_snes(out_dir):
     bx0, by0, bx1, by1 = 68, 28, 292, 224
     pcb.fill_rrect(bx0, by0, bx1, by1, 4, PCB_BASE)
     pcb.pcb_grain_traces(bx0, by0, bx1, by1, n_traces=36)
-    # Silkscreen outline
+    # Silkscreen outlines for Mask ROM + twin core sockets
     pcb.fill_rrect(112, 58, 248, 122, 2, SILK, 0.14)
+    pcb.fill_rrect(79, 133, 145, 181, 2, SILK, 0.12)
+    pcb.fill_rrect(153, 133, 219, 181, 2, SILK, 0.12)
     # Main Mask ROM DIP horizontal at (116, 62, 128, 56) -> x:116..244, y:62..118 (text target!)
     pcb.chip_dip(116, 62, 244, 118, pins_h=False, pin_pitch=6.0)
-    # MAD-1 / SRAM & CIC lockout chips below
-    pcb.chip_dip(82, 134, 146, 174, pins_h=False, pin_pitch=5.5)
-    pcb.chip_dip(160, 138, 206, 172, pins_h=False, pin_pitch=5.2)
-    # CR2032 save battery on right
-    pcb.battery_cr2032(256, 148, r=18.5)
+    # CR2032 save battery on right (clear of both sockets)
+    pcb.battery_cr2032(258, 154, r=17.5)
     # Decoupling caps & crystal
     pcb.fill_circle(92, 86, 7.0, CAP_BLUE)
     pcb.fill_circle(92, 86, 4.5, (70, 118, 198))
